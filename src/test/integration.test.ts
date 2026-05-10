@@ -62,7 +62,7 @@ async function runTest() {
   console.log(`  [关键指标] 盈利: ROE ${report.keyMetrics.profitability[0].value}%, 毛利率 ${report.keyMetrics.profitability[2].value}%`);
   console.log(`  [市场解读] 情绪: ${report.marketInterpretation.sentimentAnalysis.summary}`);
   console.log(`  [行动建议] 建议: ${report.actionAdvice.recommendationLabel}`);
-  console.log(`  [行动建议] 目标价: ${report.actionAdvice.targetPrices.base}元 (基准)`);
+  console.log(`  [行动建议] 目标价: ${report.actionAdvice.targetPrices?.base ?? '-'}元 (基准)`);
   console.log(`\n  洞察总数: ${report.rawInsights.length}`);
   console.log(`  风险提示: ${report.riskWarnings.length} 条`);
   console.log(`  整体置信度: ${(report.overallConfidence * 100).toFixed(0)}%`);

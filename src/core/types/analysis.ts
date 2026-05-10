@@ -68,17 +68,17 @@ export interface MarketInterpretation {
     score: number;                   // -1 ~ +1
     summary: string;
   };
-  institutionalViews: {             // 机构观点汇总
-    consensusRating: Rating;
-    targetPriceRange: [number, number];
+  institutionalViews: {             // 机构观点汇总（无研报时可能为空）
+    consensusRating?: Rating;        // 有研报时才提供
+    targetPriceRange?: [number, number]; // 有研报时才提供
     reportCount: number;
     latestReports: { institution: string; analyst?: string; date?: string; rating: ReportRating; targetPrice?: number; summary: string }[];
   };
-  industryContext: {                // 行业背景
+  industryContext: {                // 行业背景（investoday 无此数据，留空）
     industryName: string;
-    industryTrend: string;
-    competitivePosition: string;
-    policyImpact?: string;
+    industryTrend?: string;          // MCP 无数据，暂不展示
+    competitivePosition?: string;    // MCP 无数据，暂不展示
+    policyImpact?: string;           // MCP 无数据，暂不展示
   };
 }
 
@@ -92,14 +92,14 @@ export interface ActionAdvice {
   timeHorizon: 'short' | 'medium' | 'long'; // 短线/中线/长线
   entryStrategy?: string;           // 买入策略
   exitStrategy?: string;            // 卖出/止盈策略
-  stopLoss?: number;                // 止损价位
-  targetPrices: {                   // 目标价位
+  stopLoss?: number;                // 止损价位（MCP 无此数据，不提供）
+  targetPrices?: {                  // 目标价位（有研报/DCF 时才提供）
     conservative: number;
     base: number;
     optimistic: number;
   };
   positionAdvice?: string;          // 仓位建议
-  keyMonitoringPoints: string[];    // 关键跟踪点
+  keyMonitoringPoints: string[];    // 关键跟踪点（从 MCP 公告/新闻提取）
   riskReminders: string[];          // 风险提示
 }
 

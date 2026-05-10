@@ -2,14 +2,13 @@ import { ArrowLeft, Download, Loader2, AlertCircle, Newspaper, Building2, Trendi
 import type { Insight } from '../../core/types/skill';
 import type { AnalysisReport } from '../../core/types/analysis';
 import type { NewsItem, ResearchReport } from '../../core/types/stock';
-import type { ReportRating } from '../../core/types/analysis';
 import { useAppStore } from '../store/app-store';
 import { RatingBadge } from '../components/common/RatingBadge';
 import { MetricCard } from '../components/common/MetricCard';
 import { InsightTag } from '../components/common/InsightTag';
 import { PriceChart } from '../components/charts/PriceChart';
 
-function RatingLabel({ rating }: { rating: ReportRating }) {
+function RatingLabel({ rating }: { rating: ResearchReport['rating'] }) {
   const config: Record<ResearchReport['rating'], { text: string; class: string }> = {
     buy: { text: '买入', class: 'bg-red-50 text-red-700 border-red-100' },
     overweight: { text: '增持', class: 'bg-orange-50 text-orange-700 border-orange-100' },
@@ -115,10 +114,10 @@ export function DashboardPage() {
                 <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{stock.exchange}</span>
               </div>
               <div className="text-xs text-gray-500">
-                {stock.industry ? `${stock.industry} · ` : ''}
-                {(stock.marketCap / 10000).toFixed(2)}万亿市值
-                {dataBundle?.market?.pe ? ` · PE ${dataBundle.market.pe}倍` : ''}
-                {dataBundle?.market?.pb ? ` · PB ${dataBundle.market.pb}倍` : ''}
+                {stock.industry ? `${stock.industry}` : ''}
+                {stock.marketCap > 0 ? ` · ${(stock.marketCap / 10000).toFixed(2)}万亿市值` : ''}
+                {dataBundle?.market?.pe && dataBundle.market.pe > 0 ? ` · PE ${dataBundle.market.pe}倍` : ''}
+                {dataBundle?.market?.pb && dataBundle.market.pb > 0 ? ` · PB ${dataBundle.market.pb}倍` : ''}
               </div>
             </div>
           </div>
@@ -167,18 +166,18 @@ export function DashboardPage() {
         </section>
 
         {/* 价格走势 */}
-        {dataBundle?.market?.history && (
+        {dataBundle?.market?.history && dataBundle.market.history.length > 0 && (
           <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">价格走势</h3>
               <div className="flex items-center gap-3 text-xs text-gray-400">
-                {dataBundle.market.high52w > 0 && (
+                {dataBundle.market.high52w && dataBundle.market.high52w > 0 && (
                   <span>52周高: <span className="text-gray-600 font-medium">{dataBundle.market.high52w}</span></span>
                 )}
-                {dataBundle.market.low52w > 0 && (
+                {dataBundle.market.low52w && dataBundle.market.low52w > 0 && (
                   <span>52周低: <span className="text-gray-600 font-medium">{dataBundle.market.low52w}</span></span>
                 )}
-                <span>近60日</span>
+                <span>近{dataBundle.market.history.length}日</span>
               </div>
             </div>
             <div className="p-4">
@@ -285,24 +284,34 @@ export function DashboardPage() {
             </div>
 
             {/* 行业背景 */}
-            <div className="bg-gray-50 rounded-xl p-4">
-              <div className="text-xs font-medium text-gray-500 mb-2">
-                {marketInterpretation.industryContext.industryName || '所属'}行业
-              </div>
-              <div className="text-sm text-gray-700 space-y-1">
-                <p>{marketInterpretation.industryContext.industryTrend}</p>
-                <p>{marketInterpretation.industryContext.competitivePosition}</p>
+            {stock.industry && (
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="text-xs font-medium text-gray-500 mb-2">
+                  {marketInterpretation.industryContext.industryName || stock.industry}
+                </div>
+                {marketInterpretation.industryContext.industryTrend && (
+                  <div className="text-sm text-gray-700">{marketInterpretation.industryContext.industryTrend}</div>
+                )}
+                {marketInterpretation.industryContext.competitivePosition && (
+                  <div className="text-sm text-gray-700">{marketInterpretation.industryContext.competitivePosition}</div>
+                )}
                 {marketInterpretation.industryContext.policyImpact && (
-                  <p className="text-gray-500">{marketInterpretation.industryContext.policyImpact}</p>
+                  <div className="text-sm text-gray-500">{marketInterpretation.industryContext.policyImpact}</div>
+                )}
+                {/* 如果 MCP 未提供行业分析数据，展示提示 */}
+                {!marketInterpretation.industryContext.industryTrend &&
+                 !marketInterpretation.industryContext.competitivePosition &&
+                 !marketInterpretation.industryContext.policyImpact && (
+                  <div className="text-xs text-gray-400">暂无行业分析数据</div>
+                )}
+                {stock.mainBusiness && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-[10px] text-gray-400 mb-1">主营业务</div>
+                    <div className="text-xs text-gray-600 leading-relaxed">{stock.mainBusiness}</div>
+                  </div>
                 )}
               </div>
-              {stock.mainBusiness && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="text-[10px] text-gray-400 mb-1">主营业务</div>
-                  <div className="text-xs text-gray-600 leading-relaxed">{stock.mainBusiness}</div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </section>
 
@@ -318,20 +327,24 @@ export function DashboardPage() {
             </div>
             <div className="p-6">
               {/* 机构评级汇总 */}
-              <div className="flex items-center gap-4 mb-5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">评级共识:</span>
-                  <RatingBadge rating={marketInterpretation.institutionalViews.consensusRating} size="sm" />
+              {(marketInterpretation.institutionalViews.consensusRating || marketInterpretation.institutionalViews.targetPriceRange) && (
+                <div className="flex items-center gap-4 mb-5 flex-wrap">
+                  {marketInterpretation.institutionalViews.consensusRating && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">评级共识:</span>
+                      <RatingBadge rating={marketInterpretation.institutionalViews.consensusRating} size="sm" />
+                    </div>
+                  )}
+                  {marketInterpretation.institutionalViews.targetPriceRange && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">目标价区间:</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        {marketInterpretation.institutionalViews.targetPriceRange[0].toFixed(0)} - {marketInterpretation.institutionalViews.targetPriceRange[1].toFixed(0)} 元
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {marketInterpretation.institutionalViews.reportCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">目标价区间:</span>
-                    <span className="text-sm font-medium text-gray-700">
-                      {marketInterpretation.institutionalViews.targetPriceRange[0].toFixed(0)} - {marketInterpretation.institutionalViews.targetPriceRange[1].toFixed(0)} 元
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* 最新研报列表 */}
               <div className="space-y-3">
@@ -415,21 +428,23 @@ export function DashboardPage() {
             <RatingBadge rating={actionAdvice.recommendation} />
           </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* 目标价 */}
-              <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <div className="text-xs text-gray-500 mb-1">保守目标</div>
-                <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.conservative}元</div>
+            {/* 目标价（仅当有数据时展示） */}
+            {actionAdvice.targetPrices && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-500 mb-1">保守目标</div>
+                  <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.conservative}元</div>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
+                  <div className="text-xs text-blue-600 mb-1">基准目标</div>
+                  <div className="text-2xl font-bold text-blue-700">{actionAdvice.targetPrices.base}元</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-500 mb-1">乐观目标</div>
+                  <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.optimistic}元</div>
+                </div>
               </div>
-              <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
-                <div className="text-xs text-blue-600 mb-1">基准目标</div>
-                <div className="text-2xl font-bold text-blue-700">{actionAdvice.targetPrices.base}元</div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <div className="text-xs text-gray-500 mb-1">乐观目标</div>
-                <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.optimistic}元</div>
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
               {actionAdvice.entryStrategy && (
@@ -446,7 +461,7 @@ export function DashboardPage() {
               )}
             </div>
 
-            {actionAdvice.stopLoss && (
+            {actionAdvice.stopLoss && actionAdvice.stopLoss > 0 && (
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-sm text-gray-500">建议止损位：</span>
                 <span className="text-sm font-semibold text-red-600">{actionAdvice.stopLoss}元</span>
@@ -460,16 +475,18 @@ export function DashboardPage() {
             )}
 
             <div className="space-y-3">
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-2">关键跟踪点</div>
-                <div className="flex flex-wrap gap-2">
-                  {actionAdvice.keyMonitoringPoints.map((point: string, i: number) => (
-                    <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg">
-                      {point}
-                    </span>
-                  ))}
+              {actionAdvice.keyMonitoringPoints.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-2">关键跟踪点</div>
+                  <div className="flex flex-wrap gap-2">
+                    {actionAdvice.keyMonitoringPoints.map((point: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg">
+                        {point}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               
               {actionAdvice.riskReminders.length > 0 && (
                 <div>
