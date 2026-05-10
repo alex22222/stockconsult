@@ -19,9 +19,25 @@
 
 const https = require('https');
 
+// 版本标记（用于确认部署生效）
+const VERSION = '2026-05-11-v3';
+
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
 const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
 const BASE_URL = 'data-api.investoday.net';
+
+// COS 配置
+const COS_BUCKET = '7765-weight-tracker-1ghr085dd7d6cff2-1328081868';
+const COS_REGION = 'ap-shanghai';
+
+function getCOSClient() {
+  const COS = require('cos-nodejs-sdk-v5');
+  return new COS({
+    SecretId: process.env.TENCENTCLOUD_SECRETID,
+    SecretKey: process.env.TENCENTCLOUD_SECRETKEY,
+    SecurityToken: process.env.TENCENTCLOUD_SESSIONTOKEN || undefined,
+  });
+}
 
 // CORS 配置
 const CORS_HEADERS = {
@@ -45,7 +61,16 @@ exports.main = async (event, context) => {
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ healthy: true, keyConfigured: !!API_KEY }),
+      body: JSON.stringify({ healthy: true, keyConfigured: !!API_KEY, version: VERSION }),
+    };
+  }
+
+  // 版本检查（用于确认部署生效）
+  if (event.path === '/version' || event.path === '/investoday-proxy/version') {
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: VERSION, timestamp: new Date().toISOString() }),
     };
   }
 
@@ -62,6 +87,11 @@ exports.main = async (event, context) => {
   // 查询记录详情
   if (event.path === '/get-record' || event.path === '/investoday-proxy/get-record') {
     return handleGetRecord(event);
+  }
+
+  // 调试：列出 COS bucket
+  if (event.path === '/debug-buckets' || event.path === '/investoday-proxy/debug-buckets') {
+    return handleDebugBuckets(event);
   }
 
   if (!API_KEY) {
@@ -123,7 +153,51 @@ exports.main = async (event, context) => {
 };
 
 /**
- * 处理查询记录上传
+ * 初始化 CloudBase app（复用）
+ */
+function getCloudBaseApp() {
+  const cloudbase = require('@cloudbase/node-sdk');
+  return cloudbase.init({});
+}
+
+async function readIndexFile() {
+  try {
+    const cos = getCOSClient();
+    const result = await new Promise((resolve, reject) => {
+      cos.getObject({
+        Bucket: COS_BUCKET,
+        Region: COS_REGION,
+        Key: 'searches/index.json',
+      }, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+    const data = JSON.parse(result.Body.toString('utf-8'));
+    return data;
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveIndexFile(records) {
+  const cos = getCOSClient();
+  await new Promise((resolve, reject) => {
+    cos.putObject({
+      Bucket: COS_BUCKET,
+      Region: COS_REGION,
+      Key: 'searches/index.json',
+      Body: Buffer.from(JSON.stringify(records)),
+      ContentType: 'application/json',
+    }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+
+/**
+ * 处理查询记录上传：上传 COS + 更新索引文件
  */
 async function handleUploadRecord(event) {
   try {
@@ -167,21 +241,38 @@ async function handleUploadRecord(event) {
       };
     }
 
-    // 使用 CloudBase Node SDK 上传文件到云存储（COS）
-    const cloudbase = require('@cloudbase/node-sdk');
-    const app = cloudbase.init({});
+    const app = getCloudBaseApp();
 
-    const result = await app.uploadFile({
+    // 1. 上传文件到云存储（COS）
+    const uploadResult = await app.uploadFile({
       cloudPath: filename,
       fileContent: Buffer.from(dataStr),
     });
 
-    console.log('[UploadRecord] Saved:', filename, 'fileID:', result.fileID);
+    // 2. 更新索引文件
+    const index = await readIndexFile();
+    const dateMatch = filename.match(/^searches\/(\d{4}-\d{2}-\d{2})\/(.+)\.json$/);
+    const newRecord = {
+      query: data.query,
+      results: data.results || [],
+      timestamp: data.timestamp || new Date().toISOString(),
+      source: data.source || 'web',
+      path: filename,
+      fileID: uploadResult.fileID,
+      date: dateMatch ? dateMatch[1] : '',
+      name: dateMatch ? dateMatch[2].replace(/_/g, ' ') : filename,
+      size: Buffer.byteLength(dataStr),
+    };
+    // 去重：同路径只保留最新
+    const filtered = index.filter(r => r.path !== filename);
+    filtered.unshift(newRecord);
+    // 最多保留 500 条
+    await saveIndexFile(filtered.slice(0, 500));
 
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, fileID: result.fileID }),
+      body: JSON.stringify({ success: true, fileID: uploadResult.fileID }),
     };
   } catch (error) {
     console.error('[UploadRecord Error]', error);
@@ -194,29 +285,11 @@ async function handleUploadRecord(event) {
 }
 
 /**
- * 处理查询记录列表
+ * 处理查询记录列表（读取索引文件）
  */
 async function handleListRecords(event) {
   try {
-    const cloudbase = require('@cloudbase/node-sdk');
-    const app = cloudbase.init({});
-
-    const prefix = 'searches/';
-    const result = await app.getFileList({ prefix });
-    const files = result.fileList || [];
-
-    // 按日期分组，提取文件名信息
-    const records = files.map(f => {
-      const match = f.cloudPath.match(/^searches\/(\d{4}-\d{2}-\d{2})\/(.+)\.json$/);
-      return {
-        fileID: f.fileID,
-        path: f.cloudPath,
-        date: match ? match[1] : '',
-        name: match ? decodeURIComponent(match[2].replace(/_/g, ' ')) : f.cloudPath,
-        size: f.size || 0,
-        createTime: f.createTime || '',
-      };
-    }).filter(r => r.date).sort((a, b) => b.path.localeCompare(a.path));
+    const records = await readIndexFile();
 
     return {
       statusCode: 200,
@@ -234,35 +307,87 @@ async function handleListRecords(event) {
 }
 
 /**
- * 处理查询记录详情获取
+ * 调试端点：列出所有 COS bucket 和文件
+ */
+async function handleDebugBuckets(event) {
+  try {
+    const cos = getCOSClient();
+    const serviceResult = await new Promise((resolve, reject) => {
+      cos.getService((err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+
+    const buckets = serviceResult.Buckets || [];
+    const bucketDetails = [];
+
+    for (const bucket of buckets) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          cos.getBucket({
+            Bucket: bucket.Name,
+            Region: bucket.Location || COS_REGION,
+            MaxKeys: 100,
+          }, (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+          });
+        });
+        bucketDetails.push({
+          name: bucket.Name,
+          region: bucket.Location,
+          fileCount: result.Contents?.length || 0,
+          keys: result.Contents?.map(c => c.Key).slice(0, 10),
+        });
+      } catch (e) {
+        bucketDetails.push({ name: bucket.Name, error: e.message });
+      }
+    }
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, buckets: bucketDetails }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: String(error) }),
+    };
+  }
+}
+
+/**
+ * 处理查询记录详情获取（使用 CloudBase 云存储 downloadFile）
  */
 async function handleGetRecord(event) {
   try {
-    const query = event.queryString || {};
-    const fileID = query.fileID || '';
+    const query = event.queryString || event.queryStringParameters || {};
     const path = query.path || '';
 
-    if (!fileID && !path) {
+    if (!path) {
       return {
         statusCode: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Missing fileID or path' }),
+        body: JSON.stringify({ error: 'Missing path', debug: { queryString: event.queryString, queryStringParameters: event.queryStringParameters } }),
       };
     }
 
-    const cloudbase = require('@cloudbase/node-sdk');
-    const app = cloudbase.init({});
+    const cos = getCOSClient();
+    const result = await new Promise((resolve, reject) => {
+      cos.getObject({
+        Bucket: COS_BUCKET,
+        Region: COS_REGION,
+        Key: path,
+      }, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
 
-    let fileContent;
-    if (fileID) {
-      const result = await app.downloadFile({ fileID });
-      fileContent = result.fileContent;
-    } else {
-      const result = await app.downloadFile({ cloudPath: path });
-      fileContent = result.fileContent;
-    }
-
-    const content = JSON.parse(fileContent.toString('utf-8'));
+    const content = JSON.parse(result.Body.toString('utf-8'));
 
     return {
       statusCode: 200,

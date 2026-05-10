@@ -4,7 +4,8 @@
   "description": "Investoday API proxy for StockConsult - CloudBase SCF",
   "main": "index.js",
   "dependencies": {
-    "@cloudbase/node-sdk": "^2.0.0"
+    "@cloudbase/node-sdk": "^2.0.0",
+    "cos-nodejs-sdk-v5": "^2.15.4"
   },
   "cloudfunction-config": {
     "timeout": 15,

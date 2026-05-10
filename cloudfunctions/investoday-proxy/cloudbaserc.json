@@ -9,13 +9,7 @@
       "memorySize": 128,
       "envVariables": {
         "INVESTODAY_API_KEY": "cae27125ca0746c4b6ede2d77cd2dd11"
-      },
-      "triggers": [
-        {
-          "name": "http",
-          "type": "http"
-        }
-      ]
+      }
     }
   ]
 }

@@ -58,13 +58,13 @@ export function RecordsPage() {
     }
   }
 
-  async function fetchDetail(fileID: string) {
+  async function fetchDetail(path: string) {
     if (!CLOUDBASE_API_URL) return;
 
     try {
       setDetailLoading(true);
-      setSelectedFileID(fileID);
-      const response = await fetch(`${CLOUDBASE_API_URL}/get-record?fileID=${encodeURIComponent(fileID)}`);
+      setSelectedFileID(path);
+      const response = await fetch(`${CLOUDBASE_API_URL}/get-record?path=${encodeURIComponent(path)}`);
       const data = await response.json();
 
       if (data.success) {
