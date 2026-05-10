@@ -1,0 +1,49 @@
+{
+  "version": "2.0",
+  "envId": "<你的云开发环境ID>",
+  "framework": {
+    "name": "stockconsult",
+    "plugins": {
+      "client": {
+        "use": "@cloudbase/framework-plugin-website",
+        "inputs": {
+          "buildCommand": "npm run build",
+          "outputPath": "dist",
+          "cloudPath": "/",
+          "ignore": [".git", "node_modules", "cloudfunctions"],
+          "rewrite": [
+            {
+              "source": "/*",
+              "destination": "/index.html"
+            }
+          ]
+        }
+      },
+      "function": {
+        "use": "@cloudbase/framework-plugin-function",
+        "inputs": {
+          "functionRootPath": "cloudfunctions",
+          "functions": [
+            {
+              "name": "investoday-proxy",
+              "timeout": 15,
+              "envVariables": {
+                "INVESTODAY_API_KEY": "${env.INVESTODAY_API_KEY}"
+              },
+              "handler": "index.main",
+              "runtime": "Nodejs18",
+              "memorySize": 128,
+              "triggers": [
+                {
+                  "name": "http",
+                  "type": "http",
+                  "path": "/investoday-proxy"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

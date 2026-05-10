@@ -42,7 +42,7 @@ interface AppState {
   history: StockInfo[];
   
   // 设置
-  activeProvider: 'mock' | 'investoday-rest';
+  activeProvider: 'mock' | 'investoday-rest' | 'cloudbase';
   apiKey: string;
   
   // Actions
@@ -67,8 +67,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   pipelineResult: null,
   report: null,
   history: [],
-  activeProvider: 'mock',
-  apiKey: '',
+  activeProvider: (import.meta.env.VITE_DATA_PROVIDER as 'mock' | 'investoday-rest' | 'cloudbase') || 'mock',
+  apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
 
   setQuery: (query) => set({ query }),
 

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npx tsx src/test/integration.test.ts",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:hosting": "npm run build && tcb hosting deploy dist",
+    "deploy:function": "tcb fn deploy investoday-proxy"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",

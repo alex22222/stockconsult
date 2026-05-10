@@ -1,10 +1,11 @@
 import { DataProvider } from './providers/base';
 import { MockProvider } from './providers/mock';
 import { InvestodayRESTProvider } from './providers/investoday-rest';
+import { CloudBaseProvider } from './providers/cloudbase';
 import { CacheService } from './cache-service';
 import type { StockInfo, StockDataBundle } from '../types/stock';
 
-export type ProviderName = 'mock' | 'investoday-rest';
+export type ProviderName = 'mock' | 'investoday-rest' | 'cloudbase';
 
 /**
  * 统一数据服务
@@ -22,6 +23,7 @@ export class DataService {
     // 注册默认Provider
     this.registerProvider('mock', new MockProvider());
     this.registerProvider('investoday-rest', new InvestodayRESTProvider());
+    this.registerProvider('cloudbase', new CloudBaseProvider());
   }
 
   registerProvider(name: ProviderName, provider: DataProvider): void {
@@ -101,6 +103,16 @@ export class DataService {
     const provider = this.providers.get('investoday-rest') as InvestodayRESTProvider;
     if (provider) {
       provider.setApiKey(key);
+    }
+  }
+
+  /**
+   * 配置 CloudBase 代理地址
+   */
+  setCloudBaseUrl(url: string): void {
+    const provider = this.providers.get('cloudbase') as CloudBaseProvider;
+    if (provider) {
+      provider.setBaseUrl(url);
     }
   }
 
