@@ -46,6 +46,9 @@ interface AppState {
   activeProvider: 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase';
   apiKey: string;
   
+  // 查询记录
+  showRecordsPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -55,6 +58,7 @@ interface AppState {
   setProvider: (provider: 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') => void;
   setApiKey: (key: string) => void;
   addToHistory: (stock: StockInfo) => void;
+  toggleRecordsPage: (show?: boolean) => void;
 }
 
 const initialProvider = (import.meta.env.VITE_DATA_PROVIDER as 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') || 'mock';
@@ -79,6 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   history: [],
   activeProvider: initialProvider,
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
+  showRecordsPage: false,
 
   setQuery: (query) => set({ query }),
 
@@ -168,6 +173,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   addToHistory: (stock) => {
     set((state) => ({
       history: [stock, ...state.history.filter(s => s.code !== stock.code)].slice(0, 10),
+    }));
+  },
+
+  toggleRecordsPage: (show) => {
+    set((state) => ({
+      showRecordsPage: show !== undefined ? show : !state.showRecordsPage,
     }));
   },
 }));

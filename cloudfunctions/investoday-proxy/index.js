@@ -54,6 +54,16 @@ exports.main = async (event, context) => {
     return handleUploadRecord(event);
   }
 
+  // 查询记录列表
+  if (event.path === '/list-records' || event.path === '/investoday-proxy/list-records') {
+    return handleListRecords(event);
+  }
+
+  // 查询记录详情
+  if (event.path === '/get-record' || event.path === '/investoday-proxy/get-record') {
+    return handleGetRecord(event);
+  }
+
   if (!API_KEY) {
     return {
       statusCode: 500,
@@ -179,6 +189,92 @@ async function handleUploadRecord(event) {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'Upload failed', message: error.message }),
+    };
+  }
+}
+
+/**
+ * 处理查询记录列表
+ */
+async function handleListRecords(event) {
+  try {
+    const cloudbase = require('@cloudbase/node-sdk');
+    const app = cloudbase.init({});
+
+    const prefix = 'searches/';
+    const result = await app.getFileList({ prefix });
+    const files = result.fileList || [];
+
+    // 按日期分组，提取文件名信息
+    const records = files.map(f => {
+      const match = f.cloudPath.match(/^searches\/(\d{4}-\d{2}-\d{2})\/(.+)\.json$/);
+      return {
+        fileID: f.fileID,
+        path: f.cloudPath,
+        date: match ? match[1] : '',
+        name: match ? decodeURIComponent(match[2].replace(/_/g, ' ')) : f.cloudPath,
+        size: f.size || 0,
+        createTime: f.createTime || '',
+      };
+    }).filter(r => r.date).sort((a, b) => b.path.localeCompare(a.path));
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, records, total: records.length }),
+    };
+  } catch (error) {
+    console.error('[ListRecords Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'List records failed', message: error.message }),
+    };
+  }
+}
+
+/**
+ * 处理查询记录详情获取
+ */
+async function handleGetRecord(event) {
+  try {
+    const query = event.queryString || {};
+    const fileID = query.fileID || '';
+    const path = query.path || '';
+
+    if (!fileID && !path) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing fileID or path' }),
+      };
+    }
+
+    const cloudbase = require('@cloudbase/node-sdk');
+    const app = cloudbase.init({});
+
+    let fileContent;
+    if (fileID) {
+      const result = await app.downloadFile({ fileID });
+      fileContent = result.fileContent;
+    } else {
+      const result = await app.downloadFile({ cloudPath: path });
+      fileContent = result.fileContent;
+    }
+
+    const content = JSON.parse(fileContent.toString('utf-8'));
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, data: content }),
+    };
+  } catch (error) {
+    console.error('[GetRecord Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Get record failed', message: error.message }),
     };
   }
 }
