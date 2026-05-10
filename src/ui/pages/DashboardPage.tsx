@@ -7,6 +7,7 @@ import { RatingBadge } from '../components/common/RatingBadge';
 import { MetricCard } from '../components/common/MetricCard';
 import { InsightTag } from '../components/common/InsightTag';
 import { PriceChart } from '../components/charts/PriceChart';
+import { TableOfContents } from '../components/common/TableOfContents';
 
 function RatingLabel({ rating }: { rating: ResearchReport['rating'] }) {
   const config: Record<ResearchReport['rating'], { text: string; class: string }> = {
@@ -98,6 +99,18 @@ export function DashboardPage() {
   const news = dataBundle?.news || [];
   const reports = dataBundle?.reports || [];
 
+  // 构建目录项（根据数据是否存在动态显示）
+  const tocItems = [
+    { id: 'core-view', label: '核心观点' },
+    ...(dataBundle?.market?.history && dataBundle.market.history.length > 0 ? [{ id: 'price-chart', label: '价格走势' }] : []),
+    { id: 'key-metrics', label: '关键指标' },
+    { id: 'market-interpretation', label: '市场解读' },
+    ...(reports.length > 0 ? [{ id: 'institutional-views', label: '机构观点' }] : []),
+    ...(news.length > 0 ? [{ id: 'related-news', label: '相关新闻' }] : []),
+    { id: 'action-advice', label: '行动建议' },
+    ...(rawInsights.length > 0 ? [{ id: 'insights', label: '分析洞察' }] : []),
+  ];
+
   return (
     <div className="flex-1 bg-gray-50">
       {/* 顶部导航 */}
@@ -131,10 +144,13 @@ export function DashboardPage() {
       </div>
 
       {/* 内容区 */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex gap-8">
+          {/* 左侧内容 */}
+          <div className="flex-1 min-w-0 space-y-6">
         
         {/* 核心观点 */}
-        <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="core-view" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">核心观点</h3>
             <RatingBadge rating={coreView.rating} />
@@ -187,7 +203,7 @@ export function DashboardPage() {
         )}
 
         {/* 关键指标 */}
-        <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="key-metrics" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">关键指标</h3>
           </div>
@@ -231,7 +247,7 @@ export function DashboardPage() {
         </section>
 
         {/* 市场解读 */}
-        <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="market-interpretation" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">市场解读</h3>
           </div>
@@ -317,7 +333,7 @@ export function DashboardPage() {
 
         {/* 研报/机构观点 */}
         {reports.length > 0 && (
-          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="institutional-views" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-gray-500" />
@@ -374,7 +390,7 @@ export function DashboardPage() {
 
         {/* 相关新闻 */}
         {news.length > 0 && (
-          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="related-news" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Newspaper className="w-4 h-4 text-gray-500" />
@@ -422,7 +438,7 @@ export function DashboardPage() {
         )}
 
         {/* 行动建议 */}
-        <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="action-advice" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">行动建议</h3>
             <RatingBadge rating={actionAdvice.recommendation} />
@@ -507,7 +523,7 @@ export function DashboardPage() {
 
         {/* 洞察标签云 */}
         {rawInsights.length > 0 && (
-          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="insights" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">分析洞察</h3>
             </div>
@@ -526,6 +542,12 @@ export function DashboardPage() {
           <div className="text-[10px] text-gray-400 space-y-0.5">
             {report.disclaimers.map((d: string, i: number) => <p key={i}>{d}</p>)}
             <p>生成时间: {new Date(report.generatedAt).toLocaleString('zh-CN')}</p>
+          </div>
+        </div>
+          </div>
+          {/* 右侧目录导航 */}
+          <div className="hidden xl:block">
+            <TableOfContents items={tocItems} />
           </div>
         </div>
       </div>
