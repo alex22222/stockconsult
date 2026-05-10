@@ -9,6 +9,7 @@
     "memorySize": 128,
     "environmentVariables": {
       "INVESTODAY_API_KEY": ""
-    }
+    },
+    "_note": "请在 CloudBase 控制台配置 INVESTODAY_API_KEY 环境变量"
   }
 }
