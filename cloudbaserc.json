@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "envId": "weight-tracker-1ghr085dd7d6cff2",
+  "envId": "stockconsult-d9g7b6ae5b8170e00",
   "framework": {
     "name": "stockconsult",
     "plugins": {
@@ -9,12 +9,12 @@
         "inputs": {
           "buildCommand": "npm run build",
           "outputPath": "dist",
-          "cloudPath": "/stockconsult",
+          "cloudPath": "/",
           "ignore": [".git", "node_modules", "cloudfunctions"],
           "rewrite": [
             {
-              "source": "/stockconsult/*",
-              "destination": "/stockconsult/index.html"
+              "source": "/*",
+              "destination": "/index.html"
             }
           ]
         }
