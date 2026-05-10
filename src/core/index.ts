@@ -9,6 +9,7 @@ export * from './types/analysis';
 export { DataProvider } from './data/providers/base';
 export { MockProvider } from './data/providers/mock';
 export { InvestodayRESTProvider } from './data/providers/investoday-rest';
+export { InvestodayMCPProvider } from './data/providers/investoday-mcp';
 export { CloudBaseProvider } from './data/providers/cloudbase';
 export { CacheService, globalCache } from './data/cache-service';
 export { DataService, globalDataService, type ProviderName } from './data/data-service';

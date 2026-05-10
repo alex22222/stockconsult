@@ -1,11 +1,12 @@
 import { DataProvider } from './providers/base';
 import { MockProvider } from './providers/mock';
 import { InvestodayRESTProvider } from './providers/investoday-rest';
+import { InvestodayMCPProvider } from './providers/investoday-mcp';
 import { CloudBaseProvider } from './providers/cloudbase';
 import { CacheService } from './cache-service';
 import type { StockInfo, StockDataBundle } from '../types/stock';
 
-export type ProviderName = 'mock' | 'investoday-rest' | 'cloudbase';
+export type ProviderName = 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase';
 
 /**
  * 统一数据服务
@@ -23,6 +24,7 @@ export class DataService {
     // 注册默认Provider
     this.registerProvider('mock', new MockProvider());
     this.registerProvider('investoday-rest', new InvestodayRESTProvider());
+    this.registerProvider('investoday-mcp', new InvestodayMCPProvider());
     this.registerProvider('cloudbase', new CloudBaseProvider());
   }
 
@@ -100,9 +102,13 @@ export class DataService {
    * 配置Investoday API Key
    */
   setInvestodayApiKey(key: string): void {
-    const provider = this.providers.get('investoday-rest') as InvestodayRESTProvider;
-    if (provider) {
-      provider.setApiKey(key);
+    const restProvider = this.providers.get('investoday-rest') as InvestodayRESTProvider;
+    if (restProvider) {
+      restProvider.setApiKey(key);
+    }
+    const mcpProvider = this.providers.get('investoday-mcp') as InvestodayMCPProvider;
+    if (mcpProvider) {
+      mcpProvider.setApiKey(key);
     }
   }
 
