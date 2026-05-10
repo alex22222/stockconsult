@@ -93,10 +93,14 @@ export class ReportGenerator {
     const valData = valResult?.data as any || {};
     const finData = finResult?.data as any || {};
 
+    // 成长能力：优先使用真实数据，其次用 skill 结果
+    const revenueGrowth = financial.revenueGrowth ?? finData.revenue?.yoy;
+    const profitGrowth = financial.profitGrowth ?? finData.netProfit?.yoy;
+
     return {
       valuation: [
-        { name: 'pe', label: '市盈率(PE)', value: market.pe, unit: '倍', trend: valData.pePercentile > 70 ? 'up' : valData.pePercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: `行业均值${valData.peVsIndustry > 0 ? '+' : ''}${valData.peVsIndustry}%`, percentile: valData.pePercentile },
-        { name: 'pb', label: '市净率(PB)', value: market.pb, unit: '倍', trend: valData.pbPercentile > 70 ? 'up' : valData.pbPercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: `行业均值${valData.pbVsIndustry > 0 ? '+' : ''}${valData.pbVsIndustry}%`, percentile: valData.pbPercentile },
+        { name: 'pe', label: '市盈率(PE)', value: market.pe > 0 ? market.pe : '-', unit: market.pe > 0 ? '倍' : '', trend: valData.pePercentile > 70 ? 'up' : valData.pePercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: `行业均值${valData.peVsIndustry > 0 ? '+' : ''}${valData.peVsIndustry}%`, percentile: valData.pePercentile },
+        { name: 'pb', label: '市净率(PB)', value: market.pb > 0 ? market.pb : '-', unit: market.pb > 0 ? '倍' : '', trend: valData.pbPercentile > 70 ? 'up' : valData.pbPercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: `行业均值${valData.pbVsIndustry > 0 ? '+' : ''}${valData.pbVsIndustry}%`, percentile: valData.pbPercentile },
         { name: 'ps', label: '市销率(PS)', value: market.ps || '-', unit: market.ps ? '倍' : '', category: 'valuation' },
         { name: 'marketCap', label: '总市值', value: (stock.marketCap / 10000).toFixed(2), unit: '万亿', category: 'valuation' },
       ],
@@ -107,8 +111,9 @@ export class ReportGenerator {
         { name: 'roa', label: '总资产收益率(ROA)', value: financial.roa || '-', unit: financial.roa ? '%' : '', category: 'profitability' },
       ],
       growth: [
-        { name: 'revenueYoY', label: '营收增速', value: finData.revenue?.yoy || '-', unit: '%', trend: finData.revenue?.yoy > 10 ? 'up' : finData.revenue?.yoy < 0 ? 'down' : 'flat', category: 'growth' },
-        { name: 'profitYoY', label: '净利润增速', value: finData.netProfit?.yoy || '-', unit: '%', trend: finData.netProfit?.yoy > 15 ? 'up' : finData.netProfit?.yoy < 0 ? 'down' : 'flat', category: 'growth' },
+        { name: 'revenueYoY', label: '营收增速', value: revenueGrowth != null ? revenueGrowth : '-', unit: revenueGrowth != null ? '%' : '', trend: revenueGrowth > 10 ? 'up' : revenueGrowth < 0 ? 'down' : 'flat', category: 'growth' },
+        { name: 'profitYoY', label: '净利润增速', value: profitGrowth != null ? profitGrowth : '-', unit: profitGrowth != null ? '%' : '', trend: profitGrowth > 15 ? 'up' : profitGrowth < 0 ? 'down' : 'flat', category: 'growth' },
+        { name: 'epsYoY', label: '每股收益增速', value: financial.epsGrowth != null ? financial.epsGrowth : '-', unit: financial.epsGrowth != null ? '%' : '', category: 'growth' },
       ],
       quality: [
         { name: 'debtRatio', label: '资产负债率', value: financial.debtRatio, unit: '%', category: 'quality', benchmark: financial.debtRatio < 40 ? '稳健' : financial.debtRatio < 70 ? '中等' : '偏高' },
@@ -119,6 +124,8 @@ export class ReportGenerator {
         { name: 'price', label: '最新价', value: market.price, unit: '元', trend: market.change >= 0 ? 'up' : 'down', category: 'market', change: market.change, changePercent: market.changePercent },
         { name: 'turnoverRate', label: '换手率', value: market.turnoverRate || '-', unit: market.turnoverRate ? '%' : '', category: 'market' },
         { name: 'amplitude', label: '振幅', value: market.amplitude || '-', unit: market.amplitude ? '%' : '', category: 'market' },
+        { name: 'high52w', label: '52周最高', value: market.high52w > 0 ? market.high52w : '-', unit: market.high52w > 0 ? '元' : '', category: 'market' },
+        { name: 'low52w', label: '52周最低', value: market.low52w > 0 ? market.low52w : '-', unit: market.low52w > 0 ? '元' : '', category: 'market' },
       ],
     };
   }
@@ -133,9 +140,11 @@ export class ReportGenerator {
     const annResult = skillResults.find(r => r.skillId === 'announcement-analyzer');
     const annData = annResult?.data as any || {};
     const marketPrice = dataBundle.market?.price || 100;
+    const news = dataBundle.news || [];
+    const reports = dataBundle.reports || [];
 
-    // 近期事件
-    const recentEvents = (annData.recentAnnouncements || []).map((a: any) => ({
+    // 近期事件：公告 + 新闻
+    const announcementEvents = (annData.recentAnnouncements || []).map((a: any) => ({
       date: a.date,
       title: a.title,
       type: 'announcement' as const,
@@ -143,12 +152,33 @@ export class ReportGenerator {
       description: a.title,
     }));
 
+    const newsEvents = news.slice(0, 5).map((n) => ({
+      date: n.publishDate?.split(' ')[0] || '',
+      title: n.title,
+      type: 'news' as const,
+      impact: n.sentiment || 'neutral',
+      description: n.content?.slice(0, 100) || n.title,
+    }));
+
+    const recentEvents = [...announcementEvents, ...newsEvents].sort((a, b) => {
+      return (b.date || '').localeCompare(a.date || '');
+    }).slice(0, 10);
+
     // 情感分析
     const sentimentStats = annData.sentimentStats || { positive: 0, neutral: 0, negative: 0, total: 0 };
     const total = sentimentStats.total || 1;
     const sentimentScore = (sentimentStats.positive - sentimentStats.negative) / total;
     const overallSentiment = sentimentScore > 0.2 ? 'positive' as const : sentimentScore < -0.2 ? 'negative' as const : 'neutral' as const;
 
+    // 机构观点：从研报数据生成
+    const validReports = reports.filter(r => r.rating && r.rating !== 'neutral');
+    const buyCount = validReports.filter(r => r.rating === 'buy' || r.rating === 'overweight').length;
+    const sellCount = validReports.filter(r => r.rating === 'sell' || r.rating === 'underweight').length;
+    const totalReports = validReports.length || 1;
+    const consensusScore = (buyCount - sellCount) / totalReports;
+    const consensusRating = consensusScore > 0.3 ? 'buy' as const : consensusScore < -0.3 ? 'sell' as const : 'hold' as const;
+    
+    const targetPrices = reports.filter(r => r.targetPrice).map(r => r.targetPrice!);
     return {
       recentEvents,
       sentimentAnalysis: {
@@ -157,15 +187,29 @@ export class ReportGenerator {
         summary: this.generateSentimentSummary(sentimentStats, total),
       },
       institutionalViews: {
-        consensusRating: 'hold' as const,
-        targetPriceRange: [marketPrice * 0.85, marketPrice * 1.15],
-        reportCount: 0,
-        latestReports: [],
+        consensusRating,
+        targetPriceRange: [
+          Math.min(...(targetPrices.length > 0 ? targetPrices : [marketPrice * 0.9])),
+          Math.max(...(targetPrices.length > 0 ? targetPrices : [marketPrice * 1.2])),
+        ],
+        reportCount: reports.length,
+        latestReports: reports.slice(0, 3).map(r => ({
+          institution: r.institution,
+          analyst: r.analyst,
+          date: r.date,
+          rating: r.rating,
+          targetPrice: r.targetPrice,
+          summary: r.summary?.slice(0, 120) || '',
+        })),
       },
       industryContext: {
-        industryName: stock.industry,
-        industryTrend: `${stock.industry}行业整体景气度中性，需关注政策变化与竞争格局`,
-        competitivePosition: `${stock.name}在${stock.industry}行业中处于领先地位，具备品牌与规模优势`,
+        industryName: stock.industry || '未知行业',
+        industryTrend: stock.industry
+          ? `${stock.industry}行业整体景气度中性，需关注政策变化与竞争格局`
+          : '行业信息待补充',
+        competitivePosition: stock.name && stock.industry
+          ? `${stock.name}在${stock.industry}行业中具备一定竞争优势，具体地位需结合市场份额数据判断`
+          : '竞争格局信息待补充',
         policyImpact: '关注行业监管政策变化对估值的影响',
       },
     };
@@ -185,6 +229,14 @@ export class ReportGenerator {
     const rating = this.mapValuationToRating(valData.compositeRating);
     const currentPrice = market.price;
 
+    // 如果有研报目标价，用它来调整目标价
+    const reports = dataBundle.reports || [];
+    const targetPrices = reports.filter(r => r.targetPrice).map(r => r.targetPrice!);
+    const hasAnalystTargets = targetPrices.length > 0;
+    const avgTarget = hasAnalystTargets
+      ? targetPrices.reduce((a, b) => a + b, 0) / targetPrices.length
+      : currentPrice * 1.18;
+
     return {
       recommendation: rating,
       recommendationLabel: this.ratingToLabel(rating),
@@ -197,9 +249,13 @@ export class ReportGenerator {
         : `持有为主，达到目标价位可考虑部分止盈`,
       stopLoss: Number((currentPrice * 0.88).toFixed(0)),
       targetPrices: {
-        conservative: Number((currentPrice * 1.08).toFixed(0)),
-        base: Number((currentPrice * 1.18).toFixed(0)),
-        optimistic: Number((currentPrice * 1.35).toFixed(0)),
+        conservative: hasAnalystTargets
+          ? Number((avgTarget * 0.9).toFixed(0))
+          : Number((currentPrice * 1.08).toFixed(0)),
+        base: Number(avgTarget.toFixed(0)),
+        optimistic: hasAnalystTargets
+          ? Number((avgTarget * 1.15).toFixed(0))
+          : Number((currentPrice * 1.35).toFixed(0)),
       },
       positionAdvice: this.generatePositionAdvice(rating),
       keyMonitoringPoints: [
@@ -280,15 +336,25 @@ export class ReportGenerator {
     const finData = finResult?.data as any;
     const valData = valResult?.data as any;
 
-    if (finData?.revenue?.yoy > 15) drivers.push(`营收保持${finData.revenue.yoy}%高速增长`);
-    if (finData?.netProfit?.yoy > 20) drivers.push(`净利润同比增长${finData.netProfit.yoy}%`);
+    // 使用真实的成长数据
+    const revenueGrowth = financial.revenueGrowth ?? finData?.revenue?.yoy;
+    const profitGrowth = financial.profitGrowth ?? finData?.netProfit?.yoy;
+
+    if (revenueGrowth > 15) drivers.push(`营收保持${revenueGrowth}%高速增长`);
+    else if (revenueGrowth > 0) drivers.push(`营收同比增长${revenueGrowth}%`);
+    
+    if (profitGrowth > 20) drivers.push(`净利润同比增长${profitGrowth}%`);
+    else if (profitGrowth > 0) drivers.push(`净利润同比增长${profitGrowth}%`);
+    
     if (financial.roe > 15) drivers.push(`ROE高达${financial.roe}%，盈利能力强`);
     if (financial.grossMargin > 40) drivers.push(`毛利率${financial.grossMargin}%，具备定价权`);
     if (valData?.pePercentile < 30) drivers.push('估值处于历史低位');
     if (valData?.dcfUpside > 20) drivers.push(`DCF模型显示${valData.dcfUpside}%上行空间`);
     
     if (drivers.length < 3) {
-      drivers.push(`${stock.name}在${stock.industry}行业具备龙头地位`);
+      if (stock.industry) {
+        drivers.push(`${stock.name}在${stock.industry}行业具备龙头地位`);
+      }
       drivers.push(`总市值${(stock.marketCap / 10000).toFixed(2)}万亿，流动性充裕`);
     }
 
@@ -300,10 +366,16 @@ export class ReportGenerator {
     const finData = finResult?.data as any;
     const valData = valResult?.data as any;
 
-    parts.push(`${stock.name}（${stock.code}）是${stock.industry}行业的代表性企业。`);
+    parts.push(`${stock.name}（${stock.code}）`);
+    if (stock.industry) {
+      parts.push(`是${stock.industry}行业的代表性企业。`);
+    } else {
+      parts.push('。');
+    }
     
-    if (finData?.revenue?.yoy > 0) {
-      parts.push(`公司营收保持增长，最新季度同比增长${finData.revenue.yoy}%。`);
+    const revenueGrowth = financial.revenueGrowth ?? finData?.revenue?.yoy;
+    if (revenueGrowth != null && revenueGrowth > 0) {
+      parts.push(`公司营收保持增长，最新季度同比增长${revenueGrowth}%。`);
     }
     
     if (financial.roe > 15) {
@@ -312,6 +384,10 @@ export class ReportGenerator {
 
     if (valData?.compositeRating) {
       parts.push(`当前估值${valData.compositeBand}，PE位于历史${valData.pePercentile}%分位。`);
+    }
+
+    if (stock.mainBusiness) {
+      parts.push(`主营业务：${stock.mainBusiness.slice(0, 60)}${stock.mainBusiness.length > 60 ? '...' : ''}`);
     }
 
     return parts.join('');
@@ -342,7 +418,8 @@ export class ReportGenerator {
     else if (riskCount > oppCount + 1) sentiment = '偏谨慎';
 
     const label = this.ratingToLabel(rating);
-    return `${stock.name}当前基本面${sentiment}，估值${financial.roe > 15 ? '合理' : '待观察'}，综合评级「${label}」。`;
+    const industry = stock.industry || '所属';
+    return `${stock.name}（${stock.code}）当前${industry}行业基本面${sentiment}，估值${financial.roe > 15 ? '合理' : '待观察'}，综合评级「${label}」。`;
   }
 
   private static generateSentimentSummary(stats: any, total: number): string {

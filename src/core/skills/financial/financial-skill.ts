@@ -23,30 +23,23 @@ export class FinancialSkill extends BaseSkill {
     try {
       const financial = context.dataBundle.financial;
       const periods = financial.periods;
+      const hasMultiPeriods = periods && periods.length >= 2;
       
-      if (!periods || periods.length < 2) {
-        return this.createSuccess(
-          { periodCount: periods?.length || 0 },
-          [{
-            type: 'neutral',
-            title: '财务数据不足',
-            description: '可用财务数据周期不足，无法进行完整分析',
-            confidence: 1,
-            source: 'financial-analyzer',
-          }],
-          '财务数据不足，无法完成分析'
-        );
-      }
-
-      const latest = periods[periods.length - 1];
-      const previous = periods[periods.length - 2];
-      const yearAgo = periods[periods.length - 5] || periods[0];
+      // 优先使用多期数据，否则使用成长能力API返回的单期增长率
+      const latest = periods?.[periods.length - 1] || {
+        period: new Date().toISOString().split('T')[0],
+        revenue: 0, netProfit: 0, grossProfit: 0,
+        totalAssets: 0, totalLiabilities: 0, shareholdersEquity: 0,
+        operatingCashFlow: 0, freeCashFlow: 0,
+      };
+      const previous = hasMultiPeriods ? periods[periods.length - 2] : undefined;
+      const yearAgo = hasMultiPeriods ? (periods[periods.length - 5] || periods[0]) : undefined;
 
       // 多维度分析
-      const growthAnalysis = this.analyzeGrowth(periods, latest, previous, yearAgo);
+      const growthAnalysis = this.analyzeGrowth(periods, latest, previous, yearAgo, financial);
       const profitabilityAnalysis = this.analyzeProfitability(financial, periods);
       const qualityAnalysis = this.analyzeQuality(financial, periods);
-      const trendAnalysis = this.analyzeTrend(periods);
+      const trendAnalysis = hasMultiPeriods ? this.analyzeTrend(periods) : { insights: [], trend: 'unknown' as const };
 
       const insights: Insight[] = [
         ...growthAnalysis.insights,
@@ -90,11 +83,12 @@ export class FinancialSkill extends BaseSkill {
     }
   }
 
-  private analyzeGrowth(_periods: FinancialPeriod[], latest: FinancialPeriod, previous: FinancialPeriod, yearAgo: FinancialPeriod) {
-    const revenueQoQ = this.calcQoQ(latest.revenue, previous.revenue);
-    const profitQoQ = this.calcQoQ(latest.netProfit, previous.netProfit);
-    const revenueYoY = this.calcYoY(latest.revenue, yearAgo.revenue);
-    const profitYoY = this.calcYoY(latest.netProfit, yearAgo.netProfit);
+  private analyzeGrowth(_periods: FinancialPeriod[], latest: FinancialPeriod, previous?: FinancialPeriod, yearAgo?: FinancialPeriod, financial?: any) {
+    // 优先从成长能力API获取增长率，其次从多期数据计算
+    const revenueYoY = financial?.revenueGrowth ?? (yearAgo ? this.calcYoY(latest.revenue, yearAgo.revenue) : 0);
+    const profitYoY = financial?.profitGrowth ?? (yearAgo ? this.calcYoY(latest.netProfit, yearAgo.netProfit) : 0);
+    const revenueQoQ = previous ? this.calcQoQ(latest.revenue, previous.revenue) : 0;
+    const profitQoQ = previous ? this.calcQoQ(latest.netProfit, previous.netProfit) : 0;
 
     const insights: Insight[] = [];
 

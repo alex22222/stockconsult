@@ -11,6 +11,9 @@ import type { SkillResult, Insight } from './skill';
 
 export type Rating = 'strong_buy' | 'buy' | 'hold' | 'reduce' | 'sell';
 
+// 研报评级（与 Rating 不同，研报有中性、增持、减持等更细粒度）
+export type ReportRating = 'buy' | 'overweight' | 'neutral' | 'underweight' | 'sell';
+
 export interface CoreView {
   rating: Rating;
   ratingLabel: string;        // 评级中文，如 "增持"
@@ -53,7 +56,7 @@ export interface KeyMetrics {
 export interface MarketEvent {
   date: string;
   title: string;
-  type: 'announcement' | 'report' | 'price_movement' | 'industry';
+  type: 'announcement' | 'report' | 'price_movement' | 'industry' | 'news';
   impact: 'positive' | 'neutral' | 'negative';
   description: string;
 }
@@ -69,7 +72,7 @@ export interface MarketInterpretation {
     consensusRating: Rating;
     targetPriceRange: [number, number];
     reportCount: number;
-    latestReports: { institution: string; rating: Rating; targetPrice?: number; summary: string }[];
+    latestReports: { institution: string; analyst?: string; date?: string; rating: ReportRating; targetPrice?: number; summary: string }[];
   };
   industryContext: {                // 行业背景
     industryName: string;

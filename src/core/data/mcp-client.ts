@@ -154,6 +154,60 @@ export interface MCPQuoteHistory {
   DEALMONEY: number;
 }
 
+// 新闻数据结构（灵活处理不同字段名）
+export interface MCPNewsItem {
+  NEWSID?: string | number;
+  id?: string | number;
+  NEWSTITLE?: string;
+  title?: string;
+  CONTENT?: string;
+  content?: string;
+  SUMMARY?: string;
+  summary?: string;
+  PUBLISHDATE?: string;
+  publishDate?: string;
+  date?: string;
+  DATETIME?: string;
+  SOURCE?: string;
+  source?: string;
+  MEDIA?: string;
+  media?: string;
+  URL?: string;
+  url?: string;
+  link?: string;
+  SENTIMENT?: string;
+  sentiment?: string;
+  [key: string]: unknown;
+}
+
+// 研报评级数据结构
+export interface MCPForecastRating {
+  REPORTID?: string | number;
+  id?: string | number;
+  INSTITUTION?: string;
+  institution?: string;
+  ORGNAME?: string;
+  orgName?: string;
+  ANALYST?: string;
+  analyst?: string;
+  RATING?: string;
+  rating?: string;
+  RATINGCODE?: string;
+  ratingCode?: string;
+  TARGETPRICE?: number | string;
+  targetPrice?: number | string;
+  REPORTDATE?: string;
+  reportDate?: string;
+  date?: string;
+  TITLE?: string;
+  title?: string;
+  SUMMARY?: string;
+  summary?: string;
+  CONTENT?: string;
+  content?: string;
+  [key: string]: string | number | undefined;
+}
+
 export class InvestodayMCPClient {
   private apiKey: string;
   private baseUrl: string = 'https://data-api.investoday.net/data/mcp/preset';
@@ -162,7 +216,7 @@ export class InvestodayMCPClient {
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
     if (baseUrl) {
-      this.baseUrl = baseUrl;
+      this.baseUrl = baseUrl.replace(/\/$/, '');
     }
   }
 
@@ -227,7 +281,7 @@ export class InvestodayMCPClient {
     const result = await this.call('tools/call', {
       name: 'entity_recognition',
       arguments: { input },
-    }) as { entities?: Array<{ code: string; name: string; type: string }> };
+    }) as { entities?: Array<{ code: string; name: string; type: string; correlation?: number }> };
 
     const stock = result.entities?.find(e => e.type === 'stock');
     return stock || null;
@@ -362,11 +416,11 @@ export class InvestodayMCPClient {
   /**
    * 获取相关新闻
    */
-  async listRelatedNews(stockCode: string, pageSize: number = 10): Promise<unknown[]> {
+  async listRelatedNews(stockCode: string, pageSize: number = 10): Promise<MCPNewsItem[]> {
     const result = await this.call('tools/call', {
       name: 'list_entity_related_news',
       arguments: { stockCode, pageSize },
-    }) as { data?: unknown[] };
+    }) as { data?: MCPNewsItem[] };
 
     return result.data || [];
   }
@@ -374,11 +428,11 @@ export class InvestodayMCPClient {
   /**
    * 获取研报预测评级
    */
-  async listForecastRatings(stockCode: string, pageSize: number = 10): Promise<unknown[]> {
+  async listForecastRatings(stockCode: string, pageSize: number = 10): Promise<MCPForecastRating[]> {
     const result = await this.call('tools/call', {
       name: 'list_report_stock_forecast_ratings',
       arguments: { stockCode, pageSize },
-    }) as { data?: unknown[] };
+    }) as { data?: MCPForecastRating[] };
 
     return result.data || [];
   }

@@ -13,6 +13,8 @@ export interface StockInfo {
   marketCap: number;      // 总市值（亿元）
   floatMarketCap?: number;// 流通市值
   listingDate?: string;   // 上市日期
+  companyName?: string;   // 公司全称
+  mainBusiness?: string;  // 主营业务
 }
 
 // ============================================
@@ -39,6 +41,8 @@ export interface MarketData {
   pe: number;             // 市盈率
   pb: number;             // 市净率
   ps?: number;            // 市销率
+  dividendYield?: number; // 股息率
+  evEbitda?: number;      // EV/EBITDA
   high52w: number;        // 52周最高
   low52w: number;         // 52周最低
   high: number;           // 当日最高
@@ -54,8 +58,8 @@ export interface MarketData {
 
 export interface FinancialPeriod {
   period: string;         // 报告期，如 "2024-Q3"
-  revenue: number;        // 营业收入
-  netProfit: number;      // 净利润
+  revenue: number;        // 营业收入（亿元）
+  netProfit: number;      // 净利润（亿元）
   grossProfit: number;    // 毛利润
   operatingProfit?: number;// 营业利润
   totalAssets: number;    // 总资产
@@ -78,6 +82,10 @@ export interface FinancialMetrics {
   assetTurnover?: number; // 总资产周转率
   inventoryTurnover?: number;// 存货周转率
   receivableTurnover?: number;// 应收账款周转率
+  // 成长能力
+  revenueGrowth?: number; // 营收增长率
+  profitGrowth?: number;  // 净利润增长率
+  epsGrowth?: number;     // 每股收益增长率
 }
 
 // ============================================
@@ -109,6 +117,20 @@ export interface Announcement {
 }
 
 // ============================================
+// 新闻数据类型
+// ============================================
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  source?: string;
+  publishDate: string;
+  url?: string;
+  sentiment?: Sentiment;
+}
+
+// ============================================
 // 研报/机构观点类型
 // ============================================
 
@@ -124,6 +146,21 @@ export interface ResearchReport {
 }
 
 // ============================================
+// Web Search 补充信息
+// ============================================
+
+export interface WebSearchResult {
+  query: string;
+  summary: string;
+  sources: Array<{
+    title: string;
+    url?: string;
+    snippet: string;
+  }>;
+  fetchedAt: string;
+}
+
+// ============================================
 // 统一的原始数据包
 // ============================================
 
@@ -132,6 +169,8 @@ export interface StockDataBundle {
   market: MarketData;
   financial: FinancialMetrics;
   announcements: Announcement[];
+  news?: NewsItem[];
   reports?: ResearchReport[];
+  webSearch?: WebSearchResult;
   fetchedAt: string;
 }

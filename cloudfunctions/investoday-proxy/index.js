@@ -20,7 +20,7 @@
 const https = require('https');
 
 // 版本标记（用于确认部署生效）
-const VERSION = '2026-05-11-v3';
+const VERSION = '2026-05-11-v4';
 
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
 const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
@@ -87,6 +87,11 @@ exports.main = async (event, context) => {
   // 查询记录详情
   if (event.path === '/get-record' || event.path === '/investoday-proxy/get-record') {
     return handleGetRecord(event);
+  }
+
+  // Web Search（补充个股信息）
+  if (event.path === '/search-web' || event.path === '/investoday-proxy/search-web') {
+    return handleWebSearch(event);
   }
 
   // 调试：列出 COS bucket
@@ -402,6 +407,96 @@ async function handleGetRecord(event) {
       body: JSON.stringify({ error: 'Get record failed', message: error.message }),
     };
   }
+}
+
+/**
+ * Web Search 处理
+ * 使用 DuckDuckGo API 或 Google Custom Search 搜索补充信息
+ */
+async function handleWebSearch(event) {
+  try {
+    const query = event.queryString || event.queryStringParameters || {};
+    const q = query.q || '';
+    const stockName = query.stockName || '';
+    const stockCode = query.stockCode || '';
+
+    if (!q && !stockName) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing query parameter (q or stockName)' }),
+      };
+    }
+
+    const searchQuery = q || `${stockName} ${stockCode} 最新动态`;
+    
+    // 尝试 DuckDuckGo API
+    const result = await searchDuckDuckGo(searchQuery);
+    
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        query: searchQuery,
+        ...result,
+        fetchedAt: new Date().toISOString(),
+      }),
+    };
+  } catch (error) {
+    console.error('[WebSearch Error]', error);
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: false,
+        query: '',
+        summary: 'Web search temporarily unavailable',
+        sources: [],
+        error: error.message,
+        fetchedAt: new Date().toISOString(),
+      }),
+    };
+  }
+}
+
+/**
+ * 使用 DuckDuckGo API 搜索
+ */
+function searchDuckDuckGo(query) {
+  return new Promise((resolve, reject) => {
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://api.duckduckgo.com/?q=${encodedQuery}&format=json&pretty=1&no_html=1&skip_disambig=1`;
+    
+    const req = https.get(url, { timeout: 8000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const abstract = parsed.Abstract || parsed.AbstractText || '';
+          const relatedTopics = (parsed.RelatedTopics || []).slice(0, 5).map(t => ({
+            title: t.Text || t.FirstURL || '',
+            url: t.FirstURL || '',
+            snippet: t.Text || '',
+          })).filter(t => t.title);
+          
+          resolve({
+            summary: abstract,
+            sources: relatedTopics,
+          });
+        } catch {
+          resolve({ summary: '', sources: [] });
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('DuckDuckGo timeout'));
+    });
+  });
 }
 
 function proxyMCPRequest(body) {

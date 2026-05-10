@@ -1,11 +1,44 @@
-import { ArrowLeft, Download, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, AlertCircle, Newspaper, Building2, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react';
 import type { Insight } from '../../core/types/skill';
 import type { AnalysisReport } from '../../core/types/analysis';
+import type { NewsItem, ResearchReport } from '../../core/types/stock';
+import type { ReportRating } from '../../core/types/analysis';
 import { useAppStore } from '../store/app-store';
 import { RatingBadge } from '../components/common/RatingBadge';
 import { MetricCard } from '../components/common/MetricCard';
 import { InsightTag } from '../components/common/InsightTag';
 import { PriceChart } from '../components/charts/PriceChart';
+
+function RatingLabel({ rating }: { rating: ReportRating }) {
+  const config: Record<ResearchReport['rating'], { text: string; class: string }> = {
+    buy: { text: '买入', class: 'bg-red-50 text-red-700 border-red-100' },
+    overweight: { text: '增持', class: 'bg-orange-50 text-orange-700 border-orange-100' },
+    neutral: { text: '中性', class: 'bg-gray-50 text-gray-600 border-gray-200' },
+    underweight: { text: '减持', class: 'bg-amber-50 text-amber-700 border-amber-100' },
+    sell: { text: '卖出', class: 'bg-green-50 text-green-700 border-green-100' },
+  };
+  const c = config[rating] || config.neutral;
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${c.class} font-medium`}>{c.text}</span>
+  );
+}
+
+function SentimentBadge({ sentiment }: { sentiment?: 'positive' | 'neutral' | 'negative' }) {
+  if (!sentiment) return null;
+  const config = {
+    positive: { icon: TrendingUp, text: '正面', class: 'bg-red-50 text-red-600' },
+    negative: { icon: TrendingDown, text: '负面', class: 'bg-green-50 text-green-600' },
+    neutral: { icon: Minus, text: '中性', class: 'bg-gray-50 text-gray-500' },
+  };
+  const c = config[sentiment];
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded ${c.class}`}>
+      <Icon className="w-2.5 h-2.5" />
+      {c.text}
+    </span>
+  );
+}
 
 export function DashboardPage() {
   const { report, dataBundle, loadingState, errorMessage, selectedStock, clearResults, analyzeStock } = useAppStore();
@@ -63,6 +96,8 @@ export function DashboardPage() {
   }
 
   const { stock, coreView, keyMetrics, marketInterpretation, actionAdvice, rawInsights } = report;
+  const news = dataBundle?.news || [];
+  const reports = dataBundle?.reports || [];
 
   return (
     <div className="flex-1 bg-gray-50">
@@ -79,7 +114,12 @@ export function DashboardPage() {
                 <span className="text-xs text-gray-400 font-mono">{stock.code}</span>
                 <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{stock.exchange}</span>
               </div>
-              <div className="text-xs text-gray-500">{stock.industry} · {(stock.marketCap / 10000).toFixed(2)}万亿市值</div>
+              <div className="text-xs text-gray-500">
+                {stock.industry ? `${stock.industry} · ` : ''}
+                {(stock.marketCap / 10000).toFixed(2)}万亿市值
+                {dataBundle?.market?.pe ? ` · PE ${dataBundle.market.pe}倍` : ''}
+                {dataBundle?.market?.pb ? ` · PB ${dataBundle.market.pb}倍` : ''}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -131,7 +171,15 @@ export function DashboardPage() {
           <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">价格走势</h3>
-              <span className="text-xs text-gray-400">近60日</span>
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                {dataBundle.market.high52w > 0 && (
+                  <span>52周高: <span className="text-gray-600 font-medium">{dataBundle.market.high52w}</span></span>
+                )}
+                {dataBundle.market.low52w > 0 && (
+                  <span>52周低: <span className="text-gray-600 font-medium">{dataBundle.market.low52w}</span></span>
+                )}
+                <span>近60日</span>
+              </div>
             </div>
             <div className="p-4">
               <PriceChart data={dataBundle.market.history} />
@@ -206,7 +254,7 @@ export function DashboardPage() {
             <div className="mb-5">
               <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">近期重要事件</div>
               <div className="space-y-3">
-                {marketInterpretation.recentEvents.slice(0, 6).map((event: AnalysisReport['marketInterpretation']['recentEvents'][0], i: number) => (
+                {marketInterpretation.recentEvents.slice(0, 8).map((event: AnalysisReport['marketInterpretation']['recentEvents'][0], i: number) => (
                   <div key={i} className="flex items-start gap-3">
                     <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
                       event.impact === 'positive' ? 'bg-red-400' :
@@ -214,19 +262,33 @@ export function DashboardPage() {
                       'bg-gray-300'
                     }`} />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-gray-900">{event.title}</span>
-                        <span className="text-[10px] text-gray-400">{event.date}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                          {event.type === 'announcement' ? '公告' :
+                           event.type === 'news' ? '新闻' :
+                           event.type === 'report' ? '研报' :
+                           event.type === 'industry' ? '行业' : '其他'}
+                        </span>
+                        {event.date && <span className="text-[10px] text-gray-400">{event.date}</span>}
                       </div>
+                      {event.description && event.description !== event.title && (
+                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">{event.description}</div>
+                      )}
                     </div>
                   </div>
                 ))}
+                {marketInterpretation.recentEvents.length === 0 && (
+                  <div className="text-sm text-gray-400">暂无近期事件数据</div>
+                )}
               </div>
             </div>
 
             {/* 行业背景 */}
             <div className="bg-gray-50 rounded-xl p-4">
-              <div className="text-xs font-medium text-gray-500 mb-2">{marketInterpretation.industryContext.industryName}行业</div>
+              <div className="text-xs font-medium text-gray-500 mb-2">
+                {marketInterpretation.industryContext.industryName || '所属'}行业
+              </div>
               <div className="text-sm text-gray-700 space-y-1">
                 <p>{marketInterpretation.industryContext.industryTrend}</p>
                 <p>{marketInterpretation.industryContext.competitivePosition}</p>
@@ -234,9 +296,117 @@ export function DashboardPage() {
                   <p className="text-gray-500">{marketInterpretation.industryContext.policyImpact}</p>
                 )}
               </div>
+              {stock.mainBusiness && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-[10px] text-gray-400 mb-1">主营业务</div>
+                  <div className="text-xs text-gray-600 leading-relaxed">{stock.mainBusiness}</div>
+                </div>
+              )}
             </div>
           </div>
         </section>
+
+        {/* 研报/机构观点 */}
+        {reports.length > 0 && (
+          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-gray-500" />
+                <h3 className="text-base font-semibold text-gray-900">机构观点</h3>
+              </div>
+              <span className="text-xs text-gray-400">{reports.length} 篇研报</span>
+            </div>
+            <div className="p-6">
+              {/* 机构评级汇总 */}
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">评级共识:</span>
+                  <RatingBadge rating={marketInterpretation.institutionalViews.consensusRating} size="sm" />
+                </div>
+                {marketInterpretation.institutionalViews.reportCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">目标价区间:</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      {marketInterpretation.institutionalViews.targetPriceRange[0].toFixed(0)} - {marketInterpretation.institutionalViews.targetPriceRange[1].toFixed(0)} 元
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* 最新研报列表 */}
+              <div className="space-y-3">
+                {marketInterpretation.institutionalViews.latestReports.map((r, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-sm font-medium text-gray-900">{r.institution}</span>
+                        <RatingLabel rating={r.rating} />
+                        {r.targetPrice && (
+                          <span className="text-xs text-blue-600 font-medium">目标价 {r.targetPrice}元</span>
+                        )}
+                      </div>
+                      {r.summary && (
+                        <div className="text-xs text-gray-500 line-clamp-2">{r.summary}</div>
+                      )}
+                      {r.date && (
+                        <div className="text-[10px] text-gray-400 mt-1">{r.date}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 相关新闻 */}
+        {news.length > 0 && (
+          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Newspaper className="w-4 h-4 text-gray-500" />
+                <h3 className="text-base font-semibold text-gray-900">相关新闻</h3>
+              </div>
+              <span className="text-xs text-gray-400">{news.length} 条</span>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {news.slice(0, 6).map((item: NewsItem, i: number) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-1 h-1 rounded-full bg-gray-300 mt-2 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-gray-900">{item.title}</span>
+                        {item.sentiment && <SentimentBadge sentiment={item.sentiment} />}
+                      </div>
+                      {item.content && item.content !== item.title && (
+                        <div className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.content}</div>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        {item.source && (
+                          <span className="text-[10px] text-gray-400">{item.source}</span>
+                        )}
+                        {item.publishDate && (
+                          <span className="text-[10px] text-gray-400">{item.publishDate.split(' ')[0]}</span>
+                        )}
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600"
+                          >
+                            查看 <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* 行动建议 */}
         <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
