@@ -39,16 +39,22 @@ export function SearchPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 防抖搜索
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (inputValue.trim().length >= 1) {
-        searchStocks(inputValue);
-        setShowDropdown(true);
-      }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [inputValue, searchStocks]);
+  // 执行搜索
+  const doSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setShowDropdown(false);
+      return;
+    }
+    await searchStocks(query.trim());
+    setShowDropdown(true);
+  }, [searchStocks]);
+
+  // Enter 键搜索
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      doSearch(inputValue);
+    }
+  }, [inputValue, doSearch]);
 
   const handleSelect = useCallback((stock: typeof HOT_STOCKS[0]) => {
     selectStock(stock as any);
@@ -59,6 +65,7 @@ export function SearchPage() {
 
   const handleHotStockClick = useCallback((stock: typeof HOT_STOCKS[0]) => {
     clearResults();
+    setInputValue(stock.name);
     handleSelect(stock);
   }, [handleSelect, clearResults]);
 
@@ -73,21 +80,44 @@ export function SearchPage() {
 
       {/* 搜索框 */}
       <div ref={searchRef} className="w-full max-w-xl relative">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onFocus={() => inputValue.trim().length >= 1 && setShowDropdown(true)}
-            placeholder="搜索股票名称或代码，如：贵州茅台 / 600519"
-            className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 
-                       shadow-sm text-base transition-all"
-          />
-          {isSearching && (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-500 animate-spin" />
-          )}
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => inputValue.trim().length >= 1 && setShowDropdown(true)}
+              placeholder="搜索股票名称或代码，如：贵州茅台 / 600519"
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 
+                         focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 
+                         shadow-sm text-base transition-all"
+            />
+            {isSearching && (
+              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-500 animate-spin" />
+            )}
+          </div>
+          <button
+            onClick={() => doSearch(inputValue)}
+            disabled={isSearching || !inputValue.trim()}
+            className="px-5 py-3 bg-blue-600 text-white rounded-xl font-medium 
+                       hover:bg-blue-700 active:bg-blue-800
+                       disabled:bg-blue-300 disabled:cursor-not-allowed
+                       transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap"
+          >
+            {isSearching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                查询中
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                查询
+              </>
+            )}
+          </button>
         </div>
 
         {/* 搜索结果下拉 */}

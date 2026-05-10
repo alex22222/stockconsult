@@ -1,85 +1,73 @@
 import { DataProvider } from './base';
-import type { StockInfo, MarketData, FinancialMetrics, Announcement } from '../../types/stock';
+import { InvestodayMCPProvider } from './investoday-mcp';
+import type { StockInfo, MarketData, FinancialMetrics, Announcement, StockDataBundle } from '../../types/stock';
 
 /**
  * CloudBase 云函数代理数据提供者
  * 
- * 通过 CloudBase SCF 云函数转发请求到 investoday API
+ * 通过 CloudBase SCF 云函数转发 MCP 请求到 investoday API
  * 优势:
  * 1. API Key 存储在云函数环境变量中，前端不暴露
  * 2. 解决浏览器跨域限制
- * 3. 可利用 CloudBase 的 CDN 和缓存能力
+ * 3. 复用 InvestodayMCPProvider 的所有逻辑，只是 baseUrl 指向云函数代理
  */
 export class CloudBaseProvider extends DataProvider {
-  private baseUrl: string;
+  private inner: InvestodayMCPProvider;
 
   constructor(baseUrl?: string) {
     super('cloudbase', '1.0.0');
-    // 优先使用传入的URL，其次环境变量，最后fallback
-    this.baseUrl = baseUrl 
-      || import.meta.env.VITE_CLOUDBASE_API_URL 
-      || '';
+    const url = baseUrl || import.meta.env.VITE_CLOUDBASE_API_URL || '';
+    // CloudBase proxy 不需要 apiKey（key 在云函数环境变量中）
+    this.inner = new InvestodayMCPProvider('', url);
   }
 
   setBaseUrl(url: string): void {
-    this.baseUrl = url;
-  }
-
-  private async request<T>(apiPath: string, params?: Record<string, string>): Promise<T> {
-    if (!this.baseUrl) {
-      throw new Error('CloudBase API URL not configured. Please set VITE_CLOUDBASE_API_URL in .env');
-    }
-
-    const url = new URL(`${this.baseUrl}/api${apiPath}`);
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || `CloudBase proxy error: ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
+    this.inner = new InvestodayMCPProvider('', url);
   }
 
   async fetchStockInfo(code: string): Promise<StockInfo> {
-    return this.request<StockInfo>('/stock/info', { code });
+    return this.inner.fetchStockInfo(code);
   }
 
   async fetchMarketData(code: string): Promise<MarketData> {
-    return this.request<MarketData>('/stock/market', { code });
+    return this.inner.fetchMarketData(code);
   }
 
   async fetchFinancialMetrics(code: string): Promise<FinancialMetrics> {
-    return this.request<FinancialMetrics>('/stock/financial', { code });
+    return this.inner.fetchFinancialMetrics(code);
   }
 
   async fetchAnnouncements(code: string, limit: number = 20): Promise<Announcement[]> {
-    return this.request<Announcement[]>('/stock/announcements', { code, limit: String(limit) });
+    return this.inner.fetchAnnouncements(code, limit);
   }
 
   async searchStocks(query: string): Promise<StockInfo[]> {
-    return this.request<StockInfo[]>('/stock/search', { query });
+    return this.inner.searchStocks(query);
+  }
+
+  async fetchBundle(code: string): Promise<StockDataBundle> {
+    return this.inner.fetchBundle(code);
   }
 
   async healthCheck(): Promise<{ healthy: boolean; latency: number; message?: string }> {
     const start = performance.now();
     try {
-      if (!this.baseUrl) {
+      const url = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+      if (!url) {
         return { healthy: false, latency: 0, message: 'CloudBase URL not configured' };
       }
-      const response = await fetch(`${this.baseUrl}/health`);
+      // 云函数 health check
+      const response = await fetch(`${url}/health`);
       const data = await response.json();
-      return { 
-        healthy: data.healthy, 
+      if (!data.healthy) {
+        return { healthy: false, latency: Math.round(performance.now() - start), message: 'Proxy unhealthy' };
+      }
+      // 再测试 MCP 连通性
+      const innerCheck = await this.inner.healthCheck();
+      return {
+        healthy: innerCheck.healthy,
         latency: Math.round(performance.now() - start),
-        message: data.keyConfigured ? 'Proxy ready with API Key' : 'Proxy ready but API Key missing',
+        message: innerCheck.message || `Proxy ready, MCP: ${innerCheck.healthy ? 'OK' : 'FAIL'}`,
       };
     } catch (e) {
       return { healthy: false, latency: Math.round(performance.now() - start), message: String(e) };

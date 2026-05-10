@@ -1,10 +1,11 @@
 /**
- * CloudBase 云函数 - Investoday API 代理
+ * CloudBase 云函数 - Investoday API 代理 + 查询记录存储
  * 
  * 作用:
  * 1. 前端不直接暴露 investoday API Key
  * 2. 解决浏览器跨域限制
  * 3. 统一日志和错误处理
+ * 4. 提供 /upload-record 端点将查询记录写入 COS
  * 
  * CloudBase SCF 事件格式:
  * {
@@ -46,6 +47,11 @@ exports.main = async (event, context) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ healthy: true, keyConfigured: !!API_KEY }),
     };
+  }
+
+  // 查询记录上传
+  if (event.path === '/upload-record' || event.path === '/investoday-proxy/upload-record') {
+    return handleUploadRecord(event);
   }
 
   if (!API_KEY) {
@@ -105,6 +111,77 @@ exports.main = async (event, context) => {
     };
   }
 };
+
+/**
+ * 处理查询记录上传
+ */
+async function handleUploadRecord(event) {
+  try {
+    let body = event.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (e) {
+        return {
+          statusCode: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Invalid JSON body' }),
+        };
+      }
+    }
+
+    const { filename, data } = body || {};
+
+    if (!filename || !data) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing filename or data' }),
+      };
+    }
+
+    // 校验文件名格式：只允许 searches/YYYY-MM-DD/*.json
+    if (!/^searches\/\d{4}-\d{2}-\d{2}\/[^\/]+\.json$/.test(filename)) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Invalid filename format' }),
+      };
+    }
+
+    // 校验数据大小（不超过 50KB）
+    const dataStr = JSON.stringify(data);
+    if (Buffer.byteLength(dataStr) > 50 * 1024) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Data too large (max 50KB)' }),
+      };
+    }
+
+    // 使用 CloudBase Node SDK 上传文件到云存储（COS）
+    const cloudbase = require('@cloudbase/node-sdk');
+    const app = cloudbase.init({});
+
+    const result = await app.uploadFile({
+      cloudPath: filename,
+      fileContent: Buffer.from(dataStr),
+    });
+
+    console.log('[UploadRecord] Saved:', filename, 'fileID:', result.fileID);
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, fileID: result.fileID }),
+    };
+  } catch (error) {
+    console.error('[UploadRecord Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Upload failed', message: error.message }),
+    };
+  }
+}
 
 function proxyMCPRequest(body) {
   return new Promise((resolve, reject) => {

@@ -11,9 +11,11 @@ import type { StockInfo, MarketData, FinancialMetrics, Announcement, StockDataBu
 export class InvestodayMCPProvider extends DataProvider {
   private client: InvestodayMCPClient;
 
-  constructor(apiKey: string = '') {
+  constructor(apiKey: string = '', baseUrl?: string) {
     super('investoday-mcp', '1.0.0');
-    this.client = new InvestodayMCPClient(apiKey);
+    // 生产环境通过 CloudBase 云函数代理，无需 apiKey（key 在云函数环境变量中）
+    const cloudBaseUrl = import.meta.env.VITE_CLOUDBASE_API_URL;
+    this.client = new InvestodayMCPClient(apiKey, baseUrl || cloudBaseUrl);
   }
 
   setApiKey(key: string): void {

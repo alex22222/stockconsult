@@ -159,8 +159,11 @@ export class InvestodayMCPClient {
   private baseUrl: string = 'https://data-api.investoday.net/data/mcp/preset';
   private requestId: number = 0;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
+    if (baseUrl) {
+      this.baseUrl = baseUrl;
+    }
   }
 
   private async call(method: string, params?: Record<string, unknown>): Promise<unknown> {

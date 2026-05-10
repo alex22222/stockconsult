@@ -9,6 +9,7 @@ import { ReportGenerator } from '../../core/report-generator';
 import { AnnouncementSkill } from '../../core/skills/announcement/announcement-skill';
 import { FinancialSkill } from '../../core/skills/financial/financial-skill';
 import { ValuationSkill } from '../../core/skills/valuation/valuation-skill';
+import { logSearch } from '../../core/data/search-logger';
 
 // 初始化注册内置Skills
 function initSkills() {
@@ -51,9 +52,18 @@ interface AppState {
   selectStock: (stock: StockInfo) => void;
   analyzeStock: (code: string) => Promise<void>;
   clearResults: () => void;
-  setProvider: (provider: 'mock' | 'investoday-rest') => void;
+  setProvider: (provider: 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') => void;
   setApiKey: (key: string) => void;
   addToHistory: (stock: StockInfo) => void;
+}
+
+const initialProvider = (import.meta.env.VITE_DATA_PROVIDER as 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') || 'mock';
+
+// 同步 provider 到全局数据服务
+try {
+  globalDataService.setActiveProvider(initialProvider);
+} catch (e) {
+  console.warn('[AppStore] Failed to set initial provider:', e);
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -67,7 +77,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pipelineResult: null,
   report: null,
   history: [],
-  activeProvider: (import.meta.env.VITE_DATA_PROVIDER as 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') || 'mock',
+  activeProvider: initialProvider,
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
 
   setQuery: (query) => set({ query }),
@@ -81,6 +91,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const results = await globalDataService.searchStocks(query.trim());
       set({ searchResults: results, loadingState: 'idle', progress: 0 });
+      // 落库查询记录（静默失败）
+      logSearch(query.trim(), results.map(r => ({ code: r.code, name: r.name })));
     } catch (error) {
       set({ 
         loadingState: 'error', 
