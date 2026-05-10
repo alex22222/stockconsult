@@ -6,14 +6,20 @@
  * 2. 解决浏览器跨域限制
  * 3. 统一日志和错误处理
  * 
- * 部署后访问路径:
- * https://<你的云开发环境ID>.service.tcloudbase.com/investoday-proxy/api/stock/info?code=600519
+ * CloudBase SCF 事件格式:
+ * {
+ *   httpMethod: 'GET' | 'POST',
+ *   path: '/investoday-proxy/...',
+ *   queryString: {...},
+ *   headers: {...},
+ *   body: '...'
+ * }
  */
 
 const https = require('https');
 
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
-const API_KEY = process.env.INVESTODAY_API_KEY || '';
+const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
 const BASE_URL = 'data-api.investoday.net';
 
 // CORS 配置
@@ -34,7 +40,7 @@ exports.main = async (event, context) => {
   }
 
   // 健康检查
-  if (event.path === '/health') {
+  if (event.path === '/health' || event.path === '/investoday-proxy/health') {
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -50,27 +56,17 @@ exports.main = async (event, context) => {
     };
   }
 
-  // 提取 API 路径和参数
-  // CloudBase 云函数 event.path 格式示例: /investoday-proxy/api/stock/info
-  // 需要去掉云函数名称前缀
-  const pathParts = event.path.split('/');
-  // 找到 api 所在位置后的路径
-  const apiIndex = pathParts.indexOf('api');
-  const apiPath = apiIndex >= 0 ? '/' + pathParts.slice(apiIndex).join('/') : event.path;
-  
-  // 构建查询字符串
-  const queryString = event.queryString
-    ? Object.entries(event.queryString)
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join('&')
-    : '';
-  
-  const fullPath = apiPath + (queryString ? '?' + queryString : '');
-
-  console.log(`[Proxy] ${event.httpMethod} ${fullPath}`);
-
+  // 转发 MCP 请求到 investoday
   try {
-    const result = await proxyRequest(event.httpMethod || 'GET', fullPath);
+    // 解析请求体
+    let requestBody = event.body;
+    if (typeof requestBody === 'string') {
+      try { requestBody = JSON.parse(requestBody); } catch { /* keep as string */ }
+    }
+
+    // 调用 investoday MCP
+    const result = await proxyMCPRequest(requestBody);
+    
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -84,22 +80,23 @@ exports.main = async (event, context) => {
       body: JSON.stringify({ 
         error: 'Proxy request failed', 
         message: error.message,
-        path: fullPath,
       }),
     };
   }
 };
 
-function proxyRequest(method, path) {
+function proxyMCPRequest(body) {
   return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(body);
+    const url = new URL(`https://${BASE_URL}/data/mcp/preset?apiKey=${API_KEY}`);
+    
     const options = {
       hostname: BASE_URL,
-      path: path,
-      method: method,
+      path: `/data/mcp/preset?apiKey=${API_KEY}`,
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'StockConsult-CloudBase-Proxy/1.0',
+        'Content-Length': Buffer.byteLength(postData),
       },
       timeout: 15000,
     };
@@ -123,6 +120,7 @@ function proxyRequest(method, path) {
       reject(new Error('Request timeout'));
     });
 
+    req.write(postData);
     req.end();
   });
 }

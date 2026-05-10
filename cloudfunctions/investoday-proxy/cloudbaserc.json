@@ -1,0 +1,21 @@
+{
+  "envId": "stockconsult-d9g7b6ae5b8170e00",
+  "functions": [
+    {
+      "name": "investoday-proxy",
+      "handler": "index.main",
+      "runtime": "Nodejs18.15",
+      "timeout": 15,
+      "memorySize": 128,
+      "envVariables": {
+        "INVESTODAY_API_KEY": "cae27125ca0746c4b6ede2d77cd2dd11"
+      },
+      "triggers": [
+        {
+          "name": "http",
+          "type": "http"
+        }
+      ]
+    }
+  ]
+}
