@@ -96,8 +96,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const results = await globalDataService.searchStocks(query.trim());
       set({ searchResults: results, loadingState: 'idle', progress: 0 });
-      // 落库查询记录（静默失败）
-      logSearch(query.trim(), results.map(r => ({ code: r.code, name: r.name })));
+      // 落库查询记录（静默失败，不阻塞）
+      logSearch(query.trim(), results.map(r => ({ code: r.code, name: r.name }))).catch(() => {});
     } catch (error) {
       set({ 
         loadingState: 'error', 

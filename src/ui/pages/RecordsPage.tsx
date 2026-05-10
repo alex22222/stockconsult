@@ -142,10 +142,10 @@ export function RecordsPage() {
               <div className="space-y-2">
                 {grouped[date].map((record) => (
                   <button
-                    key={record.fileID}
-                    onClick={() => fetchDetail(record.fileID)}
+                    key={record.path}
+                    onClick={() => fetchDetail(record.path)}
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                      selectedFileID === record.fileID
+                      selectedFileID === record.path
                         ? 'border-blue-300 bg-blue-50 shadow-sm'
                         : 'border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm'
                     }`}
