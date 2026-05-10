@@ -153,8 +153,19 @@ export class InvestodayMCPProvider extends DataProvider {
   }
 
   async searchStocks(query: string): Promise<StockInfo[]> {
-    const entity = await this.client.recognizeEntity(query);
-    if (!entity || entity.type !== 'stock') {
+    // 输入校验：股票代码应为6位数字，或中文名称
+    const trimmed = query.trim();
+    const isValidCode = /^\d{6}$/.test(trimmed);
+    const isChineseName = /[\u4e00-\u9fa5]/.test(trimmed);
+    
+    if (!isValidCode && !isChineseName && trimmed.length < 2) {
+      return [];
+    }
+
+    const entity = await this.client.recognizeEntity(trimmed);
+    
+    // correlation 为0表示完全不相关，拒绝匹配
+    if (!entity || entity.type !== 'stock' || (entity.correlation !== undefined && entity.correlation <= 0)) {
       return [];
     }
 

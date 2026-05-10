@@ -64,6 +64,27 @@ exports.main = async (event, context) => {
       try { requestBody = JSON.parse(requestBody); } catch { /* keep as string */ }
     }
 
+    // 输入校验：entity_recognition 请求需要过滤低置信度结果
+    if (requestBody?.method === 'tools/call' && 
+        requestBody?.params?.name === 'entity_recognition') {
+      const input = requestBody.params.arguments?.input || '';
+      const trimmed = input.trim();
+      const isValidCode = /^\d{6}$/.test(trimmed);
+      const isChineseName = /[\u4e00-\u9fa5]/.test(trimmed);
+      
+      if (!isValidCode && !isChineseName && trimmed.length < 2) {
+        return {
+          statusCode: 200,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: requestBody.id,
+            result: { content: [{ type: 'text', text: JSON.stringify({ entities: [] }) }] }
+          }),
+        };
+      }
+    }
+
     // 调用 investoday MCP
     const result = await proxyMCPRequest(requestBody);
     

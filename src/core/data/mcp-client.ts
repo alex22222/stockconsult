@@ -220,7 +220,7 @@ export class InvestodayMCPClient {
   /**
    * 实体识别 - 从自然语言提取股票代码
    */
-  async recognizeEntity(input: string): Promise<{ code: string; name: string; type: string } | null> {
+  async recognizeEntity(input: string): Promise<{ code: string; name: string; type: string; correlation?: number } | null> {
     const result = await this.call('tools/call', {
       name: 'entity_recognition',
       arguments: { input },
