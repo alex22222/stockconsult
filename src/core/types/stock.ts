@@ -50,6 +50,7 @@ export interface MarketData {
   amplitude?: number;     // 振幅
   turnoverRate?: number;  // 换手率
   history: PricePoint[];  // 历史价格（如60日）
+  updateTime?: string;      // 行情更新时间，如 "2026-05-11 14:30:00"
 }
 
 // ============================================

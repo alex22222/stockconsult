@@ -128,6 +128,7 @@ export class InvestodayMCPProvider extends DataProvider {
         volume: Math.round(h.DEALSTOCKAMOUNT),
         turnover: Math.round(h.DEALMONEY / 10000),
       })),
+      updateTime: quote.dataTime,
     };
   }
 

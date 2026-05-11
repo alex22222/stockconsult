@@ -135,6 +135,11 @@ export function DashboardPage() {
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${dataBundle.market.changePercent >= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                       {dataBundle.market.changePercent >= 0 ? '+' : ''}{dataBundle.market.changePercent.toFixed(2)}%
                     </span>
+                    {dataBundle.market.updateTime && (
+                      <span className="text-[10px] text-gray-400 ml-1">
+                        {dataBundle.market.updateTime.split(' ')[1]?.slice(0, 5)}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
