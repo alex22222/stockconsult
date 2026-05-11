@@ -63,8 +63,8 @@ export function TableOfContents({ items }: TableOfContentsProps) {
   if (items.length === 0) return null;
 
   return (
-    <nav className="w-52 shrink-0">
-      <div className="sticky top-24">
+    <nav className="w-52 shrink-0 self-start">
+      <div className="sticky top-24 max-h-[calc(100vh-120px)] overflow-y-auto">
         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">
           目录
         </div>
