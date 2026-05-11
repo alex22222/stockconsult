@@ -116,15 +116,27 @@ export function DashboardPage() {
       {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 sticky top-14 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={handleBack} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button onClick={handleBack} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-lg font-bold text-gray-900">{stock.name}</span>
                 <span className="text-xs text-gray-400 font-mono">{stock.code}</span>
                 <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{stock.exchange}</span>
+                {/* 最新价格 */}
+                {dataBundle?.market?.price != null && dataBundle.market.price > 0 && (
+                  <div className="flex items-center gap-2 ml-1">
+                    <span className="text-lg font-bold text-gray-900">{dataBundle.market.price.toFixed(2)}</span>
+                    <span className={`text-sm font-medium ${dataBundle.market.change >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      {dataBundle.market.change >= 0 ? '+' : ''}{dataBundle.market.change.toFixed(2)}
+                    </span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${dataBundle.market.changePercent >= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                      {dataBundle.market.changePercent >= 0 ? '+' : ''}{dataBundle.market.changePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="text-xs text-gray-500">
                 {stock.industry ? `${stock.industry}` : ''}
@@ -134,7 +146,7 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <RatingBadge rating={coreView.rating} size="sm" />
             <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
               <Download className="w-4 h-4" />
