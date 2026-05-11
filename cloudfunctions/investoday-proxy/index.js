@@ -20,7 +20,7 @@
 const https = require('https');
 
 // 版本标记（用于确认部署生效）
-const VERSION = '2026-05-11-v4';
+const VERSION = '2026-05-11-v5';
 
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
 const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
@@ -87,6 +87,11 @@ exports.main = async (event, context) => {
   // 查询记录详情
   if (event.path === '/get-record' || event.path === '/investoday-proxy/get-record') {
     return handleGetRecord(event);
+  }
+
+  // 重建索引（扫描 COS 文件重建 index.json）
+  if (event.path === '/rebuild-index' || event.path === '/investoday-proxy/rebuild-index') {
+    return handleRebuildIndex(event);
   }
 
   // Web Search（补充个股信息）
@@ -179,26 +184,62 @@ async function readIndexFile() {
       });
     });
     const data = JSON.parse(result.Body.toString('utf-8'));
-    return data;
+    // 返回数据和 ETag（用于 CAS 乐观锁）
+    return { records: Array.isArray(data) ? data : [], etag: result.ETag };
   } catch (e) {
-    return [];
+    return { records: [], etag: null };
   }
 }
 
-async function saveIndexFile(records) {
+async function saveIndexFile(records, expectedEtag) {
   const cos = getCOSClient();
-  await new Promise((resolve, reject) => {
-    cos.putObject({
-      Bucket: COS_BUCKET,
-      Region: COS_REGION,
-      Key: 'searches/index.json',
-      Body: Buffer.from(JSON.stringify(records)),
-      ContentType: 'application/json',
-    }, (err, data) => {
+  const params = {
+    Bucket: COS_BUCKET,
+    Region: COS_REGION,
+    Key: 'searches/index.json',
+    Body: Buffer.from(JSON.stringify(records)),
+    ContentType: 'application/json',
+  };
+  // 如果有期望的 ETag，使用 If-Match 条件写入（CAS）
+  if (expectedEtag) {
+    params.IfMatch = expectedEtag;
+  }
+  return new Promise((resolve, reject) => {
+    cos.putObject(params, (err, data) => {
       if (err) reject(err);
       else resolve(data);
     });
   });
+}
+
+/**
+ * CAS 更新索引文件（带重试）
+ * 防止并发覆盖：读取→校验 ETag→合并→写入，ETag 冲突则重试
+ */
+async function updateIndexFile(newRecord, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const { records, etag } = await readIndexFile();
+      // 去重：同路径只保留最新
+      const filtered = records.filter(r => r.path !== newRecord.path);
+      filtered.unshift(newRecord);
+      // 最多保留 500 条
+      const trimmed = filtered.slice(0, 500);
+      await saveIndexFile(trimmed, etag);
+      console.log('[Index] Updated successfully, attempt:', attempt + 1);
+      return { success: true };
+    } catch (error) {
+      // 412 Precondition Failed = ETag 冲突（并发写入），需要重试
+      if (error.statusCode === 412 || error.code === 'PreconditionFailed') {
+        console.warn(`[Index] CAS conflict, retrying... (${attempt + 1}/${maxRetries})`);
+        // 指数退避等待
+        await new Promise(r => setTimeout(r, 100 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`Failed to update index after ${maxRetries} retries due to CAS conflicts`);
 }
 
 /**
@@ -254,8 +295,7 @@ async function handleUploadRecord(event) {
       fileContent: Buffer.from(dataStr),
     });
 
-    // 2. 更新索引文件
-    const index = await readIndexFile();
+    // 2. CAS 更新索引文件（防止并发覆盖）
     const dateMatch = filename.match(/^searches\/(\d{4}-\d{2}-\d{2})\/(.+)\.json$/);
     const newRecord = {
       query: data.query,
@@ -268,11 +308,7 @@ async function handleUploadRecord(event) {
       name: dateMatch ? dateMatch[2].replace(/_/g, ' ') : filename,
       size: Buffer.byteLength(dataStr),
     };
-    // 去重：同路径只保留最新
-    const filtered = index.filter(r => r.path !== filename);
-    filtered.unshift(newRecord);
-    // 最多保留 500 条
-    await saveIndexFile(filtered.slice(0, 500));
+    await updateIndexFile(newRecord);
 
     return {
       statusCode: 200,
@@ -294,7 +330,7 @@ async function handleUploadRecord(event) {
  */
 async function handleListRecords(event) {
   try {
-    const records = await readIndexFile();
+    const { records } = await readIndexFile();
 
     return {
       statusCode: 200,
@@ -307,6 +343,108 @@ async function handleListRecords(event) {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ error: 'List records failed', message: error.message }),
+    };
+  }
+}
+
+/**
+ * 重建索引：扫描 COS 中所有 searches/ 下的文件，重建 index.json
+ */
+async function handleRebuildIndex(event) {
+  try {
+    const cos = getCOSClient();
+
+    // 1. 列出所有 searches/ 前缀的文件
+    const allFiles = [];
+    let marker = null;
+    const prefix = 'searches/';
+
+    do {
+      const result = await new Promise((resolve, reject) => {
+        cos.getBucket({
+          Bucket: COS_BUCKET,
+          Region: COS_REGION,
+          Prefix: prefix,
+          MaxKeys: 1000,
+          Marker: marker,
+        }, (err, data) => {
+          if (err) reject(err);
+          else resolve(data);
+        });
+      });
+
+      const contents = result.Contents || [];
+      for (const item of contents) {
+        if (item.Key !== 'searches/index.json' && item.Key.endsWith('.json')) {
+          allFiles.push(item.Key);
+        }
+      }
+      marker = result.IsTruncated ? result.NextMarker : null;
+    } while (marker);
+
+    console.log(`[RebuildIndex] Found ${allFiles.length} record files`);
+
+    // 2. 读取每个文件内容
+    const records = [];
+    for (const key of allFiles) {
+      try {
+        const result = await new Promise((resolve, reject) => {
+          cos.getObject({
+            Bucket: COS_BUCKET,
+            Region: COS_REGION,
+            Key: key,
+          }, (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+          });
+        });
+        const content = JSON.parse(result.Body.toString('utf-8'));
+        const dateMatch = key.match(/^searches\/(\d{4}-\d{2}-\d{2})\/(.+)\.json$/);
+        records.push({
+          query: content.query || '',
+          results: content.results || [],
+          timestamp: content.timestamp || new Date().toISOString(),
+          source: content.source || 'web',
+          path: key,
+          date: dateMatch ? dateMatch[1] : '',
+          name: dateMatch ? dateMatch[2].replace(/_/g, ' ') : key,
+          size: result.Body.length,
+        });
+      } catch (e) {
+        console.warn(`[RebuildIndex] Failed to read ${key}:`, e.message);
+      }
+    }
+
+    // 3. 按时间倒序排序，去重（同路径保留最新）
+    const seen = new Set();
+    const uniqueRecords = [];
+    for (const r of records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))) {
+      if (!seen.has(r.path)) {
+        seen.add(r.path);
+        uniqueRecords.push(r);
+      }
+    }
+
+    // 4. 写入索引（最多 500 条）
+    const finalRecords = uniqueRecords.slice(0, 500);
+    await saveIndexFile(finalRecords, null);
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        message: `Index rebuilt: ${finalRecords.length} records`,
+        scanned: allFiles.length,
+        rebuilt: finalRecords.length,
+      }),
+    };
+  } catch (error) {
+    console.error('[RebuildIndex Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Rebuild failed', message: error.message }),
     };
   }
 }
