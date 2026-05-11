@@ -110,6 +110,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectStock: (stock) => {
     set({ selectedStock: stock, query: stock.name });
     get().addToHistory(stock);
+    // 落库查询记录（点击热门股票、历史记录、搜索结果时也会记录）
+    logSearch(stock.name, [{ code: stock.code, name: stock.name }]).catch(() => {});
   },
 
   analyzeStock: async (code) => {

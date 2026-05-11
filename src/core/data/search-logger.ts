@@ -12,6 +12,10 @@ export interface SearchRecord {
   source: string;
 }
 
+function pad(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+
 /**
  * 记录一次查询到 COS
  * 静默失败，不阻断主流程
@@ -23,8 +27,16 @@ export async function logSearch(query: string, results: Array<{ code: string; na
   }
 
   const now = new Date();
-  const dateStr = now.toISOString().split('T')[0];
-  const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+  // 统一使用本地时间生成文件名，避免 UTC/本地混用
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours());
+  const minutes = pad(now.getMinutes());
+  const seconds = pad(now.getSeconds());
+
+  const dateStr = `${year}-${month}-${day}`;
+  const timeStr = `${hours}-${minutes}-${seconds}`;
   const safeQuery = query.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '_').slice(0, 20);
   const filename = `searches/${dateStr}/${timeStr}_${safeQuery}.json`;
 
@@ -36,6 +48,7 @@ export async function logSearch(query: string, results: Array<{ code: string; na
   };
 
   try {
+    console.log('[SearchLogger] Uploading:', filename, 'results:', results.length);
     const response = await fetch(`${CLOUDBASE_API_URL}/upload-record`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,13 +56,15 @@ export async function logSearch(query: string, results: Array<{ code: string; na
     });
 
     if (!response.ok) {
-      console.warn('[SearchLogger] Upload failed:', response.status);
+      console.warn('[SearchLogger] Upload failed:', response.status, await response.text().catch(() => ''));
       return;
     }
 
     const result = await response.json().catch(() => null);
     if (result?.success) {
       console.log('[SearchLogger] Record saved:', filename);
+    } else {
+      console.warn('[SearchLogger] Upload returned:', result);
     }
   } catch (error) {
     console.warn('[SearchLogger] Error:', error);
