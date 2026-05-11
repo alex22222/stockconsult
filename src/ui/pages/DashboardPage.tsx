@@ -546,8 +546,10 @@ export function DashboardPage() {
         </div>
           </div>
           {/* 右侧目录导航 */}
-          <div className="hidden xl:block">
-            <TableOfContents items={tocItems} />
+          <div className="hidden xl:block w-52 shrink-0">
+            <div className="sticky top-24">
+              <TableOfContents items={tocItems} />
+            </div>
           </div>
         </div>
       </div>

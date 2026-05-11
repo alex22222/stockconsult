@@ -28,7 +28,6 @@ export function TableOfContents({ items }: TableOfContentsProps) {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // 收集所有可见的 section
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -48,7 +47,6 @@ export function TableOfContents({ items }: TableOfContentsProps) {
       if (el) observer.observe(el);
     });
 
-    // 初始化：滚动到顶部时高亮第一个
     const first = document.getElementById(items[0]?.id);
     if (first) {
       const rect = first.getBoundingClientRect();
@@ -63,29 +61,27 @@ export function TableOfContents({ items }: TableOfContentsProps) {
   if (items.length === 0) return null;
 
   return (
-    <nav className="w-52 shrink-0 self-start">
-      <div className="sticky top-24 max-h-[calc(100vh-120px)] overflow-y-auto">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">
-          目录
-        </div>
-        <ul className="space-y-0.5">
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                onClick={() => handleClick(item.id)}
-                className={clsx(
-                  'w-full text-left px-3 py-1.5 text-sm rounded-lg transition-all duration-200 border-l-2',
-                  activeId === item.id
-                    ? 'text-blue-700 bg-blue-50 border-blue-500 font-medium'
-                    : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
-                )}
-              >
-                {item.label}
-              </button>
-            </li>
-          ))}
-        </ul>
+    <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">
+        目录
       </div>
-    </nav>
+      <ul className="space-y-0.5">
+        {items.map((item) => (
+          <li key={item.id}>
+            <button
+              onClick={() => handleClick(item.id)}
+              className={clsx(
+                'w-full text-left px-2 py-1.5 text-sm rounded-md transition-all duration-200 border-l-2',
+                activeId === item.id
+                  ? 'text-blue-700 bg-blue-50 border-blue-500 font-medium'
+                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
+              )}
+            >
+              {item.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
