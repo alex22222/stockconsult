@@ -9,12 +9,16 @@ interface PriceChartProps {
 export function PriceChart({ data, height = 280 }: PriceChartProps) {
   if (!data || data.length === 0) return null;
 
-  const minPrice = Math.min(...data.map(d => d.low));
-  const maxPrice = Math.max(...data.map(d => d.high));
+  // 过滤掉无效数据点（close <= 0）
+  const validData = data.filter(d => d.close > 0 && d.date);
+  if (validData.length === 0) return null;
+
+  const minPrice = Math.min(...validData.map(d => d.low));
+  const maxPrice = Math.max(...validData.map(d => d.high));
   const padding = (maxPrice - minPrice) * 0.1;
 
   // 简化日期显示
-  const formattedData = data.map(d => ({
+  const formattedData = validData.map(d => ({
     ...d,
     label: d.date.slice(5), // MM-DD
   }));

@@ -159,9 +159,11 @@ export class ReportGenerator {
       description: n.content?.slice(0, 100) || n.title,
     }));
 
-    const recentEvents = [...announcementEvents, ...newsEvents].sort((a, b) => {
-      return (b.date || '').localeCompare(a.date || '');
-    }).slice(0, 10);
+    const recentEvents = [...announcementEvents, ...newsEvents]
+      .filter((event, index, self) => index === self.findIndex((e) => e.title === event.title))
+      .sort((a, b) => {
+        return (b.date || '').localeCompare(a.date || '');
+      }).slice(0, 10);
 
     // 情感分析（来自 MCP 公告）
     const sentimentStats = annData.sentimentStats || { positive: 0, neutral: 0, negative: 0, total: 0 };
@@ -380,28 +382,30 @@ export class ReportGenerator {
     const finData = finResult?.data as any;
     const valData = valResult?.data as any;
 
-    parts.push(`${stock.name}（${stock.code}）`);
+    // 开头定位：一句话摘要已展示名称，此处不再重复
     if (stock.industry) {
-      parts.push(`是${stock.industry}行业的代表性企业。`);
+      parts.push(`公司深耕${stock.industry}领域`);
     } else {
-      parts.push('。');
+      parts.push('公司');
     }
-    
+
     const revenueGrowth = financial.revenueGrowth ?? finData?.revenue?.yoy;
     if (revenueGrowth != null && revenueGrowth > 0) {
-      parts.push(`公司营收保持增长，最新季度同比增长${revenueGrowth}%。`);
+      parts.push(`，营收保持增长，最新季度同比增长${revenueGrowth}%`);
     }
-    
+
     if (financial.roe > 15) {
-      parts.push(`ROE维持在${financial.roe}%的较高水平，股东回报能力突出。`);
+      parts.push(`；ROE维持在${financial.roe}%的较高水平，股东回报能力突出`);
     }
 
     if (valData?.compositeRating && valData?.compositeBand) {
-      parts.push(`当前估值${valData.compositeBand}，PE位于历史${valData.pePercentile}%分位。`);
+      parts.push(`；当前估值${valData.compositeBand}，PE位于历史${valData.pePercentile}%分位`);
     }
 
     if (stock.mainBusiness) {
-      parts.push(`主营业务：${stock.mainBusiness.slice(0, 60)}${stock.mainBusiness.length > 60 ? '...' : ''}`);
+      parts.push(`。主营业务：${stock.mainBusiness.slice(0, 60)}${stock.mainBusiness.length > 60 ? '...' : ''}`);
+    } else {
+      parts.push('。');
     }
 
     return parts.join('');
