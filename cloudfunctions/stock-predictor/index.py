@@ -106,7 +106,7 @@ def _predict(symbol, stock_name):
     weights = prediction.get('model_weights', {})
 
     model_votes = []
-    for model_name in ['xgboost', 'lightgbm', 'catboost', 'random_forest']:
+    for model_name in ['gradient_boosting', 'random_forest', 'extra_trees', 'logistic_regression']:
         if model_name in individual:
             prob = probs.get(model_name, {})
             model_votes.append({
