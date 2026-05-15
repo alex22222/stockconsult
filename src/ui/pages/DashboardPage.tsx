@@ -1,4 +1,5 @@
-import { ArrowLeft, Download, Loader2, AlertCircle, Newspaper, Building2, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Download, Loader2, AlertCircle, Newspaper, Building2, TrendingUp, TrendingDown, Minus, ExternalLink, Star, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Insight } from '../../core/types/skill';
 import type { AnalysisReport } from '../../core/types/analysis';
 import type { NewsItem, ResearchReport } from '../../core/types/stock';
@@ -8,6 +9,7 @@ import { MetricCard } from '../components/common/MetricCard';
 import { InsightTag } from '../components/common/InsightTag';
 import { PriceChart } from '../components/charts/PriceChart';
 import { TableOfContents } from '../components/common/TableOfContents';
+import { AIPredictionPanel } from '../components/AIPredictionPanel';
 
 function RatingLabel({ rating }: { rating: ResearchReport['rating'] }) {
   const config: Record<ResearchReport['rating'], { text: string; class: string }> = {
@@ -41,7 +43,8 @@ function SentimentBadge({ sentiment }: { sentiment?: 'positive' | 'neutral' | 'n
 }
 
 export function DashboardPage() {
-  const { report, dataBundle, loadingState, errorMessage, selectedStock, clearResults, analyzeStock } = useAppStore();
+  const { report, dataBundle, loadingState, errorMessage, selectedStock, clearResults, analyzeStock, favorites, removeFromFavorites, selectStock } = useAppStore();
+  const [favExpanded, setFavExpanded] = useState(true);
 
   const handleBack = () => {
     clearResults();
@@ -78,7 +81,7 @@ export function DashboardPage() {
           <button onClick={handleRetry} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
             重试
           </button>
-          <button onClick={handleBack} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+          <button onClick={handleBack} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
             返回搜索
           </button>
         </div>
@@ -197,6 +200,11 @@ export function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* AI 涨跌预测 */}
+        {selectedStock && (
+          <AIPredictionPanel stockCode={selectedStock.code} stockName={selectedStock.name} />
+        )}
 
         {/* 价格走势 */}
         {dataBundle?.market?.history && dataBundle.market.history.length > 0 && (
@@ -563,8 +571,68 @@ export function DashboardPage() {
         </div>
           </div>
           {/* 右侧目录导航 */}
-          <div className="hidden xl:block w-52 shrink-0">
-            <div className="sticky top-24">
+          <div className="hidden xl:block w-52 shrink-0 space-y-4">
+            <div className="sticky top-24 space-y-4">
+              {/* 我的收藏 */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setFavExpanded(!favExpanded)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                    <span className="text-xs font-semibold text-gray-700">我的收藏</span>
+                    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                      {favorites.length}/10
+                    </span>
+                  </div>
+                  {favExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                  )}
+                </button>
+
+                {favExpanded && (
+                  <div className="border-t border-gray-100">
+                    {favorites.length === 0 ? (
+                      <div className="px-3 py-4 text-center">
+                        <Star className="w-6 h-6 text-gray-200 mx-auto mb-1.5" />
+                        <p className="text-[11px] text-gray-400">暂无收藏</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-50">
+                        {favorites.map((stock) => (
+                          <div key={stock.code} className="group flex items-center gap-1.5 px-2 py-2">
+                            <button
+                              onClick={() => {
+                                selectStock(stock);
+                                analyzeStock(stock.code);
+                              }}
+                              className="flex-1 flex items-center gap-1.5 text-left min-w-0"
+                            >
+                              <div className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
+                                {stock.name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium text-gray-800 truncate">{stock.name}</div>
+                                <div className="text-[10px] text-gray-400">{stock.code}</div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => removeFromFavorites(stock.code)}
+                              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                              title="移除收藏"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <TableOfContents items={tocItems} />
             </div>
           </div>

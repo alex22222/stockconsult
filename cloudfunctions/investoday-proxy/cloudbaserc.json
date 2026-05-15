@@ -5,11 +5,23 @@
       "name": "investoday-proxy",
       "handler": "index.main",
       "runtime": "Nodejs18.15",
-      "timeout": 15,
-      "memorySize": 128,
+      "timeout": 120,
+      "memorySize": 256,
       "envVariables": {
         "INVESTODAY_API_KEY": "cae27125ca0746c4b6ede2d77cd2dd11"
-      }
+      },
+      "triggers": [
+        {
+          "name": "daily-predict",
+          "type": "timer",
+          "config": "0 0 21 * * * *"
+        },
+        {
+          "name": "daily-verify",
+          "type": "timer",
+          "config": "0 35 15 * * * *"
+        }
+      ]
     }
   ]
 }

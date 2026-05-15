@@ -10,6 +10,21 @@ import { AnnouncementSkill } from '../../core/skills/announcement/announcement-s
 import { FinancialSkill } from '../../core/skills/financial/financial-skill';
 import { ValuationSkill } from '../../core/skills/valuation/valuation-skill';
 import { logSearch } from '../../core/data/search-logger';
+import { logReport } from '../../core/data/report-logger';
+
+const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+
+// 默认热门股票
+const DEFAULT_HOT_STOCKS: StockInfo[] = [
+  { code: '600519', name: '贵州茅台', exchange: 'SSE', industry: '白酒', marketCap: 0 },
+  { code: '000858', name: '五粮液', exchange: 'SZSE', industry: '白酒', marketCap: 0 },
+  { code: '300750', name: '宁德时代', exchange: 'SZSE', industry: '动力电池', marketCap: 0 },
+  { code: '000333', name: '美的集团', exchange: 'SZSE', industry: '白色家电', marketCap: 0 },
+  { code: '601318', name: '中国平安', exchange: 'SSE', industry: '保险', marketCap: 0 },
+  { code: '600036', name: '招商银行', exchange: 'SSE', industry: '银行', marketCap: 0 },
+  { code: '002594', name: '比亚迪', exchange: 'SZSE', industry: '汽车', marketCap: 0 },
+  { code: '00700', name: '腾讯控股', exchange: 'HKEX', industry: '互联网', marketCap: 0 },
+];
 
 // 初始化注册内置Skills
 function initSkills() {
@@ -41,13 +56,25 @@ interface AppState {
   
   // 历史记录
   history: StockInfo[];
-  
+
+  // 热门股票（查询自动添加）
+  hotStocks: StockInfo[];
+
+  // 我的收藏（最多10个）
+  favorites: StockInfo[];
+
   // 设置
   activeProvider: 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase';
   apiKey: string;
-  
+
+  // 主题
+  theme: 'light' | 'dark';
+
   // 查询记录
   showRecordsPage: boolean;
+
+  // 占卜师频道
+  showFortunePage: boolean;
 
   // Actions
   setQuery: (query: string) => void;
@@ -59,6 +86,13 @@ interface AppState {
   setApiKey: (key: string) => void;
   addToHistory: (stock: StockInfo) => void;
   toggleRecordsPage: (show?: boolean) => void;
+  toggleFortunePage: (show?: boolean) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  addToHotStocks: (stock: StockInfo) => void;
+  addToFavorites: (stock: StockInfo) => Promise<boolean>;
+  removeFromFavorites: (code: string) => Promise<void>;
+  isFavorite: (code: string) => boolean;
+  loadFavorites: () => Promise<void>;
 }
 
 const initialProvider = (import.meta.env.VITE_DATA_PROVIDER as 'mock' | 'investoday-rest' | 'investoday-mcp' | 'cloudbase') || 'mock';
@@ -81,9 +115,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   pipelineResult: null,
   report: null,
   history: [],
+  hotStocks: [...DEFAULT_HOT_STOCKS],
+  favorites: [],
   activeProvider: initialProvider,
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
+  theme: (localStorage.getItem('stockconsult-theme') as 'light' | 'dark') || 'light',
   showRecordsPage: false,
+  showFortunePage: false,
 
   setQuery: (query) => set({ query }),
 
@@ -96,6 +134,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const results = await globalDataService.searchStocks(query.trim());
       set({ searchResults: results, loadingState: 'idle', progress: 0 });
+      // 搜索到的股票自动加入热门
+      results.forEach(r => get().addToHotStocks(r));
       // 落库查询记录（静默失败，不阻塞）
       logSearch(query.trim(), results.map(r => ({ code: r.code, name: r.name }))).catch(() => {});
     } catch (error) {
@@ -110,6 +150,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectStock: (stock) => {
     set({ selectedStock: stock, query: stock.name });
     get().addToHistory(stock);
+    get().addToHotStocks(stock);
     // 落库查询记录（点击热门股票、历史记录、搜索结果时也会记录）
     logSearch(stock.name, [{ code: stock.code, name: stock.name }]).catch(() => {});
   },
@@ -142,6 +183,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 3. 生成报告
       const report = ReportGenerator.generate(dataBundle.info, dataBundle, pipelineResult);
       set({ report, loadingState: 'completed', progress: 100 });
+
+      // 4. 保存完整分析报告到 COS（静默失败）
+      const currentQuery = get().query || dataBundle.info.name;
+      logReport(currentQuery, report, dataBundle).catch(() => {});
 
     } catch (error) {
       set({
@@ -182,5 +227,90 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       showRecordsPage: show !== undefined ? show : !state.showRecordsPage,
     }));
+  },
+
+  toggleFortunePage: (show) => {
+    set((state) => ({
+      showFortunePage: show !== undefined ? show : !state.showFortunePage,
+    }));
+  },
+
+  setTheme: (theme) => {
+    localStorage.setItem('stockconsult-theme', theme);
+    set({ theme });
+  },
+
+  addToHotStocks: (stock) => {
+    set((state) => ({
+      hotStocks: [stock, ...state.hotStocks.filter(s => s.code !== stock.code)].slice(0, 12),
+    }));
+  },
+
+  addToFavorites: async (stock) => {
+    const state = get();
+    if (state.favorites.some(s => s.code === stock.code)) return false;
+
+    // 乐观更新本地状态
+    set((s) => ({ favorites: [stock, ...s.favorites].slice(0, 10) }));
+
+    // 同步到数据库（静默失败）
+    if (CLOUDBASE_API_URL) {
+      try {
+        const res = await fetch(`${CLOUDBASE_API_URL}/favorites`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(stock),
+        });
+        const data = await res.json();
+        if (!data.success && data.error) {
+          console.warn('[Favorites] DB add failed:', data.error);
+        }
+      } catch (e) {
+        console.warn('[Favorites] DB add error:', e);
+      }
+    }
+    return true;
+  },
+
+  removeFromFavorites: async (code) => {
+    // 乐观更新本地状态
+    set((state) => ({
+      favorites: state.favorites.filter(s => s.code !== code),
+    }));
+
+    // 同步到数据库（静默失败）
+    if (CLOUDBASE_API_URL) {
+      try {
+        await fetch(`${CLOUDBASE_API_URL}/favorites?code=${encodeURIComponent(code)}`, {
+          method: 'DELETE',
+        });
+      } catch (e) {
+        console.warn('[Favorites] DB remove error:', e);
+      }
+    }
+  },
+
+  isFavorite: (code) => {
+    return get().favorites.some(s => s.code === code);
+  },
+
+  loadFavorites: async () => {
+    if (!CLOUDBASE_API_URL) return;
+    try {
+      const res = await fetch(`${CLOUDBASE_API_URL}/favorites`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.favorites)) {
+        const mapped: StockInfo[] = data.favorites.map((f: any) => ({
+          code: f.code,
+          name: f.name,
+          industry: f.industry || '',
+          exchange: (f.exchange || 'SSE') as StockInfo['exchange'],
+          marketCap: f.marketCap || 0,
+        }));
+        set({ favorites: mapped });
+      }
+    } catch (e) {
+      console.warn('[Favorites] Load failed:', e);
+    }
   },
 }));

@@ -1,0 +1,14 @@
+{
+  "envId": "stockconsult-d9g7b6ae5b8170e00",
+  "functions": [
+    {
+      "name": "stock-predictor",
+      "handler": "index.main",
+      "runtime": "Python3.9",
+      "timeout": 120,
+      "memorySize": 1024,
+      "installDependency": true,
+      "envVariables": {}
+    }
+  ]
+}

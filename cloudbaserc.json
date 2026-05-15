@@ -26,18 +26,43 @@
           "functions": [
             {
               "name": "investoday-proxy",
-              "timeout": 15,
+              "timeout": 120,
               "envVariables": {
                 "INVESTODAY_API_KEY": "${env.INVESTODAY_API_KEY}"
               },
               "handler": "index.main",
               "runtime": "Nodejs18",
-              "memorySize": 128,
+              "memorySize": 256,
               "triggers": [
                 {
                   "name": "http",
                   "type": "http",
                   "path": "/investoday-proxy"
+                },
+                {
+                  "name": "daily-predict",
+                  "type": "timer",
+                  "config": "0 0 21 * * * *"
+                },
+                {
+                  "name": "daily-verify",
+                  "type": "timer",
+                  "config": "0 35 15 * * * *"
+                }
+              ]
+            },
+            {
+              "name": "stock-predictor",
+              "timeout": 120,
+              "envVariables": {},
+              "handler": "index.main",
+              "runtime": "Python3.9",
+              "memorySize": 1024,
+              "triggers": [
+                {
+                  "name": "http",
+                  "type": "http",
+                  "path": "/stock-predictor"
                 }
               ]
             }

@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Header } from './ui/components/layout/Header';
 import { SearchPage } from './ui/pages/SearchPage';
 import { DashboardPage } from './ui/pages/DashboardPage';
 import { RecordsPage } from './ui/pages/RecordsPage';
+import { FortuneTellerPage } from './ui/pages/FortuneTellerPage';
 import { useAppStore } from './ui/store/app-store';
 
 function App() {
@@ -9,13 +11,37 @@ function App() {
   const loadingState = useAppStore((s) => s.loadingState);
   const selectedStock = useAppStore((s) => s.selectedStock);
   const showRecordsPage = useAppStore((s) => s.showRecordsPage);
+  const showFortunePage = useAppStore((s) => s.showFortunePage);
+  const loadFavorites = useAppStore((s) => s.loadFavorites);
+  const theme = useAppStore((s) => s.theme);
+
+  // 初始化加载收藏列表
+  useEffect(() => {
+    loadFavorites();
+  }, [loadFavorites]);
+
+  // 同步主题到 html 元素
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const showDashboard = selectedStock && (report || loadingState === 'analyzing' || loadingState === 'error');
 
+  function renderPage() {
+    if (showFortunePage) return <FortuneTellerPage />;
+    if (showRecordsPage) return <RecordsPage />;
+    if (showDashboard) return <DashboardPage />;
+    return <SearchPage />;
+  }
+
   return (
-    <div className="min-h-svh flex flex-col bg-gray-50">
+    <div className="min-h-svh flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
-      {showRecordsPage ? <RecordsPage /> : showDashboard ? <DashboardPage /> : <SearchPage />}
+      {renderPage()}
     </div>
   );
 }
