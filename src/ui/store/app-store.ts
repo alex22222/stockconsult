@@ -79,6 +79,9 @@ interface AppState {
   // 模型原理说明
   showModelDocPage: boolean;
 
+  // 露笑科技预测历史
+  showLuxiaoHistoryPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -91,6 +94,7 @@ interface AppState {
   toggleRecordsPage: (show?: boolean) => void;
   toggleFortunePage: (show?: boolean) => void;
   toggleModelDocPage: (show?: boolean) => void;
+  toggleLuxiaoHistoryPage: (show?: boolean) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -127,6 +131,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showRecordsPage: false,
   showFortunePage: false,
   showModelDocPage: false,
+  showLuxiaoHistoryPage: false,
 
   setQuery: (query) => set({ query }),
 
@@ -243,6 +248,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleModelDocPage: (show) => {
     set((state) => ({
       showModelDocPage: show !== undefined ? show : !state.showModelDocPage,
+    }));
+  },
+
+  toggleLuxiaoHistoryPage: (show) => {
+    set((state) => ({
+      showLuxiaoHistoryPage: show !== undefined ? show : !state.showLuxiaoHistoryPage,
     }));
   },
 

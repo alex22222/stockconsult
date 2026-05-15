@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -84,6 +84,8 @@ export function Header() {
   const toggleFortunePage = useAppStore((s) => s.toggleFortunePage);
   const showModelDocPage = useAppStore((s) => s.showModelDocPage);
   const toggleModelDocPage = useAppStore((s) => s.toggleModelDocPage);
+  const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
+  const toggleLuxiaoHistoryPage = useAppStore((s) => s.toggleLuxiaoHistoryPage);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
@@ -172,6 +174,17 @@ export function Header() {
             >
               <BrainCircuit className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">模型说明</span>
+            </button>
+            <button
+              onClick={() => toggleLuxiaoHistoryPage(!showLuxiaoHistoryPage)}
+              className={`text-xs px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-colors ${
+                showLuxiaoHistoryPage
+                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">露笑预测</span>
             </button>
             <button
               onClick={() => toggleRecordsPage(!showRecordsPage)}

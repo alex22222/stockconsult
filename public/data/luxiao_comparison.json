@@ -1,0 +1,65 @@
+{
+  "symbol": "002617",
+  "name": "露笑科技",
+  "updatedAt": "2026-05-16 01:37:32",
+  "latest": {
+    "predictDate": "2026-05-16",
+    "localModel": {
+      "prediction": "跌",
+      "upProbability": 22.08,
+      "downProbability": 77.92,
+      "confidence": 77.92
+    },
+    "cloudModel": {
+      "prediction": "涨",
+      "upProbability": 71,
+      "downProbability": 29,
+      "confidence": 42,
+      "factorScores": {
+        "trend": 85,
+        "momentum": 97,
+        "volume": 50,
+        "technical": 53
+      }
+    },
+    "verified": false,
+    "actualResult": null,
+    "actualChangePercent": null,
+    "localCorrect": null,
+    "cloudCorrect": null
+  },
+  "stats": {
+    "total": 1,
+    "verified": 0,
+    "localAccuracy": null,
+    "cloudAccuracy": null
+  },
+  "history": [
+    {
+      "predictDate": "2026-05-16",
+      "localModel": {
+        "prediction": "跌",
+        "upProbability": 22.08,
+        "downProbability": 77.92,
+        "confidence": 77.92
+      },
+      "cloudModel": {
+        "prediction": "涨",
+        "upProbability": 71,
+        "downProbability": 29,
+        "confidence": 42,
+        "factorScores": {
+          "trend": 85,
+          "momentum": 97,
+          "volume": 50,
+          "technical": 53
+        }
+      },
+      "verified": false,
+      "actualResult": null,
+      "actualChangePercent": null,
+      "localCorrect": null,
+      "cloudCorrect": null
+    }
+  ]
+}

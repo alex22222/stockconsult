@@ -5,6 +5,7 @@ import { DashboardPage } from './ui/pages/DashboardPage';
 import { RecordsPage } from './ui/pages/RecordsPage';
 import { FortuneTellerPage } from './ui/pages/FortuneTellerPage';
 import { ModelDocPage } from './ui/pages/ModelDocPage';
+import { LuxiaoHistoryPage } from './ui/pages/LuxiaoHistoryPage';
 import { useAppStore } from './ui/store/app-store';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
   const showRecordsPage = useAppStore((s) => s.showRecordsPage);
   const showFortunePage = useAppStore((s) => s.showFortunePage);
   const showModelDocPage = useAppStore((s) => s.showModelDocPage);
+  const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
   const loadFavorites = useAppStore((s) => s.loadFavorites);
   const theme = useAppStore((s) => s.theme);
 
@@ -34,6 +36,7 @@ function App() {
   const showDashboard = selectedStock && (report || loadingState === 'analyzing' || loadingState === 'error');
 
   function renderPage() {
+    if (showLuxiaoHistoryPage) return <LuxiaoHistoryPage />;
     if (showModelDocPage) return <ModelDocPage />;
     if (showFortunePage) return <FortuneTellerPage />;
     if (showRecordsPage) return <RecordsPage />;

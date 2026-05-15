@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main import StockPredictionEngine
 from update_daily_data import update_all, is_update_failed
+from prediction_tracker import track_prediction
 
 logging.basicConfig(
     level=logging.INFO,
@@ -144,6 +145,19 @@ def daily_predict(symbol: str, stock_name: str, auto_train: bool = False, days: 
         combined = record
     combined.to_csv(record_path, index=False, encoding='utf-8-sig')
     print(f"\n  预测记录已保存: {record_path}")
+
+    # Step 10: 跟踪本地+云模型预测（输出 JSON 供前端展示）
+    print("\n【Step 10】更新预测跟踪记录...")
+    try:
+        stock_df = engine.raw_data.get("stock_daily", [])
+        track_prediction(
+            symbol=symbol,
+            stock_name=stock_name,
+            local_pred=pred,
+            df=stock_df if isinstance(stock_df, pd.DataFrame) else pd.DataFrame(),
+        )
+    except Exception as e:
+        print(f"  ⚠ 预测跟踪记录更新失败: {e}")
     
     return pred
 
