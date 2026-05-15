@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -82,6 +82,8 @@ export function Header() {
   const toggleRecordsPage = useAppStore((s) => s.toggleRecordsPage);
   const showFortunePage = useAppStore((s) => s.showFortunePage);
   const toggleFortunePage = useAppStore((s) => s.toggleFortunePage);
+  const showModelDocPage = useAppStore((s) => s.showModelDocPage);
+  const toggleModelDocPage = useAppStore((s) => s.toggleModelDocPage);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
@@ -159,6 +161,17 @@ export function Header() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">占卜师</span>
+            </button>
+            <button
+              onClick={() => toggleModelDocPage(!showModelDocPage)}
+              className={`text-xs px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-colors ${
+                showModelDocPage
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <BrainCircuit className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">模型说明</span>
             </button>
             <button
               onClick={() => toggleRecordsPage(!showRecordsPage)}

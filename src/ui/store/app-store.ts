@@ -76,6 +76,9 @@ interface AppState {
   // 占卜师频道
   showFortunePage: boolean;
 
+  // 模型原理说明
+  showModelDocPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -87,6 +90,7 @@ interface AppState {
   addToHistory: (stock: StockInfo) => void;
   toggleRecordsPage: (show?: boolean) => void;
   toggleFortunePage: (show?: boolean) => void;
+  toggleModelDocPage: (show?: boolean) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -122,6 +126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: (localStorage.getItem('stockconsult-theme') as 'light' | 'dark') || 'light',
   showRecordsPage: false,
   showFortunePage: false,
+  showModelDocPage: false,
 
   setQuery: (query) => set({ query }),
 
@@ -232,6 +237,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleFortunePage: (show) => {
     set((state) => ({
       showFortunePage: show !== undefined ? show : !state.showFortunePage,
+    }));
+  },
+
+  toggleModelDocPage: (show) => {
+    set((state) => ({
+      showModelDocPage: show !== undefined ? show : !state.showModelDocPage,
     }));
   },
 

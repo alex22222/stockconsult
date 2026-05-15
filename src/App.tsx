@@ -4,6 +4,7 @@ import { SearchPage } from './ui/pages/SearchPage';
 import { DashboardPage } from './ui/pages/DashboardPage';
 import { RecordsPage } from './ui/pages/RecordsPage';
 import { FortuneTellerPage } from './ui/pages/FortuneTellerPage';
+import { ModelDocPage } from './ui/pages/ModelDocPage';
 import { useAppStore } from './ui/store/app-store';
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
   const selectedStock = useAppStore((s) => s.selectedStock);
   const showRecordsPage = useAppStore((s) => s.showRecordsPage);
   const showFortunePage = useAppStore((s) => s.showFortunePage);
+  const showModelDocPage = useAppStore((s) => s.showModelDocPage);
   const loadFavorites = useAppStore((s) => s.loadFavorites);
   const theme = useAppStore((s) => s.theme);
 
@@ -32,6 +34,7 @@ function App() {
   const showDashboard = selectedStock && (report || loadingState === 'analyzing' || loadingState === 'error');
 
   function renderPage() {
+    if (showModelDocPage) return <ModelDocPage />;
     if (showFortunePage) return <FortuneTellerPage />;
     if (showRecordsPage) return <RecordsPage />;
     if (showDashboard) return <DashboardPage />;
