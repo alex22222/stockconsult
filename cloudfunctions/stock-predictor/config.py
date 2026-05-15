@@ -16,6 +16,7 @@ DATA_CONFIG = {
     "daily_refresh": True,
     "cache_valid_hours": 6,
     "primary_source": "akshare",
+    "tushare_token": "",
 }
 
 DEMO_STOCK = {

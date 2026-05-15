@@ -24,6 +24,7 @@ except ImportError:
     ts = None
 
 from config import DATA_CONFIG, INDEX_CODES, DEMO_STOCK
+from local_data_provider import LocalDataProvider
 
 logger = logging.getLogger(__name__)
 
@@ -150,8 +151,31 @@ class DataFetcher:
     
     # ==================== 4. 综合数据获取接口 ====================
     
+    def get_stock_info(self, symbol: str) -> Dict:
+        """获取个股基本信息"""
+        try:
+            result = self._safe_call(ak.stock_individual_info_em, 3, symbol=symbol)
+            if result is not None and not result.empty:
+                info = {}
+                for _, row in result.iterrows():
+                    key = row.get('item', '')
+                    val = row.get('value', '')
+                    if key and val:
+                        info[key] = val
+                return {
+                    "name": info.get('股票简称', symbol),
+                    "industry": info.get('行业', ''),
+                    "market": "sh" if str(symbol).startswith('6') else "sz",
+                }
+        except Exception as e:
+            logger.warning(f"获取个股信息失败: {e}")
+        return {"name": symbol, "industry": "", "market": "sh" if str(symbol).startswith('6') else "sz"}
+
     def get_all_data_for_stock(self, symbol: str, days: int = 252) -> Dict[str, pd.DataFrame]:
-        """获取单股全维度数据（核心接口）"""
+        """获取单股全维度数据（核心接口）
+        
+        优先从网络获取，失败时自动回退到本地数据
+        """
         end_date = datetime.now().strftime("%Y%m%d")
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
         
@@ -186,6 +210,17 @@ class DataFetcher:
         # 7. 板块资金流向
         data["sector_fund_flow"] = self.get_sector_fund_flow("行业资金流", "今日")
         logger.info(f"板块资金流向: {len(data['sector_fund_flow'])} 条")
+        
+        # 8. 如果核心数据缺失，尝试本地回退
+        if data["stock_daily"].empty:
+            logger.warning("网络获取失败，尝试从本地加载数据...")
+            local = LocalDataProvider()
+            local_data = local.get_all_data_for_stock(symbol, days)
+            # 用本地数据补充缺失项
+            for key, df in local_data.items():
+                if key not in data or (isinstance(data[key], pd.DataFrame) and data[key].empty):
+                    data[key] = df
+            logger.info(f"本地数据加载完成: 个股={len(data['stock_daily'])} 条")
         
         return data
 
