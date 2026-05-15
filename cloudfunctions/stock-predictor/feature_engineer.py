@@ -362,6 +362,11 @@ class FeatureEngineer:
                     total = len(sector_fund_flow_df)
                     factors["sector_rank"] = rank / total if total > 0 else 0.5
         
+        # 确保这些列始终存在（避免训练集和预测集特征不一致）
+        for col in ["sector_avg_change", "sector_avg_fund", "sector_rank"]:
+            if col not in factors.columns:
+                factors[col] = 0
+        
         # 3. 个股换手率在历史中的分位
         if "换手率" in stock_df.columns:
             turnover = stock_df["换手率"]
