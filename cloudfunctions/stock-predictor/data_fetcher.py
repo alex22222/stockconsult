@@ -211,16 +211,32 @@ class DataFetcher:
         data["sector_fund_flow"] = self.get_sector_fund_flow("行业资金流", "今日")
         logger.info(f"板块资金流向: {len(data['sector_fund_flow'])} 条")
         
-        # 8. 如果核心数据缺失，尝试本地回退
-        if data["stock_daily"].empty:
-            logger.warning("网络获取失败，尝试从本地加载数据...")
-            local = LocalDataProvider()
-            local_data = local.get_all_data_for_stock(symbol, days)
-            # 用本地数据补充缺失项
-            for key, df in local_data.items():
-                if key not in data or (isinstance(data[key], pd.DataFrame) and data[key].empty):
-                    data[key] = df
-            logger.info(f"本地数据加载完成: 个股={len(data['stock_daily'])} 条")
+        # 8. 对每项数据，网络为空时回退到本地
+        local = LocalDataProvider()
+        
+        if isinstance(data.get("sh_index"), pd.DataFrame) and data["sh_index"].empty:
+            df = local.get_index_daily("000001")
+            if not df.empty:
+                data["sh_index"] = df
+                logger.info(f"从本地补充 sh_index: {len(df)} 条")
+        
+        if isinstance(data.get("sz_index"), pd.DataFrame) and data["sz_index"].empty:
+            df = local.get_index_daily("399001")
+            if not df.empty:
+                data["sz_index"] = df
+                logger.info(f"从本地补充 sz_index: {len(df)} 条")
+        
+        if isinstance(data.get("cy_index"), pd.DataFrame) and data["cy_index"].empty:
+            df = local.get_index_daily("399006")
+            if not df.empty:
+                data["cy_index"] = df
+                logger.info(f"从本地补充 cy_index: {len(df)} 条")
+        
+        if isinstance(data.get("stock_daily"), pd.DataFrame) and data["stock_daily"].empty:
+            df = local.get_stock_daily(symbol)
+            if not df.empty:
+                data["stock_daily"] = df
+                logger.info(f"从本地补充 stock_daily: {len(df)} 条")
         
         return data
 
