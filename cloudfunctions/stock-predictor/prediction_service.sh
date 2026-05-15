@@ -103,7 +103,7 @@ else:
     echo "【定时任务】"
     if crontab -l 2>/dev/null | grep -q "露笑科技"; then
         echo -e "  ${GREEN}✓ 已启用${NC}"
-        echo "  $(crontab -l | grep "daily_predict" | awk '{print $2":"$1, $5}')"
+        echo "  $(crontab -l | grep "daily_predict" | awk '{print $2":"$1, $5}')"  
     else
         echo -e "  ${RED}✗ 未启用${NC}"
     fi
@@ -133,8 +133,8 @@ cmd_cron_on() {
     cat >> /tmp/clean_crontab << EOF
 
 # ==================== 露笑科技 AI 预测模型 ====================
-# 周一到周五，A股收盘后 15:35 自动更新数据+预测
-35 15 * * 1-5 cd $WORK_DIR && source venv/bin/activate && python3 daily_predict.py --symbol 002617 --name 露笑科技 >> $LOG_DIR/daily_002617.log 2>&1
+# 周一到周五，早上 7:00 自动更新数据+预测
+0 7 * * 1-5 cd $WORK_DIR && source venv/bin/activate && python3 daily_predict.py --symbol 002617 --name 露笑科技 >> $LOG_DIR/daily_002617.log 2>&1
 
 # 周一到周五，盘后 16:00 运行模型进化检查
 0 16 * * 1-5 $WORK_DIR/run_evolution.sh >> $LOG_DIR/evolution.log 2>&1
@@ -145,7 +145,7 @@ EOF
     
     crontab /tmp/clean_crontab
     echo -e "${GREEN}✓ 定时任务已启用${NC}"
-    echo "  15:35 每日预测 (周一到周五)"
+    echo "  07:00 每日预测 (周一到周五)"
     echo "  16:00 模型进化检查 (周一到周五)"
     echo "  08:00 周度回测报告 (每周一)"
 }

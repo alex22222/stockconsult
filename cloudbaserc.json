@@ -42,7 +42,7 @@
                 {
                   "name": "daily-predict",
                   "type": "timer",
-                  "config": "0 0 21 * * * *"
+                  "config": "0 0 7 * * 1-5 *"
                 },
                 {
                   "name": "daily-verify",
