@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Brain, Cloud, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Minus, ArrowRight, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 
+const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+
 interface LocalModelData {
   prediction: string;
   upProbability: number;
@@ -226,7 +228,40 @@ export function DualPredictionPanel({ stockCode, stockName }: { stockCode: strin
     async function fetchData() {
       try {
         setLoading(true);
-        // 从本地 JSON 获取预测对比数据
+        // 优先从 CloudBase 数据库获取
+        if (CLOUDBASE_API_URL) {
+          const res = await fetch(
+            `${CLOUDBASE_API_URL}/list-predictions?stockCode=002617&pageSize=50`,
+            { cache: 'no-store' }
+          );
+          if (res.ok) {
+            const apiData = await res.json();
+            if (apiData.success && Array.isArray(apiData.records) && apiData.records.length > 0) {
+              const records = apiData.records;
+              const latest = records[0];
+              const verified = records.filter((r: PredictionRecord) => r.verified);
+              const localCorrect = verified.filter((r: PredictionRecord) => r.localCorrect);
+              const cloudCorrect = verified.filter((r: PredictionRecord) => r.cloudCorrect);
+
+              setData({
+                symbol: '002617',
+                name: '露笑科技',
+                updatedAt: latest.predictDate,
+                latest,
+                stats: {
+                  total: records.length,
+                  verified: verified.length,
+                  localAccuracy: verified.length > 0 ? Math.round((localCorrect.length / verified.length) * 100 * 10) / 10 : null,
+                  cloudAccuracy: verified.length > 0 ? Math.round((cloudCorrect.length / verified.length) * 100 * 10) / 10 : null,
+                },
+                history: records,
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        }
+        // 降级到本地 JSON
         const res = await fetch('/data/luxiao_comparison.json', { cache: 'no-store' });
         if (!res.ok) {
           setError('预测数据尚未生成');

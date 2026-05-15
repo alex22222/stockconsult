@@ -16,8 +16,15 @@
 
 import os
 import json
+import urllib.request
 import pandas as pd
 from datetime import datetime, timedelta
+
+# CloudBase 云函数地址（用于保存预测到数据库）
+CLOUDBASE_API_URL = os.environ.get(
+    "CLOUDBASE_API_URL",
+    "https://stockconsult-d9g7b6ae5b8170e00.service.tcloudbase.com/investoday-proxy"
+)
 
 
 def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
@@ -277,12 +284,40 @@ def track_prediction(symbol: str, stock_name: str, local_pred: dict, df: pd.Data
         "history": history,
     }
 
-    # 6. 写入 JSON
+    # 6. 写入 JSON（供构建时静态使用）
     os.makedirs(os.path.dirname(json_path), exist_ok=True)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"[Tracker] 预测跟踪记录已保存: {json_path}")
+    # 7. 保存到 CloudBase 数据库 predict 集合
+    try:
+        payload = json.dumps({
+            "stockCode": symbol,
+            "stockName": stock_name,
+            "predictDate": today,
+            "localModel": local_model,
+            "cloudModel": cloud_pred,
+            "priceAtPredict": df["收盘"].iloc[-1] if df is not None and not df.empty and "收盘" in df.columns else 0,
+            "changePercentAtPredict": round(float(df["涨跌幅"].iloc[-1]), 2) if df is not None and not df.empty and "涨跌幅" in df.columns else 0,
+        }, ensure_ascii=False).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"{CLOUDBASE_API_URL}/save-prediction",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_body = resp.read().decode("utf-8")
+            resp_json = json.loads(resp_body)
+            if resp_json.get("success"):
+                print(f"[Tracker] 数据库记录已保存: {symbol} {today}")
+            else:
+                print(f"[Tracker] 数据库保存失败: {resp_json.get('error', 'unknown')}")
+    except Exception as e:
+        print(f"[Tracker] 数据库保存异常: {e}")
+
+    print(f"[Tracker] 本地JSON已保存: {json_path}")
     print(f"[Tracker] 本地模型: {local_model['prediction']} (涨{local_model['upProbability']}%)")
     print(f"[Tracker] 云模型:   {cloud_pred['prediction']} (涨{cloud_pred['upProbability']}%)")
     print(f"[Tracker] 历史记录: {len(history)} 条，已验证 {verified_count} 条")

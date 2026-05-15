@@ -114,6 +114,51 @@ export function LuxiaoHistoryPage() {
     async function fetchData() {
       try {
         setLoading(true);
+        const apiUrl = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+
+        // 优先从 CloudBase 数据库获取
+        if (apiUrl) {
+          const res = await fetch(
+            `${apiUrl}/list-predictions?stockCode=002617&pageSize=100`,
+            { cache: 'no-store' }
+          );
+          if (res.ok) {
+            const apiData = await res.json();
+            if (apiData.success && Array.isArray(apiData.records)) {
+              const records: PredictionRecord[] = apiData.records;
+              const latest = records[0] || null;
+              const verified = records.filter((r) => r.verified);
+              const localCorrect = verified.filter((r) => r.localCorrect);
+              const cloudCorrect = verified.filter((r) => r.cloudCorrect);
+
+              const comparisonData: ComparisonData = {
+                symbol: '002617',
+                name: '露笑科技',
+                updatedAt: latest?.predictDate || '',
+                latest,
+                stats: {
+                  total: records.length,
+                  verified: verified.length,
+                  localAccuracy: verified.length > 0
+                    ? Math.round((localCorrect.length / verified.length) * 100 * 10) / 10
+                    : null,
+                  cloudAccuracy: verified.length > 0
+                    ? Math.round((cloudCorrect.length / verified.length) * 100 * 10) / 10
+                    : null,
+                },
+                history: records,
+              };
+              setData(comparisonData);
+              if (records.length > 0) {
+                setSelectedRecord(records[0]);
+              }
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
+        // 降级到本地 JSON
         const res = await fetch('/data/luxiao_comparison.json', { cache: 'no-store' });
         if (!res.ok) {
           setError('预测数据尚未生成');

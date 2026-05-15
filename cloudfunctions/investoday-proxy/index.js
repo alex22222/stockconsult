@@ -24,6 +24,7 @@ const cloudbase = require('@cloudbase/node-sdk');
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = app.database();
 const FAVORITES_COLLECTION = 'favorites';
+const PREDICT_COLLECTION = 'predict';
 const DEFAULT_USER_ID = 'anonymous';
 
 // 版本标记（用于确认部署生效）
@@ -156,6 +157,11 @@ exports.main = async (event, context) => {
   // 预测记录 - 统计
   if (event.path === '/prediction-stats' || event.path === '/investoday-proxy/prediction-stats') {
     return handlePredictionStats(event);
+  }
+
+  // 保存预测记录（本地模型 + 云模型）
+  if (event.path === '/save-prediction' || event.path === '/investoday-proxy/save-prediction') {
+    return handleSavePrediction(event);
   }
 
   // Web Search（补充个股信息）
@@ -1332,7 +1338,69 @@ async function readPredictionFile(key) {
 }
 
 /**
- * 每日21:00定时预测 — 对收藏股票做预测并保存到COS
+ * 保存预测记录（本地模型 + 云模型）到 predict 集合
+ */
+async function handleSavePrediction(event) {
+  try {
+    let body = event.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch {
+        return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Invalid JSON body' }) };
+      }
+    }
+
+    const {
+      stockCode, stockName, predictDate,
+      localModel, cloudModel,
+      priceAtPredict, changePercentAtPredict,
+    } = body || {};
+
+    if (!stockCode || !predictDate) {
+      return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing stockCode or predictDate' }) };
+    }
+
+    const collection = db.collection(PREDICT_COLLECTION);
+
+    // 检查是否已存在同日期记录，存在则更新，不存在则新增
+    const existing = await collection.where({ stockCode, predictDate }).get();
+    const record = {
+      stockCode,
+      stockName: stockName || stockCode,
+      predictDate,
+      localModel: localModel || {},
+      cloudModel: cloudModel || {},
+      priceAtPredict: priceAtPredict || 0,
+      changePercentAtPredict: changePercentAtPredict || 0,
+      verified: false,
+      actualResult: null,
+      actualChangePercent: null,
+      actualClosePrice: null,
+      localCorrect: null,
+      cloudCorrect: null,
+      createdAt: new Date(),
+      verifiedAt: null,
+    };
+
+    if (existing.data && existing.data.length > 0) {
+      const docId = existing.data[0]._id;
+      await collection.doc(docId).update(record);
+    } else {
+      await collection.add(record);
+    }
+
+    return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, message: 'Prediction saved' }) };
+  } catch (error) {
+    console.error('[SavePrediction Error]', error);
+    return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }) };
+  }
+}
+
+/**
+ * 每日定时预测 — 对收藏股票做预测并保存到 predict 集合
  */
 async function handleDailyPredict(event) {
   try {
@@ -1343,7 +1411,8 @@ async function handleDailyPredict(event) {
       .get();
     const favorites = favRes.data || [];
     if (favorites.length === 0) {
-      return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, message: 'No favorites', predictions: [] }) };
+      return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: true, message: 'No favorites', predictions: [] }) };
     }
 
     const dateStr = getDateStr(0);
@@ -1372,36 +1441,44 @@ async function handleDailyPredict(event) {
         }
 
         const fortune = calculateFortune(quote, history);
-        // 如果当前价拿不到（如港股），用前日收盘价兜底
         const priceAtPredict = fortune.price || (quote ? quote.closePriceYDay : 0) || 0;
+
         const record = {
           stockCode: fav.code,
           stockName: fav.name || fortune.name || fav.code,
           predictDate: dateStr,
-          predictTime: '21:00:00',
-          prediction: fortune.prediction,
-          upProbability: fortune.upProbability,
-          downProbability: fortune.downProbability,
-          confidence: fortune.confidence,
-          factorScores: fortune.factorScores,
+          localModel: {
+            prediction: fortune.prediction,
+            upProbability: fortune.upProbability,
+            downProbability: fortune.downProbability,
+            confidence: fortune.confidence,
+          },
+          cloudModel: {
+            prediction: fortune.prediction,
+            upProbability: fortune.upProbability,
+            downProbability: fortune.downProbability,
+            confidence: fortune.confidence,
+            factorScores: fortune.factorScores,
+          },
           priceAtPredict,
           changePercentAtPredict: fortune.changePercent,
+          verified: false,
           actualResult: null,
           actualChangePercent: null,
           actualClosePrice: null,
-          verified: false,
+          localCorrect: null,
+          cloudCorrect: null,
+          createdAt: new Date(),
           verifiedAt: null,
         };
 
-        const filename = `predictions/${dateStr}/${fav.code}_${dateStr}_21-00.json`;
-        await savePredictionFile(filename, record);
-
-        await updateIndexFile({
-          path: filename, stockCode: fav.code, stockName: record.stockName,
-          predictDate: dateStr, prediction: fortune.prediction,
-          confidence: fortune.confidence, verified: false,
-          size: Buffer.byteLength(JSON.stringify(record)),
-        }, 'predictions/index.json');
+        const collection = db.collection(PREDICT_COLLECTION);
+        const existing = await collection.where({ stockCode: fav.code, predictDate: dateStr }).get();
+        if (existing.data && existing.data.length > 0) {
+          await collection.doc(existing.data[0]._id).update(record);
+        } else {
+          await collection.add(record);
+        }
 
         predictions.push(record);
       } catch (e) {
@@ -1419,27 +1496,26 @@ async function handleDailyPredict(event) {
 }
 
 /**
- * 每日15:35收盘后验证 — 获取实际收盘价回填预测记录
+ * 每日15:35收盘后验证 — 获取实际收盘价回填 predict 集合
  */
 async function handleDailyVerify(event) {
   try {
-    const { records } = await readIndexFile('predictions/index.json');
-    const unverified = records.filter((r) => !r.verified);
+    const collection = db.collection(PREDICT_COLLECTION);
+    const unverifiedRes = await collection.where({ verified: false }).get();
+    const unverified = unverifiedRes.data || [];
+
     if (unverified.length === 0) {
       return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ success: true, message: 'No unverified predictions', updated: 0 }) };
     }
 
     const updated = [];
-    for (const idxEntry of unverified) {
+    for (const doc of unverified) {
       try {
-        const record = await readPredictionFile(idxEntry.path);
-        if (!record) continue;
-
         // 获取实时行情（即当天收盘价）
         const quoteRes = await proxyMCPRequest({
           jsonrpc: '2.0', id: Date.now(), method: 'tools/call',
-          params: { name: 'get_stock_quote_realtime', arguments: { stockCode: record.stockCode } },
+          params: { name: 'get_stock_quote_realtime', arguments: { stockCode: doc.stockCode } },
         });
 
         let quote = null;
@@ -1451,26 +1527,26 @@ async function handleDailyVerify(event) {
         if (!quote || quote.currentPrice <= 0) continue;
 
         const actualClose = quote.currentPrice;
-        // 优先用预测时的价格做基准；若缺失则用前日收盘价；再没有才用当日收盘价
-        const prevClose = record.priceAtPredict || quote.closePriceYDay || actualClose;
+        const prevClose = doc.priceAtPredict || quote.closePriceYDay || actualClose;
         const actualChangePct = prevClose > 0 ? Number(((actualClose - prevClose) / prevClose * 100).toFixed(2)) : 0;
         const actualResult = actualChangePct > 0 ? '涨' : actualChangePct < 0 ? '跌' : '平';
 
-        record.actualClosePrice = actualClose;
-        record.actualChangePercent = actualChangePct;
-        record.actualResult = actualResult;
-        record.verified = true;
-        record.verifiedAt = new Date().toISOString();
+        const localCorrect = doc.localModel?.prediction === actualResult;
+        const cloudCorrect = doc.cloudModel?.prediction === actualResult;
 
-        await savePredictionFile(idxEntry.path, record);
+        await collection.doc(doc._id).update({
+          actualClosePrice: actualClose,
+          actualChangePercent: actualChangePct,
+          actualResult,
+          verified: true,
+          localCorrect,
+          cloudCorrect,
+          verifiedAt: new Date(),
+        });
 
-        await updateIndexFile({
-          ...idxEntry, verified: true, actualResult, actualChangePercent: actualChangePct,
-        }, 'predictions/index.json');
-
-        updated.push({ stockCode: record.stockCode, prediction: record.prediction, actualResult, actualChangePercent: actualChangePct });
+        updated.push({ stockCode: doc.stockCode, predictDate: doc.predictDate, actualResult, actualChangePercent: actualChangePct, localCorrect, cloudCorrect });
       } catch (e) {
-        console.warn(`[DailyVerify] Failed for ${idxEntry.stockCode}:`, e.message);
+        console.warn(`[DailyVerify] Failed for ${doc.stockCode}:`, e.message);
       }
     }
 
@@ -1484,22 +1560,32 @@ async function handleDailyVerify(event) {
 }
 
 /**
- * 获取预测记录列表
+ * 获取预测记录列表（从 predict 集合）
  */
 async function handleListPredictions(event) {
   try {
     const query = event.queryString || event.queryStringParameters || {};
-    const { records } = await readIndexFile('predictions/index.json');
-    let filtered = records;
-    if (query.date) filtered = filtered.filter((r) => r.predictDate === query.date);
-    if (query.stockCode) filtered = filtered.filter((r) => r.stockCode === query.stockCode);
+    const collection = db.collection(PREDICT_COLLECTION);
+
+    let dbQuery = collection;
+    if (query.stockCode) {
+      dbQuery = dbQuery.where({ stockCode: query.stockCode });
+    }
+    if (query.date) {
+      dbQuery = dbQuery.where({ predictDate: query.date });
+    }
+
+    const res = await dbQuery.orderBy('predictDate', 'desc').get();
+    let records = res.data || [];
+
+    // 分页
     const page = parseInt(query.page || '1', 10);
     const pageSize = parseInt(query.pageSize || '20', 10);
     const start = (page - 1) * pageSize;
-    const paginated = filtered.slice(start, start + pageSize);
+    const paginated = records.slice(start, start + pageSize);
 
     return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, total: filtered.length, page, pageSize, records: paginated }) };
+      body: JSON.stringify({ success: true, total: records.length, page, pageSize, records: paginated }) };
   } catch (error) {
     console.error('[ListPredictions Error]', error);
     return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -1508,24 +1594,43 @@ async function handleListPredictions(event) {
 }
 
 /**
- * 获取预测统计
+ * 获取预测统计（从 predict 集合）
  */
 async function handlePredictionStats(event) {
   try {
-    const { records } = await readIndexFile('predictions/index.json');
+    const query = event.queryString || event.queryStringParameters || {};
+    const collection = db.collection(PREDICT_COLLECTION);
+    let dbQuery = collection;
+    if (query.stockCode) {
+      dbQuery = dbQuery.where({ stockCode: query.stockCode });
+    }
+
+    const res = await dbQuery.orderBy('predictDate', 'desc').get();
+    const records = res.data || [];
+
     const verified = records.filter((r) => r.verified);
-    const correct = verified.filter((r) => r.prediction === r.actualResult);
-    const upPredictions = verified.filter((r) => r.prediction === '涨');
+    const localCorrect = verified.filter((r) => r.localCorrect);
+    const cloudCorrect = verified.filter((r) => r.cloudCorrect);
+
+    const upPredictions = verified.filter((r) => r.localModel?.prediction === '涨');
     const upCorrect = upPredictions.filter((r) => r.actualResult === '涨');
-    const downPredictions = verified.filter((r) => r.prediction === '跌');
+    const downPredictions = verified.filter((r) => r.localModel?.prediction === '跌');
     const downCorrect = downPredictions.filter((r) => r.actualResult === '跌');
 
     // 最近7天趋势
     const last7Days = [...new Set(records.map((r) => r.predictDate).sort().slice(-7))];
     const dailyStats = last7Days.map((date) => {
       const dayRecs = verified.filter((r) => r.predictDate === date);
-      const dayCorrect = dayRecs.filter((r) => r.prediction === r.actualResult);
-      return { date, total: dayRecs.length, correct: dayCorrect.length, accuracy: dayRecs.length > 0 ? Math.round(dayCorrect.length / dayRecs.length * 100) : 0 };
+      const dayLocalCorrect = dayRecs.filter((r) => r.localCorrect);
+      const dayCloudCorrect = dayRecs.filter((r) => r.cloudCorrect);
+      return {
+        date,
+        total: dayRecs.length,
+        localCorrect: dayLocalCorrect.length,
+        cloudCorrect: dayCloudCorrect.length,
+        localAccuracy: dayRecs.length > 0 ? Math.round(dayLocalCorrect.length / dayRecs.length * 100) : 0,
+        cloudAccuracy: dayRecs.length > 0 ? Math.round(dayCloudCorrect.length / dayRecs.length * 100) : 0,
+      };
     });
 
     return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -1534,8 +1639,8 @@ async function handlePredictionStats(event) {
         stats: {
           totalPredictions: records.length,
           verifiedPredictions: verified.length,
-          correctPredictions: correct.length,
-          accuracy: verified.length > 0 ? Math.round(correct.length / verified.length * 100) : 0,
+          localAccuracy: verified.length > 0 ? Math.round(localCorrect.length / verified.length * 100) : 0,
+          cloudAccuracy: verified.length > 0 ? Math.round(cloudCorrect.length / verified.length * 100) : 0,
           upAccuracy: upPredictions.length > 0 ? Math.round(upCorrect.length / upPredictions.length * 100) : 0,
           downAccuracy: downPredictions.length > 0 ? Math.round(downCorrect.length / downPredictions.length * 100) : 0,
           dailyStats,
