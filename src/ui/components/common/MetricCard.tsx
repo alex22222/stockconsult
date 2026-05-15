@@ -22,9 +22,9 @@ export function MetricCard({ metric }: MetricCardProps) {
     : <Minus className="w-3.5 h-3.5 text-gray-400" />;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-1 transition-all group">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500">{metric.label}</span>
+        <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{metric.label}</span>
         {trendIcon}
       </div>
       <div className="flex items-baseline gap-1">
@@ -34,8 +34,8 @@ export function MetricCard({ metric }: MetricCardProps) {
         {hasValue && metric.unit && <span className="text-xs text-gray-400">{metric.unit}</span>}
       </div>
       {isValidNumber && metric.changePercent !== undefined && (
-        <div className={`text-xs mt-1 font-medium ${metric.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-          {metric.changePercent >= 0 ? '+' : ''}{metric.changePercent}%
+        <div className={`text-xs mt-1 font-bold ${metric.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+          {metric.changePercent >= 0 ? '▲' : '▼'} {metric.changePercent >= 0 ? '+' : ''}{metric.changePercent}%
         </div>
       )}
       {metric.benchmark && hasValue && (
@@ -43,9 +43,9 @@ export function MetricCard({ metric }: MetricCardProps) {
       )}
       {isValidNumber && metric.percentile !== undefined && metric.percentile >= 0 && (
         <div className="mt-2">
-          <div className="w-full bg-gray-100 rounded-full h-1.5">
+          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
             <div 
-              className={`h-1.5 rounded-full ${metric.percentile > 70 ? 'bg-red-400' : metric.percentile < 30 ? 'bg-green-400' : 'bg-blue-400'}`}
+              className={`h-1.5 rounded-full transition-all duration-500 ${metric.percentile > 70 ? 'bg-gradient-to-r from-red-400 to-red-500' : metric.percentile < 30 ? 'bg-gradient-to-r from-green-400 to-green-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`}
               style={{ width: `${Math.min(metric.percentile, 100)}%` }}
             />
           </div>

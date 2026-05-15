@@ -59,12 +59,27 @@ export function DashboardPage() {
   // 加载中
   if (loadingState === 'analyzing') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-4">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-        <div className="text-lg font-medium text-gray-900 mb-1">正在分析 {selectedStock?.name}...</div>
-        <div className="text-sm text-gray-500">数据获取 → 公告解读 → 财报分析 → 估值评估</div>
-        <div className="w-64 h-1.5 bg-gray-100 rounded-full mt-6 overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+      <div className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-100/30 rounded-full blur-3xl" />
+        </div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 mb-6">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+          </div>
+          <div className="text-xl font-bold text-gray-900 mb-2">正在分析 {selectedStock?.name}</div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="animate-pulse">数据获取</span>
+            <span>→</span>
+            <span className="animate-pulse" style={{ animationDelay: '0.3s' }}>公告解读</span>
+            <span>→</span>
+            <span className="animate-pulse" style={{ animationDelay: '0.6s' }}>财报分析</span>
+            <span>→</span>
+            <span className="animate-pulse" style={{ animationDelay: '0.9s' }}>估值评估</span>
+          </div>
+          <div className="w-72 h-2 bg-gray-100 rounded-full mt-8 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse" style={{ width: '60%' }} />
+          </div>
         </div>
       </div>
     );
@@ -74,14 +89,16 @@ export function DashboardPage() {
   if (loadingState === 'error') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-4">
-        <AlertCircle className="w-10 h-10 text-red-500 mb-4" />
-        <div className="text-lg font-medium text-gray-900 mb-1">分析失败</div>
-        <div className="text-sm text-gray-500 max-w-md text-center">{errorMessage}</div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={handleRetry} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+        <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-5">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+        </div>
+        <div className="text-xl font-bold text-gray-900 mb-2">分析失败</div>
+        <div className="text-sm text-gray-500 max-w-md text-center mb-8">{errorMessage}</div>
+        <div className="flex gap-3">
+          <button onClick={handleRetry} className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/20 hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95">
             重试
           </button>
-          <button onClick={handleBack} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+          <button onClick={handleBack} className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-95">
             返回搜索
           </button>
         </div>
@@ -117,36 +134,31 @@ export function DashboardPage() {
   return (
     <div className="flex-1 bg-gray-50">
       {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200 sticky top-14 z-40">
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200/80 sticky top-14 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button onClick={handleBack} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
+            <button onClick={handleBack} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all hover:scale-105 flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-lg font-bold text-gray-900">{stock.name}</span>
-                <span className="text-xs text-gray-400 font-mono">{stock.code}</span>
-                <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">{stock.exchange}</span>
+                <span className="text-xs text-gray-400 font-mono bg-gray-100 px-1.5 py-0.5 rounded-md">{stock.code}</span>
+                <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-md">{stock.exchange}</span>
                 {/* 最新价格 */}
                 {dataBundle?.market?.price != null && dataBundle.market.price > 0 && (
-                  <div className="flex items-center gap-2 ml-1">
+                  <div className="flex items-center gap-2 ml-1 bg-gray-50 rounded-lg px-3 py-1">
                     <span className="text-lg font-bold text-gray-900">{dataBundle.market.price.toFixed(2)}</span>
-                    <span className={`text-sm font-medium ${dataBundle.market.change >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {dataBundle.market.change >= 0 ? '+' : ''}{dataBundle.market.change.toFixed(2)}
+                    <span className={`text-sm font-bold ${dataBundle.market.change >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      {dataBundle.market.change >= 0 ? '▲' : '▼'} {dataBundle.market.change >= 0 ? '+' : ''}{dataBundle.market.change.toFixed(2)}
                     </span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${dataBundle.market.changePercent >= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${dataBundle.market.changePercent >= 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                       {dataBundle.market.changePercent >= 0 ? '+' : ''}{dataBundle.market.changePercent.toFixed(2)}%
                     </span>
-                    {dataBundle.market.updateTime && (
-                      <span className="text-[10px] text-gray-400 ml-1">
-                        {dataBundle.market.updateTime.split(' ')[1]?.slice(0, 5)}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 mt-0.5">
                 {stock.industry ? `${stock.industry}` : ''}
                 {stock.marketCap > 0 ? ` · ${(stock.marketCap / 10000).toFixed(2)}万亿市值` : ''}
                 {dataBundle?.market?.pe && dataBundle.market.pe > 0 ? ` · PE ${dataBundle.market.pe}倍` : ''}
@@ -156,7 +168,7 @@ export function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <RatingBadge rating={coreView.rating} size="sm" />
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all hover:scale-105">
               <Download className="w-4 h-4" />
             </button>
           </div>
@@ -170,19 +182,29 @@ export function DashboardPage() {
           <div className="flex-1 min-w-0 space-y-6">
         
         {/* 核心观点 */}
-        <section id="core-view" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="core-view" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">核心观点</h3>
             <RatingBadge rating={coreView.rating} />
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                <div className="text-xs font-medium text-green-700 mb-1">乐观情景</div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50/50 border border-green-100 rounded-xl p-4 hover:shadow-md hover:shadow-green-100/50 transition-all hover:-translate-y-0.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <TrendingUp className="w-3 h-3 text-green-600" />
+                  </div>
+                  <div className="text-xs font-semibold text-green-700">乐观情景</div>
+                </div>
                 <div className="text-sm text-green-800 leading-relaxed">{coreView.bullCase}</div>
               </div>
-              <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-                <div className="text-xs font-medium text-red-700 mb-1">悲观情景</div>
+              <div className="bg-gradient-to-br from-red-50 to-rose-50/50 border border-red-100 rounded-xl p-4 hover:shadow-md hover:shadow-red-100/50 transition-all hover:-translate-y-0.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                    <TrendingDown className="w-3 h-3 text-red-600" />
+                  </div>
+                  <div className="text-xs font-semibold text-red-700">悲观情景</div>
+                </div>
                 <div className="text-sm text-red-800 leading-relaxed">{coreView.bearCase}</div>
               </div>
             </div>
@@ -196,7 +218,7 @@ export function DashboardPage() {
 
         {/* 价格走势 */}
         {dataBundle?.market?.history && dataBundle.market.history.length > 0 && (
-          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">价格走势</h3>
               <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -216,7 +238,7 @@ export function DashboardPage() {
         )}
 
         {/* 关键指标 */}
-        <section id="key-metrics" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="key-metrics" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
           <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">关键指标</h3>
           </div>
@@ -260,7 +282,7 @@ export function DashboardPage() {
         </section>
 
         {/* 市场解读 */}
-        <section id="market-interpretation" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="market-interpretation" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
           <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="text-base font-semibold text-gray-900">市场解读</h3>
           </div>
@@ -281,18 +303,20 @@ export function DashboardPage() {
             {/* 近期事件时间线 */}
             <div className="mb-5">
               <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">近期重要事件</div>
-              <div className="space-y-3">
+              <div className="relative space-y-0">
+                {/* 左侧竖线 */}
+                <div className="absolute left-[5px] top-2 bottom-2 w-px bg-gray-100" />
                 {marketInterpretation.recentEvents.slice(0, 8).map((event: AnalysisReport['marketInterpretation']['recentEvents'][0], i: number) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                  <div key={i} className="flex items-start gap-3 py-2.5 hover:bg-gray-50/60 rounded-lg px-2 -mx-2 transition-colors group">
+                    <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ring-4 ring-white ${
                       event.impact === 'positive' ? 'bg-red-400' :
                       event.impact === 'negative' ? 'bg-green-400' :
                       'bg-gray-300'
                     }`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-gray-900">{event.title}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                        <span className="text-sm text-gray-900 group-hover:text-gray-800 transition-colors">{event.title}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-md group-hover:bg-gray-200 transition-colors">
                           {event.type === 'announcement' ? '公告' :
                            event.type === 'news' ? '新闻' :
                            event.type === 'report' ? '研报' :
@@ -307,7 +331,7 @@ export function DashboardPage() {
                   </div>
                 ))}
                 {marketInterpretation.recentEvents.length === 0 && (
-                  <div className="text-sm text-gray-400">暂无近期事件数据</div>
+                  <div className="text-sm text-gray-400 py-4">暂无近期事件数据</div>
                 )}
               </div>
             </div>
@@ -346,7 +370,7 @@ export function DashboardPage() {
 
         {/* 研报/机构观点 */}
         {reports.length > 0 && (
-          <section id="institutional-views" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="institutional-views" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-gray-500" />
@@ -376,15 +400,18 @@ export function DashboardPage() {
               )}
 
               {/* 最新研报列表 */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {marketInterpretation.institutionalViews.latestReports.map((r, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div key={i} className="flex items-start gap-3 p-3.5 bg-gray-50/70 rounded-xl hover:bg-blue-50/40 hover:shadow-sm transition-all group">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
+                      {r.institution?.charAt(0) || '研'}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-sm font-medium text-gray-900">{r.institution}</span>
+                        <span className="text-sm font-semibold text-gray-900">{r.institution}</span>
                         <RatingLabel rating={r.rating} />
                         {r.targetPrice && (
-                          <span className="text-xs text-blue-600 font-medium">目标价 {r.targetPrice}元</span>
+                          <span className="text-xs text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded-md">目标价 {r.targetPrice}元</span>
                         )}
                       </div>
                       {r.summary && (
@@ -403,7 +430,7 @@ export function DashboardPage() {
 
         {/* 相关新闻 */}
         {news.length > 0 && (
-          <section id="related-news" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="related-news" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Newspaper className="w-4 h-4 text-gray-500" />
@@ -412,13 +439,17 @@ export function DashboardPage() {
               <span className="text-xs text-gray-400">{news.length} 条</span>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {news.slice(0, 6).map((item: NewsItem, i: number) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-1 h-1 rounded-full bg-gray-300 mt-2 flex-shrink-0" />
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl hover:bg-blue-50/30 transition-colors group">
+                    <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
+                      item.sentiment === 'positive' ? 'bg-red-400' :
+                      item.sentiment === 'negative' ? 'bg-green-400' :
+                      'bg-gray-300'
+                    }`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-gray-900">{item.title}</span>
+                        <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">{item.title}</span>
                         {item.sentiment && <SentimentBadge sentiment={item.sentiment} />}
                       </div>
                       {item.content && item.content !== item.title && (
@@ -436,7 +467,7 @@ export function DashboardPage() {
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600 hover:underline"
                           >
                             查看 <ExternalLink className="w-2.5 h-2.5" />
                           </a>
@@ -451,7 +482,7 @@ export function DashboardPage() {
         )}
 
         {/* 行动建议 */}
-        <section id="action-advice" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <section id="action-advice" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">行动建议</h3>
             <RatingBadge rating={actionAdvice.recommendation} />
@@ -460,15 +491,15 @@ export function DashboardPage() {
             {/* 目标价（仅当有数据时展示） */}
             {actionAdvice.targetPrices && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <div className="bg-gradient-to-b from-gray-50 to-gray-100/50 rounded-xl p-4 text-center border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
                   <div className="text-xs text-gray-500 mb-1">保守目标</div>
                   <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.conservative}元</div>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-4 text-center border border-blue-100">
+                <div className="bg-gradient-to-b from-blue-50 to-blue-100/50 rounded-xl p-4 text-center border border-blue-100 hover:shadow-md hover:shadow-blue-100/50 hover:-translate-y-0.5 transition-all">
                   <div className="text-xs text-blue-600 mb-1">基准目标</div>
                   <div className="text-2xl font-bold text-blue-700">{actionAdvice.targetPrices.base}元</div>
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <div className="bg-gradient-to-b from-gray-50 to-gray-100/50 rounded-xl p-4 text-center border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all">
                   <div className="text-xs text-gray-500 mb-1">乐观目标</div>
                   <div className="text-xl font-bold text-gray-700">{actionAdvice.targetPrices.optimistic}元</div>
                 </div>
@@ -536,7 +567,7 @@ export function DashboardPage() {
 
         {/* 洞察标签云 */}
         {rawInsights.length > 0 && (
-          <section id="insights" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <section id="insights" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
             <div className="px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">分析洞察</h3>
             </div>
@@ -562,54 +593,56 @@ export function DashboardPage() {
           <div className="hidden xl:block w-52 shrink-0 space-y-4">
             <div className="sticky top-24 space-y-4">
               {/* 我的收藏 */}
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="bg-white/80 backdrop-blur-sm border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm">
                 <button
                   onClick={() => setFavExpanded(!favExpanded)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/80 transition-colors"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                    <span className="text-xs font-semibold text-gray-700">我的收藏</span>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                    <span className="text-sm font-semibold text-gray-700">我的收藏</span>
                     <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
                       {favorites.length}/10
                     </span>
                   </div>
                   {favExpanded ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
                   ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
                   )}
                 </button>
 
                 {favExpanded && (
                   <div className="border-t border-gray-100">
                     {favorites.length === 0 ? (
-                      <div className="px-3 py-4 text-center">
-                        <Star className="w-6 h-6 text-gray-200 mx-auto mb-1.5" />
-                        <p className="text-[11px] text-gray-400">暂无收藏</p>
+                      <div className="px-4 py-6 text-center">
+                        <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <Star className="w-5 h-5 text-gray-200" />
+                        </div>
+                        <p className="text-xs text-gray-400">暂无收藏</p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-gray-50">
+                      <div className="divide-y divide-gray-50/80">
                         {favorites.map((stock) => (
-                          <div key={stock.code} className="group flex items-center gap-1.5 px-2 py-2">
+                          <div key={stock.code} className="group flex items-center gap-2 px-3 py-2.5 hover:bg-blue-50/40 transition-all">
                             <button
                               onClick={() => {
                                 selectStock(stock);
                                 analyzeStock(stock.code);
                               }}
-                              className="flex-1 flex items-center gap-1.5 text-left min-w-0"
+                              className="flex-1 flex items-center gap-2 text-left min-w-0"
                             >
-                              <div className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
                                 {stock.name.charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium text-gray-800 truncate">{stock.name}</div>
-                                <div className="text-[10px] text-gray-400">{stock.code}</div>
+                                <div className="text-xs font-semibold text-gray-800 truncate">{stock.name}</div>
+                                <div className="text-[10px] text-gray-400 font-mono">{stock.code}</div>
                               </div>
                             </button>
                             <button
                               onClick={() => removeFromFavorites(stock.code)}
-                              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                              className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                               title="移除收藏"
                             >
                               <X className="w-3 h-3" />

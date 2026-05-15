@@ -178,36 +178,39 @@ def update_single_file(config: dict, global_attempt: int) -> tuple:
     return combined, attempts, True
 
 
-CONFIGS = [
-    {
-        'csv': '002617_daily.csv',
-        'baostock_code': 'sz.002617',
-        'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
-        'akshare_func': fetch_from_akshare_stock,
-        'akshare_symbol': '002617',
-    },
-    {
-        'csv': 'sh_index_000001.csv',
-        'baostock_code': 'sh.000001',
-        'fields': 'date,open,high,low,close,volume,amount,pctChg',
-        'akshare_func': fetch_from_akshare_index,
-        'akshare_symbol': '000001',
-    },
-    {
-        'csv': 'sz_index_399001.csv',
-        'baostock_code': 'sz.399001',
-        'fields': 'date,open,high,low,close,volume,amount,pctChg',
-        'akshare_func': fetch_from_akshare_index,
-        'akshare_symbol': '399001',
-    },
-    {
-        'csv': 'cy_index_399006.csv',
-        'baostock_code': 'sz.399006',
-        'fields': 'date,open,high,low,close,volume,amount,pctChg',
-        'akshare_func': fetch_from_akshare_index,
-        'akshare_symbol': '399006',
-    },
+# 股票配置：个股代码 + 指数代码（指数是共用的）
+STOCK_CONFIGS = [
+    # 露笑科技
+    {'csv': '002617_daily.csv', 'baostock_code': 'sz.002617',
+     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002617'},
+    # 中国平安
+    {'csv': '601318_daily.csv', 'baostock_code': 'sh.601318',
+     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601318'},
+    # 博士眼镜
+    {'csv': '300622_daily.csv', 'baostock_code': 'sz.300622',
+     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '300622'},
+    # 中大力德
+    {'csv': '002896_daily.csv', 'baostock_code': 'sz.002896',
+     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002896'},
 ]
+
+INDEX_CONFIGS = [
+    {'csv': 'sh_index_000001.csv', 'baostock_code': 'sh.000001',
+     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '000001'},
+    {'csv': 'sz_index_399001.csv', 'baostock_code': 'sz.399001',
+     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '399001'},
+    {'csv': 'cy_index_399006.csv', 'baostock_code': 'sz.399006',
+     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '399006'},
+]
+
+CONFIGS = STOCK_CONFIGS + INDEX_CONFIGS
 
 
 def update_all() -> bool:
@@ -219,13 +222,15 @@ def update_all() -> bool:
     total_attempts = 0
     stock_success = False
 
+    stock_cfgs = [c for c in CONFIGS if c.get('akshare_func') == fetch_from_akshare_stock]
     for cfg in CONFIGS:
         if total_attempts >= 10:
             logger.error(f"累计尝试已达 {total_attempts} 次上限，终止更新")
             break
         _, attempts, success = update_single_file(cfg, total_attempts)
         total_attempts += attempts
-        if cfg['csv'] == '002617_daily.csv' and success:
+        # 任意一个个股数据更新成功即算成功
+        if cfg in stock_cfgs and success:
             stock_success = True
 
     print(f"\n{'='*60}")

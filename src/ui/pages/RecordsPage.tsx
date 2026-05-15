@@ -224,11 +224,11 @@ export function RecordsPage() {
       </div>
 
       {/* Tab 切换 */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+      <div className="flex gap-1 bg-gray-100/80 p-1 rounded-2xl mb-6 w-fit backdrop-blur-sm">
         <button
           onClick={() => setActiveTab('search')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'search' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+            activeTab === 'search' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
           }`}
         >
           <span className="flex items-center gap-1.5">
@@ -238,8 +238,8 @@ export function RecordsPage() {
         </button>
         <button
           onClick={() => setActiveTab('report')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'report' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+            activeTab === 'report' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
           }`}
         >
           <span className="flex items-center gap-1.5">
@@ -249,8 +249,8 @@ export function RecordsPage() {
         </button>
         <button
           onClick={() => setActiveTab('prediction')}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'prediction' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+            activeTab === 'prediction' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
           }`}
         >
           <span className="flex items-center gap-1.5">
@@ -266,11 +266,13 @@ export function RecordsPage() {
 
       {!loading && !error && records.length === 0 && (
         <div className="text-center py-20">
-          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">
+          <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-8 h-8 text-gray-300" />
+          </div>
+          <p className="text-gray-500 font-medium">
             {activeTab === 'search' ? '暂无查询记录' : activeTab === 'report' ? '暂无分析报告' : '暂无预测记录'}
           </p>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-400 mt-2 max-w-sm mx-auto">
             {activeTab === 'search' ? '在搜索页查询股票后，记录会自动保存到这里' : activeTab === 'report' ? '在搜索页分析股票后，报告会自动保存到这里' : '每日21:00自动对收藏股票做预测，次日收盘后验证'}
           </p>
         </div>
@@ -282,21 +284,21 @@ export function RecordsPage() {
           {/* 预测记录统计卡片 */}
           {activeTab === 'prediction' && predictionStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-              <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
+              <div className="bg-gradient-to-b from-white to-gray-50/50 border border-gray-200 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
                 <div className="text-xs text-gray-400 mb-1">总预测</div>
-                <div className="text-xl font-bold text-gray-900">{predictionStats.totalPredictions}</div>
+                <div className="text-2xl font-bold text-gray-900">{predictionStats.totalPredictions}</div>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-                <div className="text-xs text-gray-400 mb-1">已验证</div>
-                <div className="text-xl font-bold text-blue-600">{predictionStats.verifiedPredictions}</div>
+              <div className="bg-gradient-to-b from-blue-50 to-blue-100/30 border border-blue-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-blue-400 mb-1">已验证</div>
+                <div className="text-2xl font-bold text-blue-600">{predictionStats.verifiedPredictions}</div>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-                <div className="text-xs text-gray-400 mb-1">正确数</div>
-                <div className="text-xl font-bold text-green-600">{predictionStats.correctPredictions}</div>
+              <div className="bg-gradient-to-b from-green-50 to-green-100/30 border border-green-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-green-400 mb-1">正确数</div>
+                <div className="text-2xl font-bold text-green-600">{predictionStats.correctPredictions}</div>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-                <div className="text-xs text-gray-400 mb-1">准确率</div>
-                <div className="text-xl font-bold text-purple-600">{predictionStats.accuracy}%</div>
+              <div className="bg-gradient-to-b from-purple-50 to-purple-100/30 border border-purple-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-purple-400 mb-1">准确率</div>
+                <div className="text-2xl font-bold text-purple-600">{predictionStats.accuracy}%</div>
               </div>
             </div>
           )}
@@ -327,10 +329,10 @@ export function RecordsPage() {
                   <button
                     key={record.path}
                     onClick={() => activeTab === 'prediction' ? setSelectedPath(record.path) : fetchDetail(record.path)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all duration-200 ${
                       selectedPath === record.path
                         ? 'border-blue-300 bg-blue-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-blue-200 hover:shadow-sm'
+                        : 'border-gray-200 bg-white hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5'
                     }`}
                   >
                     {activeTab === 'search' ? (

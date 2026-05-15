@@ -90,19 +90,23 @@ export function FortuneTellerPage() {
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => toggleFortunePage(false)}
-          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all hover:scale-105"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-purple-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">占卜师</h1>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">占卜师</h1>
+            <p className="text-xs text-gray-400 hidden sm:block">基于历史数据的涨跌概率预测</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">基于历史数据的涨跌概率预测</p>
         <button
           onClick={fetchFortunes}
           disabled={loading || favorites.length === 0}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors disabled:opacity-50"
+          className="ml-auto flex items-center gap-1.5 px-4 py-2 text-sm bg-purple-50 text-purple-600 dark:text-purple-400 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-xl transition-all hover:shadow-md disabled:opacity-50 active:scale-95"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           刷新
@@ -123,7 +127,7 @@ export function FortuneTellerPage() {
             return (
               <div
                 key={stock.code}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-purple-200 dark:hover:border-purple-800 transition-colors"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-purple-200 dark:hover:border-purple-800 hover:shadow-lg hover:shadow-purple-100/30 dark:hover:shadow-purple-900/20 transition-all hover:-translate-y-0.5"
               >
                 {/* 主行 */}
                 <button

@@ -27,4 +27,6 @@ __pycache__
 .env
 .env.local
 cloudfunctions/stock-predictor/models/
-cloudfunctions/stock-predictor/data/prediction_*.csv
+cloudfunctions/stock-predictor/data/
+cloudfunctions/stock-predictor/*.csv
+public/data/

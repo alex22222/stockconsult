@@ -217,9 +217,9 @@ def track_prediction(symbol: str, stock_name: str, local_pred: dict, df: pd.Data
     # 1. 计算云模型预测
     cloud_pred = calculate_cloud_model_prediction(df) if df is not None else calculate_cloud_model_prediction(pd.DataFrame())
 
-    # 2. 读取已有记录
+    # 2. 读取已有记录（按股票代码隔离）
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    json_path = os.path.join(project_root, "public", "data", "luxiao_comparison.json")
+    json_path = os.path.join(project_root, "public", "data", f"prediction_{symbol}.json")
     
     data = {
         "symbol": symbol,

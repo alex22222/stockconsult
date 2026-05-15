@@ -94,23 +94,30 @@ class StockPredictionEngine:
         # 尝试加载已有模型
         self._load_existing_models()
     
+    @property
+    def symbol_model_dir(self) -> str:
+        """当前股票对应的模型子目录"""
+        return os.path.join(MODEL_DIR, self.symbol)
+
     def _load_existing_models(self):
-        """加载已有模型和进化状态"""
+        """加载已有模型和进化状态（按股票代码隔离）"""
+        model_dir = self.symbol_model_dir
+        os.makedirs(model_dir, exist_ok=True)
+        
         # 查找最新的模型文件
-        if os.path.exists(MODEL_DIR):
-            model_files = [f for f in os.listdir(MODEL_DIR) if f.startswith("models_") and f.endswith(".joblib")]
-            if model_files:
-                latest_model = sorted(model_files)[-1]
-                model_path = os.path.join(MODEL_DIR, latest_model)
-                self.trainer.load_models(model_path)
-                logger.info(f"已加载历史模型: {latest_model}")
-            
-            # 加载进化状态
-            state_files = [f for f in os.listdir(MODEL_DIR) if f.startswith("evolution_state_") and f.endswith(".json")]
-            if state_files:
-                latest_state = sorted(state_files)[-1]
-                state_path = os.path.join(MODEL_DIR, latest_state)
-                self.evolution.load_evolution_state(state_path)
+        model_files = [f for f in os.listdir(model_dir) if f.startswith("models_") and f.endswith(".joblib")]
+        if model_files:
+            latest_model = sorted(model_files)[-1]
+            model_path = os.path.join(model_dir, latest_model)
+            self.trainer.load_models(model_path)
+            logger.info(f"已加载历史模型: {latest_model}")
+        
+        # 加载进化状态
+        state_files = [f for f in os.listdir(model_dir) if f.startswith("evolution_state_") and f.endswith(".json")]
+        if state_files:
+            latest_state = sorted(state_files)[-1]
+            state_path = os.path.join(model_dir, latest_state)
+            self.evolution.load_evolution_state(state_path)
     
     def fetch_data(self, days: int = 252) -> Dict[str, pd.DataFrame]:
         """
@@ -174,8 +181,10 @@ class StockPredictionEngine:
             # 普通训练
             results = self.trainer.train_ensemble(self.features, self.target)
         
-        # 保存模型
-        self.trainer.save_models()
+        # 保存模型（按股票代码隔离）
+        model_path = os.path.join(self.symbol_model_dir, f"models_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib")
+        os.makedirs(self.symbol_model_dir, exist_ok=True)
+        self.trainer.save_models(model_path)
         
         return results
     
@@ -482,20 +491,20 @@ def predict_stock(symbol: str, stock_name: str = None, auto_train: bool = True) 
     return result
 
 
-def train_and_save(symbol: str, days: int = 252):
+def train_and_save(symbol: str, stock_name: str = None, days: int = 500):
     """
-    训练模型并保存
+    训练模型并保存（按股票代码隔离）
     
     Args:
         symbol: 股票代码
+        stock_name: 股票名称
         days: 训练数据天数
     """
-    engine = StockPredictionEngine(symbol=symbol)
+    engine = StockPredictionEngine(symbol=symbol, stock_name=stock_name or symbol)
     engine.fetch_data(days=days)
     engine.build_features()
     engine.train_models(use_rolling=True)
-    engine.trainer.save_models()
-    print(f"模型已训练并保存: {symbol}")
+    print(f"模型已训练并保存: {symbol} -> {engine.symbol_model_dir}")
 
 
 # ==================== 主入口 ====================

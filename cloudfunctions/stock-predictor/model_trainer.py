@@ -474,6 +474,7 @@ class ModelTrainer:
     def save_models(self, filepath: str = None):
         """保存模型到本地"""
         if filepath is None:
+            os.makedirs(MODEL_DIR, exist_ok=True)
             filepath = os.path.join(MODEL_DIR, f"models_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib")
         
         save_data = {
