@@ -468,12 +468,14 @@ export function RecordsPage() {
                 <div className="p-4 space-y-5">
                   {/* 核心观点 */}
                   <Section icon={<Lightbulb className="w-4 h-4 text-amber-500" />} title="核心观点">
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-700">{selectedReport.sections.coreView.investmentThesis}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedReport.sections.coreView.keyDrivers?.slice(0, 4).map((d, i) => (
-                          <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded-md">{d}</span>
-                        ))}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                        <div className="text-[10px] font-medium text-green-700 mb-1">乐观情景</div>
+                        <div className="text-xs text-green-800 leading-relaxed">{selectedReport.sections.coreView.bullCase}</div>
+                      </div>
+                      <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                        <div className="text-[10px] font-medium text-red-700 mb-1">悲观情景</div>
+                        <div className="text-xs text-red-800 leading-relaxed">{selectedReport.sections.coreView.bearCase}</div>
                       </div>
                     </div>
                   </Section>

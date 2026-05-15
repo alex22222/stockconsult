@@ -124,15 +124,22 @@ function SectorBlock({
   style: React.CSSProperties;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const isInflow = sector.netInflow > 0;
   const bg = getHeatColor(sector.netInflow, maxAbs);
   const isLarge = style.width !== undefined && (style.width as number) > 80;
+
+  const handleEnter = (e: React.MouseEvent) => {
+    setHovered(true);
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
+  };
 
   return (
     <div
       className="absolute rounded-lg overflow-hidden cursor-default select-none"
       style={{ ...style, backgroundColor: bg }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handleEnter}
       onMouseLeave={() => setHovered(false)}
     >
       <div className="px-1.5 py-1 h-full flex flex-col justify-center">
@@ -151,31 +158,48 @@ function SectorBlock({
         )}
       </div>
 
-      {/* Tooltip */}
+      {/* 气泡 Tooltip — fixed 定位脱离 overflow-hidden */}
       {hovered && (
-        <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-44 bg-gray-900 dark:bg-gray-800 text-white text-[11px] rounded-lg px-3 py-2 shadow-xl pointer-events-none">
-          <div className="font-semibold mb-1">{sector.name}</div>
-          <div className="space-y-0.5 text-gray-300">
-            <div className="flex justify-between">
-              <span>板块涨跌</span>
-              <span className={sector.changePercent >= 0 ? 'text-red-400' : 'text-green-400'}>
-                {sector.changePercent >= 0 ? '+' : ''}{sector.changePercent.toFixed(2)}%
-              </span>
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{ left: tooltipPos.x, top: tooltipPos.y }}
+        >
+          <div className="-translate-x-1/2 -translate-y-full -mt-2">
+            <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-[11px] rounded-xl px-3.5 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.18)] border border-gray-100 dark:border-gray-700 whitespace-nowrap">
+              {/* 板块名 */}
+              <div className="font-bold text-[13px] mb-1">{sector.name}</div>
+              {/* 涨跌幅 大号突出 */}
+              <div className="flex items-center gap-1.5">
+                <span className={`text-base font-bold ${sector.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                  {sector.changePercent >= 0 ? '+' : ''}{sector.changePercent.toFixed(2)}%
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {sector.changePercent >= 0 ? '▲' : '▼'}
+                </span>
+              </div>
+              {/* 分隔线 */}
+              <div className="my-1.5 border-t border-gray-100 dark:border-gray-700" />
+              {/* 资金流向 */}
+              <div className="space-y-0.5 text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px]">主力净流入</span>
+                  <span className={`font-medium ${isInflow ? 'text-red-500' : 'text-green-500'}`}>
+                    {isInflow ? '+' : ''}{formatBillion(sector.netInflow)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px]">主力净占比</span>
+                  <span className={`font-medium ${isInflow ? 'text-red-500' : 'text-green-500'}`}>
+                    {isInflow ? '+' : ''}{sector.netInflowPercent.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>主力净流入</span>
-              <span className={isInflow ? 'text-red-400' : 'text-green-400'}>
-                {isInflow ? '+' : ''}{formatBillion(sector.netInflow)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>主力净占比</span>
-              <span className={isInflow ? 'text-red-400' : 'text-green-400'}>
-                {isInflow ? '+' : ''}{sector.netInflowPercent.toFixed(2)}%
-              </span>
+            {/* 下箭头 */}
+            <div className="flex justify-center">
+              <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-white dark:border-t-gray-900" />
             </div>
           </div>
-          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900 dark:border-t-gray-800" />
         </div>
       )}
     </div>

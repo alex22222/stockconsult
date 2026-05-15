@@ -27,7 +27,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main import StockPredictionEngine
-from update_daily_data import update_all
+from update_daily_data import update_all, is_update_failed
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +53,15 @@ def daily_predict(symbol: str, stock_name: str, auto_train: bool = False, days: 
     
     # Step 1: 更新数据
     print("【Step 1】更新本地数据...")
-    update_all()
+    data_updated = update_all()
+    
+    if not data_updated:
+        print(f"\n{'='*60}")
+        print(f"  ⚠ 今日数据更新失败，无法预测")
+        print(f"{'='*60}\n")
+        logger.error("数据更新失败，终止预测")
+        return None
+    
     print()
     
     # Step 2: 初始化引擎

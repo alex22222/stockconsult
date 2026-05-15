@@ -1,163 +1,269 @@
 # -*- coding: utf-8 -*-
 """
-每日数据更新脚本
-================
-
-用法:
-    python update_daily_data.py           # 更新所有数据
-    python update_daily_data.py --check   # 只检查最新数据日期
-
-功能:
-    1. 用 baostock 拉取最新行情
-    2. 自动追加到本地 CSV（去重）
-    3. 支持个股 + 三大指数
-
-可加入 crontab 每日自动执行:
-    0 16 * * * cd /path/to/stock-predictor && source venv/bin/activate && python update_daily_data.py >> logs/data_update.log 2>&1
+每日数据更新脚本（增强版）
+多数据源 + 多通道 + 自动重试 + 失败降级
 """
 
 import pandas as pd
 import baostock as bs
+import akshare as ak
 import os
 import argparse
 from datetime import datetime, timedelta
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# baostock 英文列名 → 训练代码期望的中文列名
 COLUMN_MAP = {
-    'date': '日期',
-    'code': '股票代码',
-    'open': '开盘',
-    'high': '最高',
-    'low': '最低',
-    'close': '收盘',
-    'volume': '成交量',
-    'amount': '成交额',
-    'turn': '换手率',
-    'pctChg': '涨跌幅',
+    'date': '日期', 'code': '股票代码', 'open': '开盘', 'high': '最高',
+    'low': '最低', 'close': '收盘', 'volume': '成交量', 'amount': '成交额',
+    'turn': '换手率', 'pctChg': '涨跌幅',
 }
+
+UPDATE_FAIL_FLAG = os.path.join(DATA_DIR, "update_failed.flag")
+
+
+def set_update_failed(reason: str = ""):
+    with open(UPDATE_FAIL_FLAG, 'w', encoding='utf-8') as f:
+        f.write(f"{datetime.now().isoformat()}\n{reason}")
+    logger.warning(f"标记今日数据更新失败: {reason}")
+
+
+def clear_update_failed():
+    if os.path.exists(UPDATE_FAIL_FLAG):
+        os.remove(UPDATE_FAIL_FLAG)
+
+
+def is_update_failed() -> bool:
+    if not os.path.exists(UPDATE_FAIL_FLAG):
+        return False
+    with open(UPDATE_FAIL_FLAG, 'r', encoding='utf-8') as f:
+        lines = f.read().strip().split('\n')
+    if lines:
+        fail_time = datetime.fromisoformat(lines[0])
+        if fail_time.date() == datetime.now().date():
+            return True
+    return False
 
 
 def get_last_date(csv_file: str) -> str:
-    """获取 CSV 中最新日期"""
     path = os.path.join(DATA_DIR, csv_file)
     if not os.path.exists(path):
-        return "2023-01-01"
+        return "20230101"
     df = pd.read_csv(path, encoding='utf-8-sig')
     if df.empty:
-        return "2023-01-01"
+        return "20230101"
     date_col = "日期" if "日期" in df.columns else "date"
     last = str(df[date_col].iloc[-1])
-    # 统一转为 YYYYMMDD
     return last.replace("-", "")
 
 
-def append_new_data(code: str, csv_file: str, fields: str):
-    """
-    下载新数据并追加到 CSV（统一使用中文列名）
-    """
+def get_next_date(csv_file: str) -> tuple:
+    last_date = get_last_date(csv_file)
+    next_date = (datetime.strptime(last_date, "%Y%m%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+    return next_date, today
+
+
+def fetch_from_baostock(code: str, start: str, end: str, fields: str, max_retries: int = 3) -> pd.DataFrame:
+    for attempt in range(1, max_retries + 1):
+        try:
+            lg = bs.login()
+            if lg.error_code != '0':
+                logger.warning(f"baostock 登录失败 (尝试 {attempt}/{max_retries})")
+                time.sleep(2)
+                continue
+            rs = bs.query_history_k_data_plus(code, fields, start_date=start, end_date=end, frequency='d', adjustflag='3')
+            if rs is None:
+                bs.logout()
+                logger.warning(f"baostock 返回空 (尝试 {attempt}/{max_retries})")
+                time.sleep(2)
+                continue
+            rows = []
+            while (rs.error_code == '0') & rs.next():
+                rows.append(rs.get_row_data())
+            bs.logout()
+            if not rows:
+                return pd.DataFrame()
+            df = pd.DataFrame(rows, columns=rs.fields)
+            df.rename(columns=COLUMN_MAP, inplace=True)
+            logger.info(f"baostock 成功获取 {len(df)} 条")
+            return df
+        except Exception as e:
+            logger.warning(f"baostock 异常 (尝试 {attempt}/{max_retries}): {e}")
+            try:
+                bs.logout()
+            except:
+                pass
+            time.sleep(2)
+    return pd.DataFrame()
+
+
+def fetch_from_akshare_stock(symbol: str, start: str, end: str, max_retries: int = 3) -> pd.DataFrame:
+    for attempt in range(1, max_retries + 1):
+        try:
+            df = ak.stock_zh_a_hist(symbol=symbol, period="daily", start_date=start.replace("-", ""),
+                                     end_date=end.replace("-", ""), adjust="qfq")
+            if df is not None and not df.empty:
+                logger.info(f"akshare 个股成功获取 {len(df)} 条")
+                return df
+        except Exception as e:
+            logger.warning(f"akshare 个股异常 (尝试 {attempt}/{max_retries}): {str(e)[:80]}")
+            time.sleep(2)
+    return pd.DataFrame()
+
+
+def fetch_from_akshare_index(index_symbol: str, start: str, end: str, max_retries: int = 3) -> pd.DataFrame:
+    for attempt in range(1, max_retries + 1):
+        try:
+            df = ak.index_zh_a_hist(symbol=index_symbol, period="daily",
+                                     start_date=start.replace("-", ""),
+                                     end_date=end.replace("-", ""))
+            if df is not None and not df.empty:
+                logger.info(f"akshare 指数 {index_symbol} 成功获取 {len(df)} 条")
+                return df
+        except Exception as e:
+            logger.warning(f"akshare 指数异常 (尝试 {attempt}/{max_retries}): {str(e)[:80]}")
+            time.sleep(2)
+    return pd.DataFrame()
+
+
+def update_single_file(config: dict, global_attempt: int) -> tuple:
+    csv_file = config['csv']
     path = os.path.join(DATA_DIR, csv_file)
-    
-    # 1. 读取现有数据
+    next_date, today = get_next_date(csv_file)
+
+    if next_date > today:
+        logger.info(f"[{csv_file}] 已是最新 ({get_last_date(csv_file)})")
+        if os.path.exists(path):
+            return pd.read_csv(path, encoding='utf-8-sig'), 0, True
+        return pd.DataFrame(), 0, True
+
     if os.path.exists(path):
         existing = pd.read_csv(path, encoding='utf-8-sig')
     else:
         existing = pd.DataFrame()
-    
-    # 2. 确定起始日期
-    last_date = get_last_date(csv_file)
-    # baostock 需要 YYYY-MM-DD 格式
-    start = (datetime.strptime(last_date, "%Y%m%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-    end = datetime.now().strftime("%Y-%m-%d")
-    
-    if start > end:
-        print(f"  [{csv_file}] 数据已是最新，无需更新 (最后日期: {last_date})")
-        return existing
-    
-    print(f"  [{csv_file}] 拉取 {start} ~ {end} 的数据...")
-    
-    # 3. 登录并拉取
-    lg = bs.login()
-    if lg.error_code != '0':
-        print(f"  baostock 登录失败: {lg.error_msg}")
-        return existing
-    
-    rs = bs.query_history_k_data_plus(code, fields,
-        start_date=start, end_date=end,
-        frequency='d', adjustflag='3')
-    
-    if rs is None:
-        print(f"  [{csv_file}] baostock 返回空，可能今天无交易数据")
-        bs.logout()
-        return existing
-    
-    new_rows = []
-    while (rs.error_code == '0') & rs.next():
-        new_rows.append(rs.get_row_data())
-    bs.logout()
-    
-    if not new_rows:
-        print(f"  [{csv_file}] 无新数据（可能今天非交易日或数据未更新）")
-        return existing
-    
-    # 4. 新数据转为中文列名
-    new_df = pd.DataFrame(new_rows, columns=rs.fields)
-    new_df.rename(columns=COLUMN_MAP, inplace=True)
-    print(f"  [{csv_file}] 获取到 {len(new_df)} 条新数据")
-    
-    # 5. 合并并保存
-    if existing.empty:
-        combined = new_df
-    else:
-        combined = pd.concat([existing, new_df], ignore_index=True)
-    
-    # 去重（按日期）
-    combined.drop_duplicates(subset=['日期'], keep='last', inplace=True)
-    combined.sort_values('日期', inplace=True)
+
+    logger.info(f"[{csv_file}] 尝试 baostock: {next_date} ~ {today}")
+    df = fetch_from_baostock(config['baostock_code'], next_date, today, config['fields'], max_retries=3)
+    attempts = 3
+
+    if not df.empty:
+        pass
+    elif next_date == today:
+        logger.info(f"[{csv_file}] 今日数据尚未更新，跳过")
+        return existing, attempts, True
+    elif global_attempt + attempts < 10:
+        logger.info(f"[{csv_file}] baostock 无数据，尝试 akshare...")
+        if config.get('akshare_func'):
+            df = config['akshare_func'](config['akshare_symbol'], next_date, today, max_retries=3)
+            attempts += 3
+
+    if df.empty:
+        logger.warning(f"[{csv_file}] 所有数据源均失败 (累计尝试 {attempts} 次)")
+        return existing, attempts, False
+
+    combined = pd.concat([existing, df], ignore_index=True) if not existing.empty else df
+    date_col = "日期" if "日期" in combined.columns else "date"
+    combined.drop_duplicates(subset=[date_col], keep='last', inplace=True)
+    combined.sort_values(date_col, inplace=True)
     combined.reset_index(drop=True, inplace=True)
-    
     combined.to_csv(path, index=False, encoding='utf-8-sig')
-    print(f"  [{csv_file}] 已保存，共 {len(combined)} 条")
-    return combined
+    logger.info(f"[{csv_file}] 已保存，共 {len(combined)} 条")
+    return combined, attempts, True
 
 
-def update_all():
-    """更新所有数据"""
-    print(f"=== 每日数据更新 ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')}) ===")
-    
-    # 个股
-    append_new_data('sz.002617', '002617_daily.csv',
-        'date,code,open,high,low,close,volume,amount,turn,pctChg')
-    
-    # 指数
-    for code, fname in [
-        ('sh.000001', 'sh_index_000001.csv'),
-        ('sz.399001', 'sz_index_399001.csv'),
-        ('sz.399006', 'cy_index_399006.csv'),
-    ]:
-        append_new_data(code, fname, 'date,open,high,low,close,volume,amount,pctChg')
-    
-    print("=== 更新完成 ===")
+CONFIGS = [
+    {
+        'csv': '002617_daily.csv',
+        'baostock_code': 'sz.002617',
+        'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+        'akshare_func': fetch_from_akshare_stock,
+        'akshare_symbol': '002617',
+    },
+    {
+        'csv': 'sh_index_000001.csv',
+        'baostock_code': 'sh.000001',
+        'fields': 'date,open,high,low,close,volume,amount,pctChg',
+        'akshare_func': fetch_from_akshare_index,
+        'akshare_symbol': '000001',
+    },
+    {
+        'csv': 'sz_index_399001.csv',
+        'baostock_code': 'sz.399001',
+        'fields': 'date,open,high,low,close,volume,amount,pctChg',
+        'akshare_func': fetch_from_akshare_index,
+        'akshare_symbol': '399001',
+    },
+    {
+        'csv': 'cy_index_399006.csv',
+        'baostock_code': 'sz.399006',
+        'fields': 'date,open,high,low,close,volume,amount,pctChg',
+        'akshare_func': fetch_from_akshare_index,
+        'akshare_symbol': '399006',
+    },
+]
+
+
+def update_all() -> bool:
+    print(f"\n{'='*60}")
+    print(f"  每日数据更新 ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+    print(f"{'='*60}\n")
+
+    clear_update_failed()
+    total_attempts = 0
+    stock_success = False
+
+    for cfg in CONFIGS:
+        if total_attempts >= 10:
+            logger.error(f"累计尝试已达 {total_attempts} 次上限，终止更新")
+            break
+        _, attempts, success = update_single_file(cfg, total_attempts)
+        total_attempts += attempts
+        if cfg['csv'] == '002617_daily.csv' and success:
+            stock_success = True
+
+    print(f"\n{'='*60}")
+    if stock_success:
+        print(f"  数据更新完成 (累计尝试 {total_attempts} 次)")
+        print(f"{'='*60}\n")
+        return True
+    else:
+        reason = f"个股数据更新失败，累计尝试 {total_attempts} 次，所有数据源均不可用"
+        set_update_failed(reason)
+        print(f"  ✗ {reason}")
+        print(f"  今日数据更新失败，无法预测")
+        print(f"{'='*60}\n")
+        return False
 
 
 def check_status():
-    """检查各数据文件的最新日期"""
     print("=== 数据状态检查 ===")
-    for fname in ['002617_daily.csv', 'sh_index_000001.csv', 'sz_index_399001.csv', 'cy_index_399006.csv']:
+    for cfg in CONFIGS:
+        fname = cfg['csv']
         last = get_last_date(fname)
         path = os.path.join(DATA_DIR, fname)
         size = os.path.getsize(path) if os.path.exists(path) else 0
-        print(f"  {fname}: 最新日期 {last} | 文件大小 {size/1024:.1f} KB")
+        print(f"  {fname}: 最新日期 {last} | 大小 {size/1024:.1f} KB")
+    if is_update_failed():
+        print(f"\n  ⚠ 今日更新失败标记存在")
+        with open(UPDATE_FAIL_FLAG, 'r') as f:
+            print(f"    {f.read().strip()}")
+    else:
+        print(f"\n  ✓ 今日无更新失败标记")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="每日数据更新")
+    parser = argparse.ArgumentParser(description="每日数据更新（增强版）")
     parser.add_argument("--check", action="store_true", help="只检查状态，不更新")
     args = parser.parse_args()
-    
     if args.check:
         check_status()
     else:
-        update_all()
+        success = update_all()
+        exit(0 if success else 1)

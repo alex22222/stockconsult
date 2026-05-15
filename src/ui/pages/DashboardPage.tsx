@@ -176,9 +176,7 @@ export function DashboardPage() {
             <RatingBadge rating={coreView.rating} />
           </div>
           <div className="p-6">
-            <p className="text-lg font-medium text-gray-900 mb-4">{coreView.oneSentenceSummary}</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                 <div className="text-xs font-medium text-green-700 mb-1">乐观情景</div>
                 <div className="text-sm text-green-800 leading-relaxed">{coreView.bullCase}</div>
@@ -187,16 +185,6 @@ export function DashboardPage() {
                 <div className="text-xs font-medium text-red-700 mb-1">悲观情景</div>
                 <div className="text-sm text-red-800 leading-relaxed">{coreView.bearCase}</div>
               </div>
-            </div>
-
-            <div className="text-sm text-gray-600 leading-relaxed">{coreView.investmentThesis}</div>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              {coreView.keyDrivers.map((driver: string, i: number) => (
-                <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg font-medium">
-                  {driver}
-                </span>
-              ))}
             </div>
           </div>
         </section>
