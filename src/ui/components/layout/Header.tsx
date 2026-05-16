@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3, Sword, PiggyBank } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3, Sword, PiggyBank, LayoutDashboard } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -84,8 +84,8 @@ export function Header() {
   const toggleFortunePage = useAppStore((s) => s.toggleFortunePage);
   const showModelDocPage = useAppStore((s) => s.showModelDocPage);
   const toggleModelDocPage = useAppStore((s) => s.toggleModelDocPage);
-  const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
-  const toggleLuxiaoHistoryPage = useAppStore((s) => s.toggleLuxiaoHistoryPage);
+  // const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
+  // const toggleLuxiaoHistoryPage = useAppStore((s) => s.toggleLuxiaoHistoryPage);
   const showStrategyAdvisorPage = useAppStore((s) => s.showStrategyAdvisorPage);
   const toggleStrategyAdvisorPage = useAppStore((s) => s.toggleStrategyAdvisorPage);
   const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
@@ -170,15 +170,15 @@ export function Header() {
               <span className="hidden sm:inline">模型说明</span>
             </button>
             <button
-              onClick={() => toggleLuxiaoHistoryPage(!showLuxiaoHistoryPage)}
+              onClick={() => toggleStrategyAdvisorPage(!showStrategyAdvisorPage)}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
-                showLuxiaoHistoryPage
+                showStrategyAdvisorPage
                   ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">露笑预测</span>
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">策略页面</span>
             </button>
             <button
               onClick={() => togglePaperTradingPage(!showPaperTradingPage)}
@@ -191,17 +191,7 @@ export function Header() {
               <PiggyBank className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">模拟盘</span>
             </button>
-            <button
-              onClick={() => toggleStrategyAdvisorPage(!showStrategyAdvisorPage)}
-              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
-                showStrategyAdvisorPage
-                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Sword className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">策略锐评</span>
-            </button>
+
             <button
               onClick={() => toggleRecordsPage(!showRecordsPage)}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
