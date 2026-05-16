@@ -314,6 +314,53 @@ class FeatureEngineer:
         # 下影线比例
         factors["lower_shadow"] = (close.clip(upper=stock_df["开盘"]) - low) / (high - low + 1e-10) * 100
         
+        # ===== 扩展滞后特征 =====
+        # T-2/T-3 日的关键指标
+        for lag in [2, 3]:
+            factors[f"close_chg_lag{lag}"] = close.pct_change(lag).shift(lag) * 100
+            factors[f"volume_ratio_lag{lag}"] = volume / volume.rolling(20).mean().shift(lag)
+            factors[f"rsi_lag{lag}"] = factors["rsi_14"].shift(lag)
+            factors[f"macd_lag{lag}"] = factors["macd_line"].shift(lag)
+            factors[f"kdj_j_lag{lag}"] = factors["kdj_j"].shift(lag)
+        
+        # ===== 波动率特征 =====
+        factors["volatility_20d"] = close.pct_change().rolling(20).std() * 100
+        factors["volatility_60d"] = close.pct_change().rolling(60).std() * 100
+        factors["volatility_ratio"] = factors["volatility_20d"] / (factors["volatility_60d"] + 1e-10)
+        factors["volume_volatility_20d"] = volume.pct_change().rolling(20).std() * 100
+        
+        # ===== 价格分位数特征 =====
+        factors["price_pctile_20d"] = close.rolling(20).apply(
+            lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
+        )
+        factors["price_pctile_60d"] = close.rolling(60).apply(
+            lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
+        )
+        factors["volume_pctile_20d"] = volume.rolling(20).apply(
+            lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
+        )
+        
+        # ===== 交互特征 =====
+        # MACD × RSI（趋势与动量交互）
+        factors["macd_rsi_interact"] = (factors["macd_line"] / 10).clip(-5, 5) * (factors["rsi_14"] / 50 - 1)
+        # 换手率 × 涨跌幅（量价交互）
+        if "换手率" in stock_df.columns:
+            factors["turnover_return_interact"] = stock_df["换手率"] * close.pct_change().shift(0) * 100
+        # 个股与指数交互
+        factors["price_bb_interact"] = factors["price_vs_ma20"] * factors["bb_position"]
+        # ATR × 成交量（波动与量能交互）
+        volume_ratio_20_local = volume / volume.rolling(20).mean()
+        factors["atr_volume_interact"] = factors["atr_ratio"] * volume_ratio_20_local
+        
+        # ===== 成交量变异系数 =====
+        factors["volume_cv_20d"] = volume.rolling(20).std() / (volume.rolling(20).mean() + 1e-10)
+        factors["volume_cv_60d"] = volume.rolling(60).std() / (volume.rolling(60).mean() + 1e-10)
+        
+        # ===== 累积动量特征 =====
+        factors["cum_return_3d"] = close.pct_change(3) * 100
+        factors["cum_return_10d"] = close.pct_change(10) * 100
+        factors["cum_volume_3d"] = volume.rolling(3).sum() / volume.rolling(20).mean()
+        
         return factors.replace([np.inf, -np.inf], 0).fillna(0)
     
     # ==================== 5. 板块热度因子 ====================
@@ -456,7 +503,147 @@ class FeatureEngineer:
         
         return factors.replace([np.inf, -np.inf], 0).fillna(0)
 
-    # ==================== 7. 隔夜美股因子 ====================
+    # ==================== 8. 市场情绪因子（北向资金/涨跌停/国债收益率）====================
+
+    def calc_market_sentiment_factors_v2(self, stock_df: pd.DataFrame,
+                                          northbound_df: pd.DataFrame = None,
+                                          zt_df: pd.DataFrame = None,
+                                          bond_yield_df: pd.DataFrame = None) -> pd.DataFrame:
+        """
+        计算扩展市场情绪因子
+        
+        因子列表:
+        - northbound_net_buy: 北向资金当日净流入
+        - northbound_net_buy_ma5: 北向资金5日平均净流入
+        - northbound_net_buy_cum5: 北向资金5日累计净流入
+        - zt_count: 涨停家数
+        - dt_count: 跌停家数
+        - zt_dt_ratio: 涨停/跌停比
+        - zt_ma5: 涨停家数5日平均
+        - bond_yield_10y: 10年期国债收益率
+        - bond_yield_10y_chg_1d: 10年期国债收益率1日变化
+        """
+        import os
+        
+        factors = pd.DataFrame(index=stock_df.index)
+        
+        # 获取日期列
+        if "日期" in stock_df.columns:
+            dates = pd.to_datetime(stock_df["日期"]).dt.strftime("%Y-%m-%d")
+        else:
+            dates = pd.to_datetime(stock_df.index).strftime("%Y-%m-%d")
+        
+        # 1. 北向资金因子
+        if northbound_df is not None and not northbound_df.empty:
+            northbound_df = northbound_df.copy()
+            if "日期" in northbound_df.columns:
+                northbound_df["date_key"] = pd.to_datetime(northbound_df["日期"]).dt.strftime("%Y-%m-%d")
+            elif "date" in northbound_df.columns:
+                northbound_df["date_key"] = pd.to_datetime(northbound_df["date"]).dt.strftime("%Y-%m-%d")
+            else:
+                northbound_df["date_key"] = ""
+            
+            nb_map = {}
+            for _, row in northbound_df.iterrows():
+                d = str(row.get("date_key", ""))
+                if d:
+                    nb_map[d] = row
+            
+            for col in ["total_net_buy", "net_buy_ma5", "net_buy_cum5", "total_buy", "total_sell"]:
+                vals = []
+                for d in dates:
+                    if d in nb_map and pd.notna(nb_map[d].get(col)):
+                        vals.append(float(nb_map[d][col]))
+                    else:
+                        vals.append(0.0)
+                factors[f"northbound_{col}"] = vals
+        else:
+            # 尝试从本地 CSV 加载
+            nb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "northbound_money.csv")
+            if os.path.exists(nb_path):
+                try:
+                    nb_df = pd.read_csv(nb_path, encoding="utf-8-sig")
+                    nb_df["date_key"] = pd.to_datetime(nb_df["日期"]).dt.strftime("%Y-%m-%d")
+                    nb_map = {str(r["date_key"]): r for _, r in nb_df.iterrows()}
+                    for col in ["total_net_buy", "net_buy_ma5", "net_buy_cum5"]:
+                        vals = []
+                        for d in dates:
+                            vals.append(float(nb_map.get(d, {}).get(col, 0)) if d in nb_map else 0.0)
+                        factors[f"northbound_{col}"] = vals
+                except Exception:
+                    for col in ["total_net_buy", "net_buy_ma5", "net_buy_cum5"]:
+                        factors[f"northbound_{col}"] = 0
+            else:
+                for col in ["total_net_buy", "net_buy_ma5", "net_buy_cum5"]:
+                    factors[f"northbound_{col}"] = 0
+        
+        # 2. 涨跌停因子
+        if zt_df is not None and not zt_df.empty:
+            zt_df = zt_df.copy()
+            if "date" in zt_df.columns:
+                zt_df["date_key"] = pd.to_datetime(zt_df["date"]).dt.strftime("%Y-%m-%d")
+            zt_map = {str(r["date_key"]): r for _, r in zt_df.iterrows() if pd.notna(r.get("date_key"))}
+            
+            for col in ["zt_count", "dt_count", "zt_dt_ratio", "zt_ma5", "dt_ma5"]:
+                vals = []
+                for d in dates:
+                    vals.append(float(zt_map.get(d, {}).get(col, 0)) if d in zt_map else 0.0)
+                factors[f"market_{col}"] = vals
+        else:
+            zt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "zt_pool.csv")
+            if os.path.exists(zt_path):
+                try:
+                    zt_df = pd.read_csv(zt_path, encoding="utf-8-sig")
+                    zt_df["date_key"] = pd.to_datetime(zt_df["date"]).dt.strftime("%Y-%m-%d")
+                    zt_map = {str(r["date_key"]): r for _, r in zt_df.iterrows()}
+                    for col in ["zt_count", "dt_count", "zt_dt_ratio", "zt_ma5"]:
+                        vals = []
+                        for d in dates:
+                            vals.append(float(zt_map.get(d, {}).get(col, 0)) if d in zt_map else 0.0)
+                        factors[f"market_{col}"] = vals
+                except Exception:
+                    for col in ["zt_count", "dt_count", "zt_dt_ratio", "zt_ma5"]:
+                        factors[f"market_{col}"] = 0
+            else:
+                for col in ["zt_count", "dt_count", "zt_dt_ratio", "zt_ma5"]:
+                    factors[f"market_{col}"] = 0
+        
+        # 3. 国债收益率因子
+        if bond_yield_df is not None and not bond_yield_df.empty:
+            bond_df = bond_yield_df.copy()
+            if "日期" in bond_df.columns:
+                bond_df["date_key"] = pd.to_datetime(bond_df["日期"]).dt.strftime("%Y-%m-%d")
+            bond_map = {str(r["date_key"]): r for _, r in bond_df.iterrows() if pd.notna(r.get("date_key"))}
+            
+            for col in bond_df.columns:
+                if col in ["日期", "date_key"]:
+                    continue
+                vals = []
+                for d in dates:
+                    vals.append(float(bond_map.get(d, {}).get(col, 0)) if d in bond_map else 0.0)
+                factors[f"bond_{col}"] = vals
+        else:
+            bond_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "bond_yield.csv")
+            if os.path.exists(bond_path):
+                try:
+                    bond_df = pd.read_csv(bond_path, encoding="utf-8-sig")
+                    bond_df["date_key"] = pd.to_datetime(bond_df["日期"]).dt.strftime("%Y-%m-%d")
+                    bond_map = {str(r["date_key"]): r for _, r in bond_df.iterrows()}
+                    for col in ["中国国债收益率10年", "中国国债收益率10年_chg_1d"]:
+                        vals = []
+                        for d in dates:
+                            vals.append(float(bond_map.get(d, {}).get(col, 0)) if d in bond_map else 0.0)
+                        factors[f"bond_{col}"] = vals
+                except Exception:
+                    factors["bond_中国国债收益率10年"] = 0
+                    factors["bond_中国国债收益率10年_chg_1d"] = 0
+            else:
+                factors["bond_中国国债收益率10年"] = 0
+                factors["bond_中国国债收益率10年_chg_1d"] = 0
+        
+        return factors.fillna(0)
+    
+    # ==================== 9. 隔夜美股因子 ====================
 
     def calc_us_market_factors(self, stock_df: pd.DataFrame,
                                 us_overnight_df: pd.DataFrame = None) -> pd.DataFrame:
@@ -630,6 +817,14 @@ class FeatureEngineer:
         us_factors = self.calc_us_market_factors(stock_df, us_overnight_df)
         all_factors.append(us_factors)
         
+        # 8. 扩展市场情绪因子（北向资金/涨跌停/国债收益率）
+        logger.info("计算扩展市场情绪因子...")
+        northbound_df = data.get("northbound_money", pd.DataFrame())
+        zt_df = data.get("zt_pool", pd.DataFrame())
+        bond_yield_df = data.get("bond_yield", pd.DataFrame())
+        sentiment_v2_factors = self.calc_market_sentiment_factors_v2(stock_df, northbound_df, zt_df, bond_yield_df)
+        all_factors.append(sentiment_v2_factors)
+        
         # 合并所有特征
         X = pd.concat(all_factors, axis=1)
         
@@ -780,6 +975,16 @@ class FeatureEngineer:
                 category_importance["fund_anomaly"].append(importance)
             elif any(kw in feat_name.lower() for kw in ["nasdaq", "dow", "sp500", "china", "us_overnight"]):
                 category_importance["us_market"].append(importance)
+            elif any(kw in feat_name.lower() for kw in ["northbound", "market_zt", "market_dt", "bond_"]):
+                category_importance["market_sentiment_v2"].append(importance)
+            elif any(kw in feat_name.lower() for kw in ["volatility", "volume_cv"]):
+                category_importance["volatility"].append(importance)
+            elif any(kw in feat_name.lower() for kw in ["pctile", "percentile"]):
+                category_importance["percentile"].append(importance)
+            elif "interact" in feat_name.lower():
+                category_importance["interaction"].append(importance)
+            elif "lag" in feat_name.lower():
+                category_importance["lag_features"].append(importance)
         
         # 计算每类平均重要性
         result = {}

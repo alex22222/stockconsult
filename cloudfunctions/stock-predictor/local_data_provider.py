@@ -91,6 +91,18 @@ class LocalDataProvider:
         """获取隔夜美股数据"""
         return self._load_csv("us_overnight.csv")
 
+    def get_northbound_money(self) -> pd.DataFrame:
+        """获取北向资金数据"""
+        return self._load_csv("northbound_money.csv")
+
+    def get_zt_pool(self) -> pd.DataFrame:
+        """获取涨跌停家数数据"""
+        return self._load_csv("zt_pool.csv")
+
+    def get_bond_yield(self) -> pd.DataFrame:
+        """获取国债收益率数据"""
+        return self._load_csv("bond_yield.csv")
+
     def get_all_data_for_stock(self, symbol: str, days: int = 252) -> Dict[str, pd.DataFrame]:
         """获取单股全维度数据（本地版）"""
         data = {}
@@ -102,6 +114,9 @@ class LocalDataProvider:
         data["sector_fund_flow"] = self.get_sector_fund_flow()
         data["market_breadth"] = {}
         data["us_overnight"] = self.get_us_overnight()
+        data["northbound_money"] = self.get_northbound_money()
+        data["zt_pool"] = self.get_zt_pool()
+        data["bond_yield"] = self.get_bond_yield()
         return data
 
 

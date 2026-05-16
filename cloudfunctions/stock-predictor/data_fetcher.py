@@ -224,8 +224,14 @@ class DataFetcher:
         # 8. 隔夜美股数据
         data["us_overnight"] = self.get_us_overnight_data()
         logger.info(f"美股隔夜数据: {len(data['us_overnight'])} 条")
+
+        # 9. 市场情绪数据（北向资金/涨跌停/国债收益率）
+        data["northbound_money"] = local.get_northbound_money()
+        data["zt_pool"] = local.get_zt_pool()
+        data["bond_yield"] = local.get_bond_yield()
+        logger.info(f"北向资金: {len(data['northbound_money'])} 条, 涨跌停: {len(data['zt_pool'])} 条, 国债: {len(data['bond_yield'])} 条")
         
-        # 9. 对每项数据，网络为空时回退到本地
+        # 10. 对每项数据，网络为空时回退到本地
         local = LocalDataProvider()
         
         if isinstance(data.get("sh_index"), pd.DataFrame) and data["sh_index"].empty:
