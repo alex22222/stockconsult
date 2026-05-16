@@ -85,6 +85,9 @@ interface AppState {
   // 策略锐评
   showStrategyAdvisorPage: boolean;
 
+  // 模拟盘
+  showPaperTradingPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -99,6 +102,7 @@ interface AppState {
   toggleModelDocPage: (show?: boolean) => void;
   toggleLuxiaoHistoryPage: (show?: boolean) => void;
   toggleStrategyAdvisorPage: (show?: boolean) => void;
+  togglePaperTradingPage: (show?: boolean) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -137,6 +141,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showModelDocPage: false,
   showLuxiaoHistoryPage: false,
   showStrategyAdvisorPage: false,
+  showPaperTradingPage: false,
 
   setQuery: (query) => set({ query }),
 

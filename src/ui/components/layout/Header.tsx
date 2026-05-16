@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3, Sword } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3, Sword, PiggyBank } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -88,6 +88,8 @@ export function Header() {
   const toggleLuxiaoHistoryPage = useAppStore((s) => s.toggleLuxiaoHistoryPage);
   const showStrategyAdvisorPage = useAppStore((s) => s.showStrategyAdvisorPage);
   const toggleStrategyAdvisorPage = useAppStore((s) => s.toggleStrategyAdvisorPage);
+  const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
+  const togglePaperTradingPage = useAppStore((s) => s.togglePaperTradingPage);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
@@ -177,6 +179,17 @@ export function Header() {
             >
               <BarChart3 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">露笑预测</span>
+            </button>
+            <button
+              onClick={() => togglePaperTradingPage(!showPaperTradingPage)}
+              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
+                showPaperTradingPage
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <PiggyBank className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">模拟盘</span>
             </button>
             <button
               onClick={() => toggleStrategyAdvisorPage(!showStrategyAdvisorPage)}
