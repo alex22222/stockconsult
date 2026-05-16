@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, Wallet, TrendingUp, TrendingDown, Clock, Calendar,
   BarChart3, Target, AlertCircle, CheckCircle2, XCircle, Loader2,
-  RefreshCw, ChevronDown, ChevronUp, Activity, PiggyBank
+  RefreshCw, ChevronDown, ChevronUp, Activity, PiggyBank,
+  ClipboardList, Play, RotateCcw, BookOpen, Terminal, GitCommit
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 
@@ -183,7 +184,7 @@ export function PaperTradingPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'signals' | 'trades'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'signals' | 'trades' | 'ops'>('overview');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -277,6 +278,7 @@ export function PaperTradingPage() {
           { key: 'overview', label: '概览', icon: Activity },
           { key: 'signals', label: '信号记录', icon: Calendar },
           { key: 'trades', label: '交易记录', icon: BarChart3 },
+          { key: 'ops', label: '每日运维', icon: ClipboardList },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -407,6 +409,180 @@ export function PaperTradingPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 每日运维 */}
+      {activeTab === 'ops' && (
+        <div className="space-y-4">
+          {/* 每日必做 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                <Play className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">每日必做（收盘后 17:30）</span>
+            </div>
+            <div className="px-4 py-3 space-y-3">
+              {[
+                { step: 1, title: '进入项目目录', cmd: 'cd /Users/henry/projects/stockconsult/cloudfunctions/stock-predictor', desc: '确保在正确的Python环境中' },
+                { step: 2, title: '运行模拟盘脚本', cmd: 'python3 paper_trading_5day.py full', desc: '自动生成信号 + 结算持仓 + 生成周报' },
+                { step: 3, title: '同步数据到前端', cmd: 'cp paper_trading/*.json ../../public/paper-trading/', desc: '把最新数据复制到前端可访问目录' },
+                { step: 4, title: 'Git提交记录', cmd: 'git add -A && git commit -m "paper: 2026-05-19 模拟盘记录"', desc: '每日一提交，形成完整历史链' },
+                { step: 5, title: '刷新页面查看', cmd: '刷新浏览器或重新部署', desc: '查看最新信号和持仓状态' },
+              ].map((item) => (
+                <div key={item.step} className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    {item.step}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.title}</div>
+                    <div className="mt-1 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5">
+                      <code className="text-xs font-mono text-gray-600 dark:text-gray-400">{item.cmd}</code>
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 每周必做 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                <RotateCcw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">每周必做（周日晚上）</span>
+            </div>
+            <div className="px-4 py-3 space-y-2.5">
+              {[
+                { title: '重新跑优化脚本', cmd: 'python3 optimize_5day_strategy.py', desc: 'Walk-forward验证，检查阈值和特征是否需要调整' },
+                { title: '对比回测 vs 模拟盘', cmd: '对比报告中的实际收益与回测预期', desc: '如果偏差>20%，说明模型可能失效' },
+                { title: '更新策略配置', cmd: '修改 paper_trading_5day.py 中的 STOCK_CONFIG', desc: '根据最新优化结果调整阈值和Top-K' },
+                { title: '生成周报分析', cmd: 'python3 paper_trading_5day.py report', desc: '胜率/收益/回撤，评估策略健康度' },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    W{i + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.title}</div>
+                    <div className="mt-0.5 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-lg px-3 py-1.5">
+                      <code className="text-xs font-mono text-blue-700 dark:text-blue-300">{item.cmd}</code>
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 每月必做 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">每月必做（月底）</span>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              {[
+                '更新历史数据：运行 fetch_stock_data.py 获取最新日线',
+                '全量模型重训练：用所有历史数据重新训练GBDT模型',
+                '评估策略有效性：如果3个月累计收益为负，考虑暂停',
+                '检查股票池：是否有新股需要加入，或旧股需要移除',
+                '备份数据：git tag 标记月度里程碑',
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 数据来源 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center">
+                <Terminal className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">数据来源</span>
+            </div>
+            <div className="px-4 py-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {[
+                  { source: '个股日线', lib: 'akshare / baostock', path: 'data/{code}_daily.csv' },
+                  { source: '上证指数', lib: 'akshare', path: 'data/sh_index_000001.csv' },
+                  { source: '隔夜美股', lib: 'yfinance', path: 'data/us_overnight.csv' },
+                  { source: '北向资金', lib: 'akshare', path: 'data/northbound_money.csv' },
+                  { source: '国债收益率', lib: 'akshare', path: 'data/bond_yield.csv' },
+                  { source: '估值数据', lib: 'akshare', path: 'data/{code}_value.csv' },
+                ].map((item) => (
+                  <div key={item.source} className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <span className="text-gray-500 dark:text-gray-400 w-16 shrink-0">{item.source}</span>
+                    <span className="text-gray-400 dark:text-gray-500">→</span>
+                    <code className="text-gray-600 dark:text-gray-400 font-mono text-[10px]">{item.path}</code>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 异常处理 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">异常处理清单</span>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              {[
+                { level: '低', text: '某天akshare连不上 → 跳过当天，第二天补跑' },
+                { level: '中', text: '模型连续5天给出相同信号 → 检查数据是否更新' },
+                { level: '中', text: '某只股票连续3次亏损 → 暂停该股票，重新优化参数' },
+                { level: '高', text: '3个月累计收益为负 → 暂停所有交易，重新评估策略' },
+                { level: '高', text: '单只股票回撤>50% → 立即停止该股票交易' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5 ${
+                    item.level === '低' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
+                    item.level === '中' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400' :
+                    'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                  }`}>
+                    {item.level}
+                  </span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Git提交规范 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <GitCommit className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+              </div>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Git提交规范</span>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                <code className="text-xs font-mono text-gray-600 dark:text-gray-400 block">
+                  paper: 2026-05-19 模拟盘记录
+                  <br />- 601318: HOLD 概率24.2%
+                  <br />- 300622: HOLD 概率16.9%
+                  <br />- 002896: HOLD 概率9.5%
+                </code>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                每日提交格式：<code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">paper: YYYY-MM-DD 模拟盘记录</code><br/>
+                包含当天所有股票的信号和任何持仓变化。
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
