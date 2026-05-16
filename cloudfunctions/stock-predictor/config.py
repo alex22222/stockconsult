@@ -57,17 +57,17 @@ MODEL_CONFIG = {
         "gradient_boosting": {
             "enabled": True,
             "params": {
-                "n_estimators": 100,
-                "max_depth": 4,
-                "learning_rate": 0.08,
+                "n_estimators": 200,
+                "max_depth": 5,
+                "learning_rate": 0.05,
                 "random_state": 42,
             }
         },
         "random_forest": {
             "enabled": True,
             "params": {
-                "n_estimators": 100,
-                "max_depth": 10,
+                "n_estimators": 200,
+                "max_depth": 12,
                 "min_samples_split": 5,
                 "min_samples_leaf": 2,
                 "random_state": 42,
@@ -77,8 +77,8 @@ MODEL_CONFIG = {
         "extra_trees": {
             "enabled": True,
             "params": {
-                "n_estimators": 100,
-                "max_depth": 10,
+                "n_estimators": 200,
+                "max_depth": 12,
                 "min_samples_split": 5,
                 "min_samples_leaf": 2,
                 "random_state": 42,
@@ -88,17 +88,47 @@ MODEL_CONFIG = {
         "logistic_regression": {
             "enabled": True,
             "params": {
+                "max_iter": 2000,
+                "random_state": 42,
+            }
+        },
+        "ada_boost": {
+            "enabled": True,
+            "params": {
+                "n_estimators": 100,
+                "learning_rate": 0.5,
+                "random_state": 42,
+            }
+        },
+        "svm_rbf": {
+            "enabled": True,
+            "params": {
+                "C": 1.0,
+                "gamma": "scale",
+                "probability": True,
+                "random_state": 42,
+            }
+        },
+        "mlp": {
+            "enabled": True,
+            "params": {
+                "hidden_layer_sizes": (128, 64, 32),
                 "max_iter": 1000,
+                "early_stopping": True,
+                "validation_fraction": 0.1,
                 "random_state": 42,
             }
         },
     },
     "ensemble_strategy": "weighted",
     "model_weights": {
-        "gradient_boosting": 0.30,
-        "random_forest": 0.30,
-        "extra_trees": 0.25,
-        "logistic_regression": 0.15,
+        "gradient_boosting": 0.25,
+        "random_forest": 0.25,
+        "extra_trees": 0.20,
+        "logistic_regression": 0.10,
+        "ada_boost": 0.10,
+        "svm_rbf": 0.05,
+        "mlp": 0.05,
     },
     "cv_folds": 3,
     "cv_strategy": "TimeSeriesSplit",

@@ -111,7 +111,7 @@ export function SearchPage() {
       )}
 
       {/* 左侧：搜索主区域 */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12 relative z-10">
+      <div className="flex-1 flex flex-col items-center px-4 py-12 relative z-10 overflow-y-auto">
         {/* 标题 */}
         <div className="text-center mb-8 animate-fade-in-up">
           <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 bg-blue-50 border border-blue-100 rounded-full text-xs text-blue-600 font-medium">

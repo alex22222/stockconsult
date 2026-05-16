@@ -18,8 +18,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, classification_report
 
 # 导入各模型 (纯 sklearn，跨平台兼容)
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, AdaBoostClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
 
 from config import MODEL_CONFIG, MODEL_DIR
 
@@ -55,6 +57,12 @@ class ModelTrainer:
             return ExtraTreesClassifier(**params)
         elif model_name == "logistic_regression":
             return LogisticRegression(**params)
+        elif model_name == "ada_boost":
+            return AdaBoostClassifier(**params)
+        elif model_name == "svm_rbf":
+            return SVC(**params)
+        elif model_name == "mlp":
+            return MLPClassifier(**params)
         else:
             raise ValueError(f"未知模型: {model_name}")
     

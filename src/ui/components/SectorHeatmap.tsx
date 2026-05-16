@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Flame, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from 'lucide-react';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -158,14 +159,14 @@ function SectorBlock({
         )}
       </div>
 
-      {/* 气泡 Tooltip — fixed 定位脱离 overflow-hidden */}
-      {hovered && (
+      {/* 气泡 Tooltip — Portal 到 body，彻底脱离 overflow-hidden / transform 限制 */}
+      {hovered && createPortal(
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{ left: tooltipPos.x, top: tooltipPos.y }}
         >
           <div className="-translate-x-1/2 -translate-y-full -mt-2">
-            <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-[11px] rounded-xl px-3.5 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.18)] border border-gray-100 dark:border-gray-700 whitespace-nowrap">
+            <div className="bg-white text-gray-900 text-[11px] rounded-xl px-3.5 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.18)] border border-gray-100 whitespace-nowrap">
               {/* 板块名 */}
               <div className="font-bold text-[13px] mb-1">{sector.name}</div>
               {/* 涨跌幅 大号突出 */}
@@ -178,9 +179,9 @@ function SectorBlock({
                 </span>
               </div>
               {/* 分隔线 */}
-              <div className="my-1.5 border-t border-gray-100 dark:border-gray-700" />
+              <div className="my-1.5 border-t border-gray-100" />
               {/* 资金流向 */}
-              <div className="space-y-0.5 text-gray-500 dark:text-gray-400">
+              <div className="space-y-0.5 text-gray-500">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px]">主力净流入</span>
                   <span className={`font-medium ${isInflow ? 'text-red-500' : 'text-green-500'}`}>
@@ -197,10 +198,11 @@ function SectorBlock({
             </div>
             {/* 下箭头 */}
             <div className="flex justify-center">
-              <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-white dark:border-t-gray-900" />
+              <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-white" />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
