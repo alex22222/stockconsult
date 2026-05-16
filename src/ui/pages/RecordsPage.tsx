@@ -208,7 +208,7 @@ export function RecordsPage() {
   const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   return (
-    <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 dark:text-gray-100">
       {/* 头部 */}
       <div className="flex items-center gap-4 mb-6">
         <button onClick={() => toggleRecordsPage(false)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
@@ -307,8 +307,8 @@ export function RecordsPage() {
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-2">
               <div className="text-xs font-medium text-gray-500 mb-2">近7天准确率趋势</div>
               <div className="flex items-end gap-2 h-16">
-                {predictionStats.dailyStats.map((d: DailyStat, i: number) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                {predictionStats.dailyStats.map((d: DailyStat) => (
+                  <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                     <div className={`w-full rounded-sm ${d.accuracy >= 50 ? 'bg-purple-400' : 'bg-gray-300'}`} style={{ height: `${Math.max(d.accuracy, 5)}%` }} />
                     <span className="text-[9px] text-gray-400">{d.date.slice(5)}</span>
                   </div>
@@ -381,7 +381,7 @@ export function RecordsPage() {
                           <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
                             <span>置信度 {record.confidence}%</span>
                             {record.verified && (
-                              <span>实际{record.actualResult === '涨' ? '涨' : record.actualResult === '跌' ? '跌' : '平'} {record.actualChangePercent}%</span>
+                              <span>实际{record.actualResult === '涨' ? '涨' : record.actualResult === '跌' ? '跌' : '平'} {record.actualChangePercent != null ? `${record.actualChangePercent}%` : '--'}</span>
                             )}
                             {!record.verified && <span className="text-amber-500">待验证</span>}
                           </div>
@@ -413,7 +413,7 @@ export function RecordsPage() {
 
         {/* 详情面板 */}
         <div className="lg:col-span-2">
-          <div className="sticky top-20 bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="sticky top-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
             {/* 查询记录详情 */}
             {activeTab === 'search' && selectedSearch && (
               <div className="p-4">
@@ -436,8 +436,8 @@ export function RecordsPage() {
                     </label>
                     {selectedSearch.results && selectedSearch.results.length > 0 ? (
                       <div className="space-y-1.5">
-                        {selectedSearch.results.map((r, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                        {selectedSearch.results.map((r) => (
+                          <div key={r.code} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-sm">
                             <span className="font-medium text-gray-900">{r.name}</span>
                             <span className="text-xs text-gray-400">{r.code}</span>
                           </div>
@@ -505,8 +505,8 @@ export function RecordsPage() {
                       <div className="space-y-2">
                         <SentimentBadge sentiment={selectedReport.sections.marketInterpretation.sentimentAnalysis?.overall} />
                         <p className="text-xs text-gray-500">{selectedReport.sections.marketInterpretation.sentimentAnalysis?.summary}</p>
-                        {selectedReport.sections.marketInterpretation.recentEvents?.slice(0, 3).map((e, i) => (
-                          <div key={i} className="flex items-start gap-2 text-xs">
+                        {selectedReport.sections.marketInterpretation.recentEvents?.slice(0, 3).map((e) => (
+                          <div key={e.title + (e.date || '')} className="flex items-start gap-2 text-xs dark:text-gray-300">
                             <span className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${
                               e.impact === 'positive' ? 'bg-red-400' : e.impact === 'negative' ? 'bg-green-400' : 'bg-gray-300'
                             }`} />
@@ -527,9 +527,9 @@ export function RecordsPage() {
                               const tp = selectedReport.sections.actionAdvice.targetPrices as Record<string, number>;
                               const labels: Record<string, string> = { conservative: '保守', base: '基准', optimistic: '乐观' };
                               return (
-                                <div key={k} className={`flex-1 text-center py-2 rounded-lg ${k === 'base' ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50'}`}>
-                                  <div className="text-[10px] text-gray-500">{labels[k]}</div>
-                                  <div className={`text-sm font-bold ${k === 'base' ? 'text-blue-700' : 'text-gray-700'}`}>{tp[k]}元</div>
+                                <div key={k} className={`flex-1 text-center py-2 rounded-lg ${k === 'base' ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40' : 'bg-gray-50 dark:bg-gray-700/30'}`}>
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400">{labels[k]}</div>
+                                  <div className={`text-sm font-bold ${k === 'base' ? 'text-blue-700 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>{tp[k] != null ? tp[k].toFixed(0) : '--'}元</div>
                                 </div>
                               );
                             })}
@@ -549,8 +549,8 @@ export function RecordsPage() {
                   {selectedReport.sections.rawInsights && selectedReport.sections.rawInsights.length > 0 && (
                     <Section icon={<ShieldAlert className="w-4 h-4 text-orange-500" />} title={`分析洞察 (${selectedReport.sections.rawInsights.length})`}>
                       <div className="space-y-1.5">
-                        {selectedReport.sections.rawInsights.slice(0, 5).map((insight, i) => (
-                          <div key={i} className={`text-xs px-2 py-1.5 rounded ${
+                        {selectedReport.sections.rawInsights.slice(0, 5).map((insight) => (
+                          <div key={insight.title} className={`text-xs px-2 py-1.5 rounded dark:text-gray-300 ${
                             insight.type === 'risk' ? 'bg-orange-50 text-orange-700' :
                             insight.type === 'opportunity' ? 'bg-blue-50 text-blue-700' :
                             'bg-gray-50 text-gray-600'
@@ -684,8 +684,8 @@ function MetricGroup({ label, metrics }: { label: string; metrics: Array<{ label
     <div>
       <div className="text-[10px] text-gray-400 mb-1">{label}</div>
       <div className="grid grid-cols-2 gap-1.5">
-        {metrics.filter(m => m.value !== '-').map((m, i) => (
-          <div key={i} className="bg-gray-50 rounded px-2 py-1">
+        {metrics.filter(m => m.value !== '-').map((m) => (
+          <div key={m.label} className="bg-gray-50 rounded px-2 py-1">
             <div className="text-[10px] text-gray-400">{m.label}</div>
             <div className="text-xs font-medium text-gray-800">{m.value}{m.unit ? <span className="text-gray-400 text-[10px] ml-0.5">{m.unit}</span> : null}</div>
           </div>

@@ -22,16 +22,16 @@ export function MetricCard({ metric }: MetricCardProps) {
     : <Minus className="w-3.5 h-3.5 text-gray-400" />;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-1 transition-all group">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:shadow-lg hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:-translate-y-1 transition-all group">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">{metric.label}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">{metric.label}</span>
         {trendIcon}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={`text-xl font-bold ${hasValue ? 'text-gray-900' : 'text-gray-300'}`}>
+        <span className={`text-xl font-bold ${hasValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}`}>
           {hasValue ? metric.value : '-'}
         </span>
-        {hasValue && metric.unit && <span className="text-xs text-gray-400">{metric.unit}</span>}
+        {hasValue && metric.unit && <span className="text-xs text-gray-400 dark:text-gray-500">{metric.unit}</span>}
       </div>
       {isValidNumber && metric.changePercent !== undefined && (
         <div className={`text-xs mt-1 font-bold ${metric.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -39,17 +39,17 @@ export function MetricCard({ metric }: MetricCardProps) {
         </div>
       )}
       {metric.benchmark && hasValue && (
-        <div className="text-xs text-gray-400 mt-1">{metric.benchmark}</div>
+        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{metric.benchmark}</div>
       )}
       {isValidNumber && metric.percentile !== undefined && metric.percentile >= 0 && (
         <div className="mt-2">
-          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
             <div 
               className={`h-1.5 rounded-full transition-all duration-500 ${metric.percentile > 70 ? 'bg-gradient-to-r from-red-400 to-red-500' : metric.percentile < 30 ? 'bg-gradient-to-r from-green-400 to-green-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`}
               style={{ width: `${Math.min(metric.percentile, 100)}%` }}
             />
           </div>
-          <span className="text-[10px] text-gray-400 mt-0.5 block">历史{metric.percentile}%分位</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 block">历史{metric.percentile}%分位</span>
         </div>
       )}
     </div>

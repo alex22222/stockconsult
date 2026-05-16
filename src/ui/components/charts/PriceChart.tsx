@@ -15,7 +15,7 @@ export function PriceChart({ data, height = 280 }: PriceChartProps) {
 
   const minPrice = Math.min(...validData.map(d => d.low));
   const maxPrice = Math.max(...validData.map(d => d.high));
-  const padding = (maxPrice - minPrice) * 0.1;
+  const padding = maxPrice === minPrice ? (maxPrice * 0.1 || 1) : (maxPrice - minPrice) * 0.1;
 
   // 简化日期显示
   const formattedData = validData.map(d => ({
@@ -62,6 +62,7 @@ export function PriceChart({ data, height = 280 }: PriceChartProps) {
             labelStyle={{ color: '#6b7280', fontSize: '11px' }}
             formatter={(value) => [`${Number(value).toFixed(2)}`, '收盘价']}
             labelFormatter={(label) => `日期: ${String(label)}`}
+            wrapperStyle={{ outline: 'none' }}
           />
           <Area
             type="monotone"

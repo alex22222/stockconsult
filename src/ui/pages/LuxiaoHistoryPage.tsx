@@ -274,11 +274,11 @@ export function LuxiaoHistoryPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
           <div className="text-sm font-medium text-gray-700 mb-3">验证结果趋势（最近 {Math.min(verifiedHistory.length, 14)} 次）</div>
           <div className="flex items-end gap-1 h-20">
-            {verifiedHistory.slice(0, 14).reverse().map((rec, i) => {
+            {verifiedHistory.slice(0, 14).reverse().map((rec) => {
               const localHit = rec.localCorrect;
               const cloudHit = rec.cloudCorrect;
               return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                <div key={rec.predictDate} className="flex-1 flex flex-col items-center gap-1">
                   <div className="flex gap-0.5">
                     <div
                       className={`w-2 rounded-sm ${localHit ? 'bg-blue-400' : 'bg-gray-200'}`}

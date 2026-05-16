@@ -239,7 +239,7 @@ export function SectorHeatmap() {
     fetchSectors();
   }, [fetchSectors]);
 
-  // 监听容器尺寸
+  // 监听容器尺寸（ResizeObserver 比 window.resize 更精准）
   useEffect(() => {
     function updateSize() {
       if (containerRef.current) {
@@ -248,8 +248,22 @@ export function SectorHeatmap() {
       }
     }
     updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      ro = new ResizeObserver(() => updateSize());
+      ro.observe(containerRef.current);
+    } else {
+      window.addEventListener('resize', updateSize);
+    }
+
+    return () => {
+      if (ro) {
+        ro.disconnect();
+      } else {
+        window.removeEventListener('resize', updateSize);
+      }
+    };
   }, [sectors, expanded]);
 
   const maxAbs = sectors.length > 0
@@ -324,8 +338,8 @@ export function SectorHeatmap() {
                   style={{
                     left: node.x,
                     top: node.y,
-                    width: node.w - 2,
-                    height: node.h - 2,
+                    width: Math.max(node.w - 2, 1),
+                    height: Math.max(node.h - 2, 1),
                   }}
                 />
               ))}

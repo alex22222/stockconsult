@@ -85,7 +85,7 @@ export function FortuneTellerPage() {
   }, [fetchFortunes]);
 
   return (
-    <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 dark:text-gray-100">
       {/* 头部 */}
       <div className="flex items-center gap-4 mb-8">
         <button
@@ -132,7 +132,7 @@ export function FortuneTellerPage() {
                 {/* 主行 */}
                 <button
                   onClick={() => setExpandedCode(expanded ? null : stock.code)}
-                  className="w-full px-4 py-3 flex items-center gap-3 text-left"
+                  className="w-full px-4 py-3 flex items-center gap-3 text-left overflow-x-auto"
                 >
                   {/* 代码/名称 */}
                   <div className="w-28 shrink-0">
@@ -246,11 +246,11 @@ export function FortuneTellerPage() {
 
                     <div className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">近10日涨跌</div>
                     <div className="flex items-end gap-1 h-16">
-                      {stock.recentDays.map((day, i) => {
+                      {stock.recentDays.map((day) => {
                         const h = Math.min(Math.abs(day.change) * 3, 100);
                         const color = day.change > 0 ? 'bg-red-400' : day.change < 0 ? 'bg-green-400' : 'bg-gray-300 dark:bg-gray-600';
                         return (
-                          <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                          <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
                             <div className={`w-full rounded-sm ${color}`} style={{ height: `${Math.max(h, 4)}%` }} />
                             <span className="text-[9px] text-gray-400 dark:text-gray-500">{day.date.slice(5)}</span>
                           </div>

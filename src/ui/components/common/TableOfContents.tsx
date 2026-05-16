@@ -61,8 +61,8 @@ export function TableOfContents({ items }: TableOfContentsProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3 shadow-sm">
+      <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-2">
         目录
       </div>
       <ul className="space-y-0.5">
@@ -73,8 +73,8 @@ export function TableOfContents({ items }: TableOfContentsProps) {
               className={clsx(
                 'w-full text-left px-2 py-1.5 text-sm rounded-md transition-all duration-200 border-l-2',
                 activeId === item.id
-                  ? 'text-blue-700 bg-blue-50 border-blue-500 font-medium'
-                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
+                  ? 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-500 font-medium'
+                  : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/30'
               )}
             >
               {item.label}

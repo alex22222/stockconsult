@@ -54,12 +54,14 @@ export function SearchPage() {
     setShowDropdown(true);
   }, [searchStocks]);
 
+  const isSearching = loadingState === 'searching';
+
   // Enter 键搜索
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !isSearching) {
       doSearch(inputValue);
     }
-  }, [inputValue, doSearch]);
+  }, [inputValue, doSearch, isSearching]);
 
   const handleSelect = useCallback((stock: { code: string; name: string; industry?: string; exchange?: string }) => {
     selectStock(stock as any);
@@ -89,23 +91,23 @@ export function SearchPage() {
     await removeFromFavorites(code);
   }, [removeFromFavorites]);
 
-  const isSearching = loadingState === 'searching';
-
   return (
     <div className="flex-1 flex relative overflow-hidden">
       {/* 背景装饰 */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100/40 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -left-20 w-60 h-60 bg-purple-100/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-cyan-100/20 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100/40 dark:bg-blue-900/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -left-20 w-60 h-60 bg-purple-100/30 dark:bg-purple-900/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-cyan-100/20 dark:bg-cyan-900/10 rounded-full blur-3xl" />
       </div>
 
       {/* 收藏提示 */}
       {showFavoriteToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-fade-in-up">
-          <div className="bg-gray-900/90 backdrop-blur-sm text-white text-sm px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            {showFavoriteToast}
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
+          <div className="animate-fade-in-up">
+            <div className="bg-gray-900/90 backdrop-blur-sm text-white text-sm px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+              {showFavoriteToast}
+            </div>
           </div>
         </div>
       )}
@@ -134,11 +136,17 @@ export function SearchPage() {
               <input
                 type="text"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setInputValue(val);
+                  if (!val.trim()) {
+                    setShowDropdown(false);
+                  }
+                }}
                 onKeyDown={handleKeyDown}
-                onFocus={() => inputValue.trim().length >= 1 && setShowDropdown(true)}
+                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
                 placeholder="搜索股票名称或代码，如：贵州茅台 / 600519"
-                className="w-full pl-12 pr-4 py-3.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400
+                className="w-full pl-12 pr-4 py-3.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-2xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
                            focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
                            shadow-sm text-base transition-all glow-input"
               />
@@ -169,7 +177,7 @@ export function SearchPage() {
 
           {/* 搜索结果下拉 */}
           {showDropdown && (searchResults.length > 0 || inputValue.trim().length >= 1) && (
-            <div className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-md border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 overflow-hidden z-50 animate-scale-in origin-top">
+            <div className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-md border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 overflow-hidden z-50 animate-scale-in origin-top max-h-72 overflow-y-auto">
               {searchResults.length === 0 ? (
                 <div className="px-5 py-4 text-sm text-gray-400 flex items-center gap-2">
                   <Search className="w-4 h-4" />
@@ -210,8 +218,8 @@ export function SearchPage() {
                 <button
                   key={stock.code}
                   onClick={() => handleSelect(stock as any)}
-                  className="px-3.5 py-1.5 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl text-sm text-gray-700
-                             hover:border-blue-300 hover:text-blue-600 hover:shadow-sm hover:-translate-y-0.5 transition-all"
+                  className="px-3.5 py-1.5 bg-white/70 dark:bg-gray-700/50 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-700 dark:text-gray-300
+                             hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm hover:-translate-y-0.5 transition-all"
                 >
                   {stock.name}
                 </button>
@@ -250,8 +258,8 @@ export function SearchPage() {
                 >
                   <button
                     onClick={() => handleHotStockClick(stock)}
-                    className="w-full px-3.5 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl text-left
-                               hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/50 hover:-translate-y-1 transition-all card-hover"
+                    className="w-full px-3.5 py-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-xl text-left
+                               hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-blue-900/30 hover:-translate-y-1 transition-all card-hover"
                   >
                     <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors pr-5">
                       {stock.name}
@@ -282,7 +290,7 @@ export function SearchPage() {
       </div>
 
       {/* 右侧：我的收藏 */}
-      <div className="hidden md:flex md:w-52 lg:w-60 shrink-0 bg-white/60 backdrop-blur-sm border-l border-gray-200/60 flex-col">
+      <div className="hidden md:flex md:w-52 lg:w-60 shrink-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border-l border-gray-200/60 dark:border-gray-700/60 flex-col">
         <div className="sticky top-14 h-[calc(100svh-3.5rem)] overflow-y-auto">
           <div className="p-4">
             {/* 我的收藏 */}

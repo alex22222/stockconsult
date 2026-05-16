@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "strategy": "5日持仓预测",
+    "method": "Walk-forward交叉验证",
+    "cost": "0.17%/次",
+    "lastUpdated": "2026-05-15"
+  },
+  "strategies": {
+    "601318": {
+      "name": "中国平安",
+      "optimalMode": "GBDT + 全特征 + 阈值0.50",
+      "signal": "观望",
+      "confidence": 50,
+      "keyFactors": [
+        "量价相关性偏离常态（Top1因子）",
+        "国债期限利差处于关键位置",
+        "振幅/实体比显示犹豫情绪",
+        "下影线频率增加暗示支撑测试"
+      ],
+      "backtest": {
+        "return": 99.62,
+        "sharpe": 0.37,
+        "maxDrawdown": 59.9,
+        "winRate": 50.5,
+        "trades": 109
+      },
+      "riskLevel": "中高",
+      "suggestion": "Walk-forward验证夏普0.37，表现稳健但回撤较大。当前模型置信度50%，未达入场阈值，建议观望。",
+      "warning": "大盘股，策略有效但需承受60%级别回撤"
+    },
+    "002617": {
+      "name": "露笑科技",
+      "optimalMode": "GBDT + 全特征 + 阈值0.70",
+      "signal": "回避",
+      "confidence": 49,
+      "keyFactors": [
+        "振幅比异常波动（Top1因子）",
+        "换手率偏离常态",
+        "道琼斯隔夜变化影响显著",
+        "5日波动区间扩大"
+      ],
+      "backtest": {
+        "return": -15.61,
+        "sharpe": 0.10,
+        "maxDrawdown": 64.4,
+        "winRate": 48.9,
+        "trades": 47
+      },
+      "riskLevel": "高",
+      "suggestion": "该股票5日策略失效（负收益），模型无法提取有效信号。建议回避或换用其他策略。",
+      "warning": "高波动科技股，5日预测模型不适用"
+    },
+    "300622": {
+      "name": "博士眼镜",
+      "optimalMode": "GBDT + Top20特征 + 阈值0.60",
+      "signal": "数据不足",
+      "confidence": 45,
+      "keyFactors": [
+        "道琼斯隔夜变化（Top1因子）",
+        "大盘1日收益联动",
+        "布林带上轨位置",
+        "KDJ-J滞后3日"
+      ],
+      "backtest": {
+        "return": 105.85,
+        "sharpe": 0.71,
+        "maxDrawdown": 49.5,
+        "winRate": 54.5,
+        "trades": 22
+      },
+      "riskLevel": "高",
+      "suggestion": "回测收益+105%但仅22次交易，统计样本严重不足。结果可能纯属运气，不建议实盘。",
+      "warning": "⚠️ 样本仅22次，结果不可信，强烈建议模拟盘验证"
+    },
+    "002896": {
+      "name": "中大力德",
+      "optimalMode": "GBDT + Top20特征 + 阈值0.60",
+      "signal": "数据不足",
+      "confidence": 47,
+      "keyFactors": [
+        "价格偏离MA20程度（Top1因子）",
+        "量价5日相关性",
+        "国债利差5日变化",
+        "大盘20日相关性"
+      ],
+      "backtest": {
+        "return": 971.68,
+        "sharpe": 1.25,
+        "maxDrawdown": 44.8,
+        "winRate": 58.1,
+        "trades": 31
+      },
+      "riskLevel": "极高",
+      "suggestion": "回测收益+971%严重异常，几乎肯定是过拟合。31次交易远不足以支撑任何结论。",
+      "warning": "⚠️ 收益数据异常，明显过拟合，绝对不可实盘"
+    }
+  }
+}

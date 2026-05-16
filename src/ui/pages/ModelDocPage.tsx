@@ -47,16 +47,8 @@ function ArchitectureDiagram() {
   return (
     <div className="w-full">
       <style>{`
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in-up { animation: fade-in-up 0.6s ease-out; }
-        .animate-fade-in { animation: fade-in 0.5s ease-out; }
+        .animate-fade-in-up { animation: fadeInUp 0.6s ease-out both; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out both; }
       `}</style>
 
       {/* 桌面端横向流程图 */}
@@ -193,9 +185,9 @@ export function ModelDocPage() {
   const toggleModelDocPage = useAppStore((s) => s.toggleModelDocPage);
 
   return (
-    <div className="min-h-svh bg-gray-50 dark:bg-gray-900">
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900">
       {/* 顶部返回栏 */}
-      <div className="sticky top-14 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+      <div className="sticky top-[3.5rem] z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-4 h-12 flex items-center">
           <button
             onClick={() => toggleModelDocPage(false)}
