@@ -87,6 +87,10 @@ class LocalDataProvider:
         """获取板块资金流向"""
         return self._load_csv("sector_fund_flow.csv")
 
+    def get_us_overnight(self) -> pd.DataFrame:
+        """获取隔夜美股数据"""
+        return self._load_csv("us_overnight.csv")
+
     def get_all_data_for_stock(self, symbol: str, days: int = 252) -> Dict[str, pd.DataFrame]:
         """获取单股全维度数据（本地版）"""
         data = {}
@@ -97,6 +101,7 @@ class LocalDataProvider:
         data["fund_flow"] = self.get_stock_fund_flow(symbol)
         data["sector_fund_flow"] = self.get_sector_fund_flow()
         data["market_breadth"] = {}
+        data["us_overnight"] = self.get_us_overnight()
         return data
 
 

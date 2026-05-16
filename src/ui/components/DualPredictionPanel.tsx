@@ -21,6 +21,13 @@ interface CloudModelData {
     momentum: number;
     volume: number;
     technical: number;
+    usMarket?: number;
+  };
+  usMarketDetail?: {
+    nasdaq: number;
+    dow: number;
+    sp500: number;
+    chinaDragon: number;
   };
 }
 
@@ -390,12 +397,15 @@ export function DualPredictionPanel({ stockCode, stockName }: { stockCode: strin
         {latest.cloudModel.factorScores && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="text-[10px] text-gray-400 mb-2">云模型因子评分</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { label: '趋势', value: latest.cloudModel.factorScores.trend, color: 'bg-blue-400' },
                 { label: '动量', value: latest.cloudModel.factorScores.momentum, color: 'bg-orange-400' },
                 { label: '量能', value: latest.cloudModel.factorScores.volume, color: 'bg-purple-400' },
                 { label: '技术', value: latest.cloudModel.factorScores.technical, color: 'bg-cyan-400' },
+                ...(latest.cloudModel.factorScores.usMarket !== undefined
+                  ? [{ label: '美股', value: latest.cloudModel.factorScores.usMarket, color: 'bg-indigo-400' }]
+                  : []),
               ].map((f) => (
                 <div key={f.label} className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 w-8">{f.label}</span>
@@ -406,6 +416,20 @@ export function DualPredictionPanel({ stockCode, stockName }: { stockCode: strin
                 </div>
               ))}
             </div>
+            {latest.cloudModel.usMarketDetail && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[
+                  { label: '纳斯达克', value: latest.cloudModel.usMarketDetail.nasdaq },
+                  { label: '道琼斯', value: latest.cloudModel.usMarketDetail.dow },
+                  { label: '标普500', value: latest.cloudModel.usMarketDetail.sp500 },
+                  { label: '中国金龙', value: latest.cloudModel.usMarketDetail.chinaDragon },
+                ].map((item) => (
+                  <span key={item.label} className={`text-[10px] px-1.5 py-0.5 rounded ${item.value >= 0 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                    {item.label} {item.value >= 0 ? '+' : ''}{item.value.toFixed(2)}%
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

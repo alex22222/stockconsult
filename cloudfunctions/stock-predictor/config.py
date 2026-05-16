@@ -26,12 +26,13 @@ DEMO_STOCK = {
 }
 
 FACTOR_CATEGORIES = {
-    "market_environment": {"weight": 0.15, "factors": ["index_trend", "market_volatility", "breadth_indicator"]},
-    "market_energy": {"weight": 0.15, "factors": ["volume_energy", "price_momentum", "turnover_ratio"]},
-    "market_sentiment": {"weight": 0.15, "factors": ["fear_greed_index", "sentiment_momentum"]},
-    "technical_indicators": {"weight": 0.25, "factors": ["macd", "kdj", "rsi", "boll", "ma_cross", "volume_ma", "obv"]},
-    "sector_heat": {"weight": 0.15, "factors": ["sector_rank", "sector_fund_flow", "sector_momentum"]},
-    "fund_anomaly": {"weight": 0.15, "factors": ["main_fund_flow", "retail_fund_flow", "large_order_ratio", "fund_divergence"]},
+    "market_environment": {"weight": 0.13, "factors": ["index_trend", "market_volatility", "breadth_indicator"]},
+    "market_energy": {"weight": 0.13, "factors": ["volume_energy", "price_momentum", "turnover_ratio"]},
+    "market_sentiment": {"weight": 0.13, "factors": ["fear_greed_index", "sentiment_momentum"]},
+    "technical_indicators": {"weight": 0.22, "factors": ["macd", "kdj", "rsi", "boll", "ma_cross", "volume_ma", "obv"]},
+    "sector_heat": {"weight": 0.13, "factors": ["sector_rank", "sector_fund_flow", "sector_momentum"]},
+    "fund_anomaly": {"weight": 0.13, "factors": ["main_fund_flow", "retail_fund_flow", "large_order_ratio", "fund_divergence"]},
+    "us_market": {"weight": 0.13, "factors": ["nasdaq_chg", "dow_chg", "sp500_chg", "china_chg"]},
 }
 
 FEATURE_CONFIG = {

@@ -455,6 +455,105 @@ class FeatureEngineer:
         factors["fund_concentration"] = volume / volume.rolling(20).mean() * close.pct_change().abs() * 100
         
         return factors.replace([np.inf, -np.inf], 0).fillna(0)
+
+    # ==================== 7. 隔夜美股因子 ====================
+
+    def calc_us_market_factors(self, stock_df: pd.DataFrame,
+                                us_overnight_df: pd.DataFrame = None) -> pd.DataFrame:
+        """
+        计算隔夜美股因子
+
+        因子列表:
+        - nasdaq_chg: 纳斯达克隔夜涨跌幅
+        - dow_chg: 道琼斯隔夜涨跌幅
+        - sp500_chg: 标普500隔夜涨跌幅
+        - china_chg: 中国金龙指数隔夜涨跌幅
+        - us_overnight_score: 综合美股评分 (加权)
+        """
+        import os
+        import json
+
+        factors = pd.DataFrame(index=stock_df.index)
+
+        if us_overnight_df is None or us_overnight_df.empty:
+            logger.warning("美股隔夜数据为空，美股因子使用默认值0")
+            factors["nasdaq_chg"] = 0
+            factors["dow_chg"] = 0
+            factors["sp500_chg"] = 0
+            factors["china_chg"] = 0
+            factors["us_overnight_score"] = 50
+            return factors
+
+        # 读取股票代码用于个性化权重
+        stock_date_col = "日期" if "日期" in stock_df.columns else stock_df.index.name
+        if stock_date_col is None or stock_date_col == 0:
+            stock_date_col = "日期"
+
+        # 对齐日期
+        stock_df_copy = stock_df.copy()
+        if "日期" in stock_df_copy.columns:
+            stock_df_copy["日期"] = pd.to_datetime(stock_df_copy["日期"]).dt.strftime("%Y-%m-%d")
+            dates = stock_df_copy["日期"]
+        else:
+            dates = pd.to_datetime(stock_df_copy.index).strftime("%Y-%m-%d")
+
+        us_df = us_overnight_df.copy()
+        us_df["date"] = pd.to_datetime(us_df["date"]).dt.strftime("%Y-%m-%d")
+
+        # 创建日期到美股因子的映射
+        us_map = {}
+        for _, row in us_df.iterrows():
+            d = str(row["date"])
+            us_map[d] = row
+
+        # 填充每日美股因子
+        for col in ["QQQ_chg", "DIA_chg", "SPY_chg", "FXI_chg"]:
+            target_col = col.replace("QQQ", "nasdaq").replace("DIA", "dow").replace("SPY", "sp500").replace("FXI", "china")
+            vals = []
+            for d in dates:
+                if d in us_map and pd.notna(us_map[d].get(col)):
+                    vals.append(float(us_map[d][col]))
+                else:
+                    vals.append(0.0)
+            factors[target_col] = vals
+
+        # 计算综合美股评分 (50为中性，涨则>50，跌则<50)
+        # 使用默认权重（如无个性化权重文件）
+        default_weights = {"nasdaq_chg": 0.30, "dow_chg": 0.25, "sp500_chg": 0.25, "china_chg": 0.20}
+        weights = default_weights.copy()
+
+        # 尝试读取个性化权重
+        weights_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "us_factor_weights.json")
+        if os.path.exists(weights_path):
+            try:
+                with open(weights_path, "r", encoding="utf-8") as f:
+                    all_weights = json.load(f)
+                # 从股票文件名推断代码 (不够精确但可接受)
+                symbol_hint = None
+                for key in all_weights:
+                    if key in str(stock_df.get("股票代码", "")):
+                        symbol_hint = key
+                        break
+                if symbol_hint:
+                    w = all_weights[symbol_hint]
+                    weights = {
+                        "nasdaq_chg": w.get("QQQ_chg", {}).get("weight", 0.30),
+                        "dow_chg": w.get("DIA_chg", {}).get("weight", 0.25),
+                        "sp500_chg": w.get("SPY_chg", {}).get("weight", 0.25),
+                        "china_chg": w.get("FXI_chg", {}).get("weight", 0.20),
+                    }
+                    logger.info(f"使用个性化美股权重: {symbol_hint}")
+            except Exception as e:
+                logger.warning(f"读取美股权重失败: {e}")
+
+        # 综合评分 = 50 + 加权涨跌幅 * 3 (缩放因子)
+        score = 50.0
+        for col, w in weights.items():
+            if col in factors.columns:
+                score += factors[col] * w * 3.0
+        factors["us_overnight_score"] = score.clip(0, 100)
+
+        return factors.fillna(0)
     
     # ==================== 核心: 构建完整特征集 ====================
     
@@ -524,6 +623,12 @@ class FeatureEngineer:
         logger.info("计算资金异动因子...")
         fund_factors = self.calc_fund_anomaly_factors(stock_df, fund_flow_df)
         all_factors.append(fund_factors)
+        
+        # 7. 隔夜美股因子
+        logger.info("计算隔夜美股因子...")
+        us_overnight_df = data.get("us_overnight", pd.DataFrame())
+        us_factors = self.calc_us_market_factors(stock_df, us_overnight_df)
+        all_factors.append(us_factors)
         
         # 合并所有特征
         X = pd.concat(all_factors, axis=1)
@@ -673,6 +778,8 @@ class FeatureEngineer:
                 category_importance["sector_heat"].append(importance)
             elif any(kw in feat_name.lower() for kw in ["fund", "order", "retail", "main_fund"]):
                 category_importance["fund_anomaly"].append(importance)
+            elif any(kw in feat_name.lower() for kw in ["nasdaq", "dow", "sp500", "china", "us_overnight"]):
+                category_importance["us_market"].append(importance)
         
         # 计算每类平均重要性
         result = {}

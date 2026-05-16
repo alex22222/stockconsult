@@ -149,6 +149,16 @@ class DataFetcher:
                                 indicator=indicator, sector_type=sector_type)
         return result if result is not None else pd.DataFrame()
     
+    def get_us_overnight_data(self) -> pd.DataFrame:
+        """获取隔夜美股数据（从本地 CSV）"""
+        import os
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "us_overnight.csv")
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df["date"] = pd.to_datetime(df["date"])
+            return df
+        return pd.DataFrame()
+    
     # ==================== 4. 综合数据获取接口 ====================
     
     def get_stock_info(self, symbol: str) -> Dict:
@@ -210,8 +220,12 @@ class DataFetcher:
         # 7. 板块资金流向
         data["sector_fund_flow"] = self.get_sector_fund_flow("行业资金流", "今日")
         logger.info(f"板块资金流向: {len(data['sector_fund_flow'])} 条")
+
+        # 8. 隔夜美股数据
+        data["us_overnight"] = self.get_us_overnight_data()
+        logger.info(f"美股隔夜数据: {len(data['us_overnight'])} 条")
         
-        # 8. 对每项数据，网络为空时回退到本地
+        # 9. 对每项数据，网络为空时回退到本地
         local = LocalDataProvider()
         
         if isinstance(data.get("sh_index"), pd.DataFrame) and data["sh_index"].empty:

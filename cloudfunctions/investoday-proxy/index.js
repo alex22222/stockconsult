@@ -1020,6 +1020,9 @@ async function handleFortune(event) {
     const beginStr = beginDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
 
+    // 获取隔夜美股数据（一次即可，所有股票共用）
+    const usMarketData = await fetchUSMarketData();
+
     for (const code of codes) {
       try {
         const [quoteRes, historyRes] = await Promise.all([
@@ -1058,7 +1061,7 @@ async function handleFortune(event) {
           }
         }
 
-        const fortune = calculateFortune(quote, history);
+        const fortune = calculateFortune(quote, history, usMarketData);
         stocks.push({ ...fortune, code });
       } catch (e) {
         console.warn(`[Fortune] Failed for ${code}:`, e.message);
@@ -1096,7 +1099,61 @@ async function handleFortune(event) {
 /**
  * 计算涨跌概率（增强版 AI 预测）
  */
-function calculateFortune(quote, history) {
+/**
+ * 获取隔夜美股实时数据（新浪财经）
+ */
+async function fetchUSMarketData() {
+  try {
+    const https = require('https');
+    const url = 'https://hq.sinajs.cn/list=gb_ixic,gb_dji,gb_inx,gb_hxc';
+    
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'Referer': 'https://finance.sina.com.cn' } }, (res) => {
+        let chunks = '';
+        res.on('data', chunk => chunks += chunk);
+        res.on('end', () => resolve(chunks));
+        res.on('error', reject);
+      }).on('error', reject);
+    });
+
+    // 解析新浪返回的 JS 变量
+    const result = { nasdaq: 0, dow: 0, sp500: 0, chinaDragon: 0 };
+    const matches = data.matchAll(/var hq_str_gb_(\w+)="([^"]+)"/g);
+    for (const m of matches) {
+      const code = m[1];
+      const parts = m[2].split(',');
+      if (parts.length >= 2) {
+        const close = parseFloat(parts[1]) || 0;
+        const prevClose = parseFloat(parts[26]) || close;
+        const chg = prevClose > 0 ? ((close - prevClose) / prevClose * 100) : 0;
+        if (code === 'ixic') result.nasdaq = Number(chg.toFixed(2));
+        if (code === 'dji') result.dow = Number(chg.toFixed(2));
+        if (code === 'inx') result.sp500 = Number(chg.toFixed(2));
+        if (code === 'hxc') result.chinaDragon = Number(chg.toFixed(2));
+      }
+    }
+    return result;
+  } catch (e) {
+    console.warn('[USMarket] fetch failed:', e.message);
+    return { nasdaq: 0, dow: 0, sp500: 0, chinaDragon: 0 };
+  }
+}
+
+/**
+ * 计算美股综合评分 (0-100)
+ */
+function calculateUSScore(usData) {
+  if (!usData) return 50;
+  // 默认权重
+  const weights = { nasdaq: 0.30, dow: 0.25, sp500: 0.25, chinaDragon: 0.20 };
+  let score = 50;
+  for (const [key, w] of Object.entries(weights)) {
+    score += (usData[key] || 0) * w * 3;
+  }
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function calculateFortune(quote, history, usMarketData = null) {
   const price = quote ? quote.currentPrice : 0;
   const change = quote ? Number((quote.currentPrice - quote.closePriceYDay).toFixed(2)) : 0;
   const changePercent = quote ? Number((quote.changeRatio * 100).toFixed(2)) : 0;
@@ -1178,10 +1235,14 @@ function calculateFortune(quote, history) {
     techScore = Math.min(100, Math.max(0, rsi));
   }
 
-  // 综合预测
-  const weights = { trend: 0.25, momentum: 0.25, volume: 0.20, tech: 0.30 };
+  // 美股因子评分
+  const usScore = calculateUSScore(usMarketData);
+
+  // 综合预测（五因子）
+  const weights = { trend: 0.22, momentum: 0.22, volume: 0.18, tech: 0.25, usMarket: 0.13 };
   const compositeScore = trendScore * weights.trend + momentumScore * weights.momentum +
-                         volumeScore * weights.volume + techScore * weights.tech;
+                         volumeScore * weights.volume + techScore * weights.tech +
+                         usScore * weights.usMarket;
 
   let upProb = Math.round(compositeScore);
   let downProb = 100 - upProb;
@@ -1216,7 +1277,9 @@ function calculateFortune(quote, history) {
       momentum: Math.round(momentumScore),
       volume: Math.round(volumeScore),
       technical: Math.round(techScore),
+      usMarket: usScore,
     },
+    usMarketDetail: usMarketData || { nasdaq: 0, dow: 0, sp500: 0, chinaDragon: 0 },
     recentDays,
     status: 'ok',
 
@@ -1418,6 +1481,9 @@ async function handleDailyPredict(event) {
     const dateStr = getDateStr(0);
     const predictions = [];
 
+    // 获取隔夜美股数据（一次即可，所有股票共用）
+    const usMarketData = await fetchUSMarketData();
+
     for (const fav of favorites) {
       try {
         const [quoteRes, historyRes] = await Promise.all([
@@ -1440,7 +1506,7 @@ async function handleDailyPredict(event) {
           if (text) { const parsed = JSON.parse(text); history = parsed.data || []; }
         }
 
-        const fortune = calculateFortune(quote, history);
+        const fortune = calculateFortune(quote, history, usMarketData);
         const priceAtPredict = fortune.price || (quote ? quote.closePriceYDay : 0) || 0;
 
         const record = {

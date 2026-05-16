@@ -8,6 +8,14 @@ interface FactorScores {
   momentum: number;
   volume: number;
   technical: number;
+  usMarket?: number;
+}
+
+interface USMarketDetail {
+  nasdaq: number;
+  dow: number;
+  sp500: number;
+  chinaDragon: number;
 }
 
 interface PredictionData {
@@ -19,6 +27,7 @@ interface PredictionData {
   confidence: number;
   historyTrend: string;
   factorScores: FactorScores;
+  usMarketDetail?: USMarketDetail;
 }
 
 const FACTOR_LOGIC: Record<string, string> = {
@@ -26,6 +35,7 @@ const FACTOR_LOGIC: Record<string, string> = {
   动量: '基础50 + 近5日累计涨跌幅×3 + 今日涨跌幅×0.5，clamp到[0,100]',
   量能: '近5日均量 vs 近10日均量比值 × 今日涨跌方向：涨放量75分，涨缩量55分，跌放量25分，跌缩量45分',
   技术: '简化RSI = 100 - 100/(1+平均涨幅/平均跌幅)，基于全部历史日涨跌计算',
+  美股: '隔夜美股综合评分：纳斯达克/道琼斯/标普500/中国金龙指数加权(默认30/25/25/20)，涨加分跌减分',
 };
 
 function FactorBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -195,9 +205,12 @@ export function AIPredictionPanel({ stockCode }: { stockCode: string; stockName?
           <FactorBar label="动量" value={scores.momentum} color="bg-orange-400" />
           <FactorBar label="量能" value={scores.volume} color="bg-purple-400" />
           <FactorBar label="技术" value={scores.technical} color="bg-cyan-400" />
+          {scores.usMarket !== undefined && (
+            <FactorBar label="美股" value={scores.usMarket} color="bg-indigo-400" />
+          )}
           {showLogic && (
             <div className="mt-2 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2.5 space-y-1.5 leading-relaxed">
-              <p><span className="font-medium text-gray-600 dark:text-gray-300">综合预测</span> = 趋势×25% + 动量×25% + 量能×20% + 技术×30%</p>
+              <p><span className="font-medium text-gray-600 dark:text-gray-300">综合预测</span> = 趋势×22% + 动量×22% + 量能×18% + 技术×25% + 美股×13%</p>
               <p><span className="font-medium text-gray-600 dark:text-gray-300">上涨概率</span> = round(综合预测)，&gt;55判涨，&lt;45判跌，中间判平</p>
               <p><span className="font-medium text-gray-600 dark:text-gray-300">置信度</span> = |上涨概率 − 50| × 2，越偏离50%越有把握</p>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-1.5 space-y-1">
@@ -205,10 +218,33 @@ export function AIPredictionPanel({ stockCode }: { stockCode: string; stockName?
                 <p><span className="font-medium">动量分</span>：50 + 近5日累计涨跌×3 + 今日涨跌×0.5，clamp[0,100]</p>
                 <p><span className="font-medium">量能分</span>：近5日均量/近10日均量 × 涨跌方向 — 涨放量75/涨缩量55/跌放量25/跌缩量45</p>
                 <p><span className="font-medium">技术分</span>：简化RSI = 100 − 100/(1+平均涨幅/平均跌幅)，基于历史日涨跌</p>
+                <p><span className="font-medium">美股分</span>：隔夜纳斯达克/道琼斯/标普500/金龙指数加权评分，50为中性</p>
               </div>
             </div>
           )}
         </div>
+
+        {/* 隔夜美股详情 */}
+        {data.usMarketDetail && (
+          <div className="mt-3 p-2.5 bg-indigo-50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-800/30">
+            <div className="text-[10px] text-indigo-500 dark:text-indigo-400 mb-1.5 font-medium">隔夜美股</div>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: '纳斯达克', value: data.usMarketDetail.nasdaq },
+                { label: '道琼斯', value: data.usMarketDetail.dow },
+                { label: '标普500', value: data.usMarketDetail.sp500 },
+                { label: '中国金龙', value: data.usMarketDetail.chinaDragon },
+              ].map((item) => (
+                <div key={item.label} className="text-center">
+                  <div className="text-[10px] text-gray-400">{item.label}</div>
+                  <div className={`text-xs font-semibold ${item.value >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    {item.value >= 0 ? '+' : ''}{item.value.toFixed(2)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 历史趋势 */}
         <div className="mt-3 flex items-center gap-1.5 text-[11px] text-gray-400">

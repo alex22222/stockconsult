@@ -27,9 +27,66 @@ CLOUDBASE_API_URL = os.environ.get(
 )
 
 
-def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
+def _load_us_overnight_score(symbol: str = "") -> dict:
     """
-    基于本地 CSV 数据计算四因子评分预测（复用云函数逻辑）
+    读取隔夜美股综合评分和最新涨跌幅
+    """
+    import os, json
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    csv_path = os.path.join(data_dir, "us_overnight.csv")
+
+    default = {"nasdaq_chg": 0, "dow_chg": 0, "sp500_chg": 0, "china_chg": 0, "us_overnight_score": 50}
+
+    if not os.path.exists(csv_path):
+        return default
+
+    try:
+        us_df = pd.read_csv(csv_path, encoding="utf-8-sig")
+        if us_df.empty:
+            return default
+        us_df["date"] = pd.to_datetime(us_df["date"])
+        latest = us_df.iloc[-1]
+
+        # 读取个性化权重
+        weights_path = os.path.join(data_dir, "us_factor_weights.json")
+        weights = {"QQQ_chg": 0.30, "DIA_chg": 0.25, "SPY_chg": 0.25, "FXI_chg": 0.20}
+        if os.path.exists(weights_path) and symbol:
+            try:
+                with open(weights_path, "r", encoding="utf-8") as f:
+                    all_weights = json.load(f)
+                if symbol in all_weights:
+                    w = all_weights[symbol]
+                    weights = {
+                        "QQQ_chg": w.get("QQQ_chg", {}).get("weight", 0.30),
+                        "DIA_chg": w.get("DIA_chg", {}).get("weight", 0.25),
+                        "SPY_chg": w.get("SPY_chg", {}).get("weight", 0.25),
+                        "FXI_chg": w.get("FXI_chg", {}).get("weight", 0.20),
+                    }
+            except Exception:
+                pass
+
+        # 计算加权综合评分 (50 + 涨跌幅 * 权重 * 3)
+        score = 50.0
+        for col, w in weights.items():
+            if col in latest:
+                score += float(latest[col]) * w * 3.0
+        score = max(0, min(100, score))
+
+        return {
+            "nasdaq_chg": round(float(latest.get("QQQ_chg", 0)), 2),
+            "dow_chg": round(float(latest.get("DIA_chg", 0)), 2),
+            "sp500_chg": round(float(latest.get("SPY_chg", 0)), 2),
+            "china_chg": round(float(latest.get("FXI_chg", 0)), 2),
+            "us_overnight_score": round(score, 1),
+        }
+    except Exception as e:
+        print(f"[USFactor] 读取美股数据失败: {e}")
+        return default
+
+
+def calculate_cloud_model_prediction(df: pd.DataFrame, symbol: str = "") -> dict:
+    """
+    基于本地 CSV 数据计算五因子评分预测（趋势/动量/量能/技术/美股）
     
     CSV 期望列: 日期,开盘,最高,最低,收盘,成交量,成交额,换手率,涨跌幅
     """
@@ -39,7 +96,7 @@ def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
             "upProbability": 50,
             "downProbability": 50,
             "confidence": 0,
-            "factorScores": {"trend": 50, "momentum": 50, "volume": 50, "technical": 50},
+            "factorScores": {"trend": 50, "momentum": 50, "volume": 50, "technical": 50, "usMarket": 50},
         }
 
     # 标准化列名（兼容 baostock 输出）
@@ -65,7 +122,7 @@ def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
 
     today_change = daily_changes[-1] if daily_changes else 0
 
-    # ========== 四因子评分 ==========
+    # ========== 五因子评分 ==========
     trend_score = 50
     momentum_score = 50
     volume_score = 50
@@ -115,13 +172,18 @@ def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
         rsi = 100 - (100 / (1 + avg_gain / avg_loss))
         tech_score = min(100, max(0, rsi))
 
-    # 综合预测
-    weights = {"trend": 0.25, "momentum": 0.25, "volume": 0.20, "tech": 0.30}
+    # 美股因子评分
+    us_factors = _load_us_overnight_score(symbol)
+    us_score = us_factors.get("us_overnight_score", 50)
+
+    # 综合预测（五因子）
+    weights = {"trend": 0.22, "momentum": 0.22, "volume": 0.18, "tech": 0.25, "usMarket": 0.13}
     composite = (
         trend_score * weights["trend"]
         + momentum_score * weights["momentum"]
         + volume_score * weights["volume"]
         + tech_score * weights["tech"]
+        + us_score * weights["usMarket"]
     )
 
     up_prob = round(composite)
@@ -139,6 +201,13 @@ def calculate_cloud_model_prediction(df: pd.DataFrame) -> dict:
             "momentum": round(momentum_score),
             "volume": round(volume_score),
             "technical": round(tech_score),
+            "usMarket": round(us_score),
+        },
+        "usMarketDetail": {
+            "nasdaq": us_factors["nasdaq_chg"],
+            "dow": us_factors["dow_chg"],
+            "sp500": us_factors["sp500_chg"],
+            "chinaDragon": us_factors["china_chg"],
         },
     }
 
@@ -215,7 +284,7 @@ def track_prediction(symbol: str, stock_name: str, local_pred: dict, df: pd.Data
     today = datetime.now().strftime("%Y-%m-%d")
 
     # 1. 计算云模型预测
-    cloud_pred = calculate_cloud_model_prediction(df) if df is not None else calculate_cloud_model_prediction(pd.DataFrame())
+    cloud_pred = calculate_cloud_model_prediction(df, symbol) if df is not None else calculate_cloud_model_prediction(pd.DataFrame(), symbol)
 
     # 2. 读取已有记录（按股票代码隔离）
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
