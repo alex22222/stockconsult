@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-05-17",
+  "oos_cutoff": "2025-01-01",
+  "stocks": [
+    {
+      "symbol": "002617",
+      "name": "露笑科技",
+      "is_return": 3.39,
+      "is_sharpe": 0.04,
+      "is_max_dd": 9.31,
+      "oos_return": 0.0,
+      "oos_sharpe": 0,
+      "oos_max_dd": 0.0,
+      "oos_trades": 0,
+      "oos_win_rate": 0
+    },
+    {
+      "symbol": "601318",
+      "name": "中国平安",
+      "is_return": 31.2,
+      "is_sharpe": 1.6,
+      "is_max_dd": 10.77,
+      "oos_return": 1.94,
+      "oos_sharpe": 0.45,
+      "oos_max_dd": 0.67,
+      "oos_trades": 1,
+      "oos_win_rate": 100.0
+    },
+    {
+      "symbol": "300622",
+      "name": "博士眼镜",
+      "is_return": -22.38,
+      "is_sharpe": -0.88,
+      "is_max_dd": 34.17,
+      "oos_return": -24.04,
+      "oos_sharpe": -2.17,
+      "oos_max_dd": 26.2,
+      "oos_trades": 5,
+      "oos_win_rate": 20.0
+    },
+    {
+      "symbol": "002896",
+      "name": "中大力德",
+      "is_return": -10.79,
+      "is_sharpe": -0.51,
+      "is_max_dd": 27.78,
+      "oos_return": 67.22,
+      "oos_sharpe": 4.92,
+      "oos_max_dd": 7.97,
+      "oos_trades": 7,
+      "oos_win_rate": 100.0
+    }
+  ]
+}

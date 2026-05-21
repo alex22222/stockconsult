@@ -42,7 +42,7 @@ export class InvestodayMCPProvider extends DataProvider {
     };
 
     // 行业信息优先级：综合评分 > 主营业务描述
-    const industry = score?.induName3 || basic.MAINBUSINESS?.split('；')[0] || '';
+    const industry = score?.idu4Lv3Name || basic.MAINBUSINESS?.split('；')[0] || '';
 
     return {
       code: basic.STOCKCODE,
@@ -85,12 +85,12 @@ export class InvestodayMCPProvider extends DataProvider {
       : undefined;
 
     // 从250日历史数据计算52周高低价
-    const validHistory = history.filter(h => h.HIGHPRICE > 0 && h.LOWPRICE > 0);
+    const validHistory = history.filter(h => h.highPrice > 0 && h.lowPrice > 0);
     const high52w = validHistory.length > 0
-      ? Number(Math.max(...validHistory.map(h => h.HIGHPRICE)).toFixed(2))
+      ? Number(Math.max(...validHistory.map(h => h.highPrice)).toFixed(2))
       : 0;
     const low52w = validHistory.length > 0
-      ? Number(Math.min(...validHistory.map(h => h.LOWPRICE)).toFixed(2))
+      ? Number(Math.min(...validHistory.map(h => h.lowPrice)).toFixed(2))
       : 0;
 
     // 从估值指标解析 PE/PB/PS/股息率/EV-EBITDA
@@ -120,13 +120,13 @@ export class InvestodayMCPProvider extends DataProvider {
       turnoverRate: Number((quote.turnOverRate || 0).toFixed(2)),
       // 取最近60日用于图表展示
       history: history.slice(-60).map(h => ({
-        date: h.QUOTETIME?.split(' ')[0] || '',
-        open: h.OPENPRICE,
-        high: h.HIGHPRICE,
-        low: h.LOWPRICE,
-        close: h.CLOSEPRICE,
-        volume: Math.round(h.DEALSTOCKAMOUNT),
-        turnover: Math.round(h.DEALMONEY / 10000),
+        date: h.tradeDate?.split(' ')[0] || '',
+        open: h.openPrice ?? 0,
+        high: h.highPrice ?? 0,
+        low: h.lowPrice ?? 0,
+        close: h.closePrice ?? 0,
+        volume: Math.round(h.volume ?? 0),
+        turnover: Math.round((h.amount ?? 0) / 10000),
       })),
       updateTime: quote.dataTime,
     };

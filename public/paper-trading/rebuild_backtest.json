@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-05-18",
+  "stocks": {
+    "002617": {
+      "name": "露笑科技",
+      "total_return": -10.87,
+      "buyhold_return": 8.82,
+      "excess_return": -19.69,
+      "sharpe": -1.38,
+      "max_dd": 13.28,
+      "trades": 37,
+      "win_rate": 40.5,
+      "avg_trade_return": -0.46
+    },
+    "601318": {
+      "name": "中国平安",
+      "total_return": -9.75,
+      "buyhold_return": 29.92,
+      "excess_return": -39.67,
+      "sharpe": -2.65,
+      "max_dd": 10.26,
+      "trades": 13,
+      "win_rate": 38.5,
+      "avg_trade_return": -1.47
+    },
+    "300622": {
+      "name": "博士眼镜",
+      "total_return": 15.34,
+      "buyhold_return": 122.07,
+      "excess_return": -106.72,
+      "sharpe": 0.36,
+      "max_dd": 20.03,
+      "trades": 61,
+      "win_rate": 44.3,
+      "avg_trade_return": 0.38
+    },
+    "002896": {
+      "name": "中大力德",
+      "total_return": -25.46,
+      "buyhold_return": 113.36,
+      "excess_return": -138.82,
+      "sharpe": -1.29,
+      "max_dd": 29.07,
+      "trades": 60,
+      "win_rate": 45.0,
+      "avg_trade_return": -0.35
+    }
+  }
+}

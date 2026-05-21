@@ -62,15 +62,26 @@ class ModelEvaluator:
         if total == 0:
             return {"significant": False, "p_value": 1.0, "power": 0}
         
-        # 二项检验
-        p_value = stats.binom_test(correct, total, p_null, alternative='greater')
+        # 二项检验 (scipy >= 1.10 使用 binomtest)
+        binom_res = stats.binomtest(correct, total, p_null, alternative='greater')
+        p_value = binom_res.pvalue
         
         # 统计功效 (power)
         observed_rate = correct / total
         effect_size = abs(observed_rate - p_null)
         
-        # 使用正态近似计算置信区间
-        ci_low, ci_high = stats.proportion_confint(correct, total, alpha=0.05, method='wilson')
+        # Wilson 置信区间 (手动实现，兼容新版 scipy)
+        def wilson_ci(k, n, alpha=0.05):
+            if n == 0:
+                return 0.0, 1.0
+            p_hat = k / n
+            z = stats.norm.ppf(1 - alpha / 2)
+            denom = 1 + z * z / n
+            center = (p_hat + z * z / (2 * n)) / denom
+            margin = z * np.sqrt(p_hat * (1 - p_hat) / n + z * z / (4 * n * n)) / denom
+            return max(0.0, center - margin), min(1.0, center + margin)
+        
+        ci_low, ci_high = wilson_ci(correct, total)
         
         return {
             "test": "binomial",
@@ -215,10 +226,16 @@ class ModelEvaluator:
         Returns:
             对比结果
         """
+        # 对齐长度
+        n = min(len(returns_buyhold), len(predictions))
+        returns_buyhold = returns_buyhold[:n]
+        returns_strategy = returns_strategy[:n]
+        predictions = predictions[:n]
+        
         # 1. 随机策略 (模拟100次)
         random_returns = []
         for _ in range(100):
-            random_signals = np.random.choice([0, 1], size=len(returns_buyhold))
+            random_signals = np.random.choice([0, 1], size=n)
             rand_ret = []
             for j, signal in enumerate(random_signals):
                 if signal == 1:
@@ -249,7 +266,7 @@ class ModelEvaluator:
         # 5. 简单均线策略 (5日均线上穿20日均线做多)
         # 这里用简化版: 昨日涨则今日做多
         momentum_signals = [1 if i > 0 and returns_buyhold[i-1] > 0 else 0 
-                           for i in range(len(returns_buyhold))]
+                           for i in range(n)]
         momentum_signals[0] = 1
         momentum_returns = []
         for j, signal in enumerate(momentum_signals):

@@ -1,1 +1,40 @@
-{}
+{
+  "generated_at": "2026-05-17",
+  "total_trades": 53,
+  "winning_trades": 24,
+  "losing_trades": 29,
+  "win_rate": 45.3,
+  "avg_return": 0.56,
+  "total_return": 7.43,
+  "by_symbol": {
+    "002617": {
+      "name": "露笑科技",
+      "trades": 2,
+      "win_rate": 50.0,
+      "avg_return": 2.4,
+      "total_return": 3.0
+    },
+    "601318": {
+      "name": "中国平安",
+      "trades": 7,
+      "win_rate": 71.4,
+      "avg_return": 6.47,
+      "total_return": 33.74
+    },
+    "300622": {
+      "name": "博士眼镜",
+      "trades": 20,
+      "win_rate": 30.0,
+      "avg_return": -3.79,
+      "total_return": -55.23
+    },
+    "002896": {
+      "name": "中大力德",
+      "trades": 24,
+      "win_rate": 50.0,
+      "avg_return": 2.31,
+      "total_return": 17.52
+    }
+  },
+  "pending_signals": []
+}

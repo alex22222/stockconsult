@@ -57,19 +57,21 @@ MODEL_CONFIG = {
         "gradient_boosting": {
             "enabled": True,
             "params": {
-                "n_estimators": 200,
-                "max_depth": 5,
+                "n_estimators": 100,  # 减少树数量，降低过拟合
+                "max_depth": 3,
                 "learning_rate": 0.05,
+                "min_samples_split": 10,
+                "min_samples_leaf": 5,
                 "random_state": 42,
             }
         },
         "random_forest": {
             "enabled": True,
             "params": {
-                "n_estimators": 200,
-                "max_depth": 12,
-                "min_samples_split": 5,
-                "min_samples_leaf": 2,
+                "n_estimators": 100,  # 减少树数量
+                "max_depth": 8,      # 限制深度
+                "min_samples_split": 10,
+                "min_samples_leaf": 5,
                 "random_state": 42,
                 "n_jobs": -1,
             }
@@ -77,10 +79,10 @@ MODEL_CONFIG = {
         "extra_trees": {
             "enabled": True,
             "params": {
-                "n_estimators": 200,
-                "max_depth": 12,
-                "min_samples_split": 5,
-                "min_samples_leaf": 2,
+                "n_estimators": 100,
+                "max_depth": 8,
+                "min_samples_split": 10,
+                "min_samples_leaf": 5,
                 "random_state": 42,
                 "n_jobs": -1,
             }
@@ -101,7 +103,7 @@ MODEL_CONFIG = {
             }
         },
         "svm_rbf": {
-            "enabled": True,
+            "enabled": False,  # 高维下易过拟合，禁用
             "params": {
                 "C": 1.0,
                 "gamma": "scale",
@@ -110,7 +112,7 @@ MODEL_CONFIG = {
             }
         },
         "mlp": {
-            "enabled": True,
+            "enabled": False,  # 高维下易过拟合，禁用
             "params": {
                 "hidden_layer_sizes": (128, 64, 32),
                 "max_iter": 1000,
@@ -157,7 +159,7 @@ EVOLUTION_CONFIG = {
     "factor_learning_rate": 0.15,
     "model_temperature": 3.0,
     "exploration_noise": 0.03,
-    "feature_select_topk": 60,
+    "feature_select_topk": 30,
     "min_features_per_category": 4,
     "accuracy_window": 20,
     "max_history": 500,

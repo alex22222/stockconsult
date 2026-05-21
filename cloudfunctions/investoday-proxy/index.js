@@ -139,6 +139,11 @@ exports.main = async (event, context) => {
     return handleSectorFundFlow(event);
   }
 
+  // 热门个股扫描（涨幅排行）
+  if (event.path === '/hot-stocks' || event.path === '/investoday-proxy/hot-stocks') {
+    return handleHotStocks(event);
+  }
+
   // 预测记录 - 定时预测
   if (event.path === '/daily-predict' || event.path === '/investoday-proxy/daily-predict') {
     return handleDailyPredict(event);
@@ -1360,6 +1365,94 @@ async function handleSectorFundFlow(event) {
     };
   } catch (error) {
     console.error('[SectorFundFlow Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }),
+    };
+  }
+}
+
+
+// ==================== 热门个股扫描 ====================
+
+async function handleHotStocks(event) {
+  try {
+    const query = event.queryString || {};
+    const limit = Math.min(parseInt(query.limit || '30', 10), 50);
+    const market = query.market || 'all'; // all | cyb (创业板)
+
+    // 构建 fs 参数
+    let fsParam = 'm:0+t:6,m:0+t:13,m:1+t:2,m:1+t:23'; // 全A股
+    if (market === 'cyb') {
+      fsParam = 'm:0+t:13'; // 仅创业板
+    }
+
+    const url = 'https://push2delay.eastmoney.com/api/qt/clist/get'
+      + '?pn=1&pz=60&po=1&np=1&fltt=2&invt=2&fid=f3'
+      + '&fs=' + encodeURIComponent(fsParam)
+      + '&fields=f12,f14,f3,f5,f6,f8,f10,f15,f16,f17,f18,f20,f21'
+      + '&_t=' + Date.now();
+
+    const data = await new Promise((resolve, reject) => {
+      const req = https.get(url, {
+        timeout: 30000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://quote.eastmoney.com/',
+        },
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Parse error')); }
+        });
+      });
+      req.on('error', (e) => reject(e));
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    });
+
+    const rawList = (data.data?.diff || []);
+
+    const stocks = rawList.map((item) => ({
+      code: String(item.f12 || ''),
+      name: String(item.f14 || ''),
+      changePercent: item.f3 == null || item.f3 === '-' ? 0 : Number(item.f3),
+      volume: item.f5 == null || item.f5 === '-' ? 0 : Number(item.f5),
+      turnover: item.f6 == null || item.f6 === '-' ? 0 : Number(item.f6),
+      turnoverRate: item.f8 == null || item.f8 === '-' ? 0 : Number(item.f8),
+      volumeRatio: item.f10 == null || item.f10 === '-' ? 0 : Number(item.f10),
+      high: item.f15 == null || item.f15 === '-' ? 0 : Number(item.f15),
+      low: item.f16 == null || item.f16 === '-' ? 0 : Number(item.f16),
+      open: item.f17 == null || item.f17 === '-' ? 0 : Number(item.f17),
+      preClose: item.f18 == null || item.f18 === '-' ? 0 : Number(item.f18),
+      totalValue: item.f20 == null || item.f20 === '-' ? 0 : Number(item.f20),
+      floatValue: item.f21 == null || item.f21 === '-' ? 0 : Number(item.f21),
+    })).filter((s) => {
+      // 过滤条件
+      if (!s.code || !s.name) return false;
+      // 排除 ST / *ST / 退市 / 新股(N) / 次新股(C)
+      if (/[ST退]|^[NC]/.test(s.name)) return false;
+      // 排除停牌（无涨跌幅）
+      if (s.changePercent === 0 && s.volume === 0) return false;
+      // 排除北交所(8/9开头4位)、新三板(4开头)、B股
+      const first = s.code.charAt(0);
+      if (first === '8' || first === '9' || first === '4') return false;
+      return true;
+    }).slice(0, limit);
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, market, total: stocks.length, stocks }),
+    };
+  } catch (error) {
+    console.error('[HotStocks Error]', error);
     return {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

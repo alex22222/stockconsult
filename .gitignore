@@ -30,3 +30,8 @@ cloudfunctions/stock-predictor/models/
 cloudfunctions/stock-predictor/data/
 cloudfunctions/stock-predictor/*.csv
 public/data/
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
+cloudfunctions/stock-predictor/deps/

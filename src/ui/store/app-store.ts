@@ -88,6 +88,12 @@ interface AppState {
   // 模拟盘
   showPaperTradingPage: boolean;
 
+  // 爆破力扫描
+  showMomentumScanPage: boolean;
+
+  // 策略重建
+  showStrategyRebuildPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -103,6 +109,9 @@ interface AppState {
   toggleLuxiaoHistoryPage: (show?: boolean) => void;
   toggleStrategyAdvisorPage: (show?: boolean) => void;
   togglePaperTradingPage: (show?: boolean) => void;
+  toggleMomentumScanPage: (show?: boolean) => void;
+  toggleStrategyRebuildPage: (show?: boolean) => void;
+  navigateTo: (page: 'search' | 'records' | 'fortune' | 'modelDoc' | 'luxiao' | 'strategy' | 'paperTrading' | 'momentum' | 'strategyRebuild' | null) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -142,6 +151,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   showLuxiaoHistoryPage: false,
   showStrategyAdvisorPage: false,
   showPaperTradingPage: false,
+  showMomentumScanPage: false,
+  showStrategyRebuildPage: false,
 
   setQuery: (query) => set({ query }),
 
@@ -265,6 +276,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       showLuxiaoHistoryPage: show !== undefined ? show : !state.showLuxiaoHistoryPage,
     }));
+  },
+
+  toggleStrategyAdvisorPage: (show) => {
+    set((state) => ({
+      showStrategyAdvisorPage: show !== undefined ? show : !state.showStrategyAdvisorPage,
+    }));
+  },
+
+  togglePaperTradingPage: (show) => {
+    set((state) => ({
+      showPaperTradingPage: show !== undefined ? show : !state.showPaperTradingPage,
+    }));
+  },
+
+  toggleMomentumScanPage: (show) => {
+    set((state) => ({
+      showMomentumScanPage: show !== undefined ? show : !state.showMomentumScanPage,
+    }));
+  },
+
+  toggleStrategyRebuildPage: (show) => {
+    set((state) => ({
+      showStrategyRebuildPage: show !== undefined ? show : !state.showStrategyRebuildPage,
+    }));
+  },
+
+  navigateTo: (page) => {
+    set({
+      showRecordsPage: page === 'records',
+      showFortunePage: page === 'fortune',
+      showModelDocPage: page === 'modelDoc',
+      showLuxiaoHistoryPage: page === 'luxiao',
+      showStrategyAdvisorPage: page === 'strategy',
+      showPaperTradingPage: page === 'paperTrading',
+      showMomentumScanPage: page === 'momentum',
+      showStrategyRebuildPage: page === 'strategyRebuild',
+    });
   },
 
   setTheme: (theme) => {

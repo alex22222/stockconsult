@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Sword, Target, ShieldAlert, TrendingUp, TrendingDown,
-  Clock, Percent, Activity, Zap, BarChart3, AlertTriangle, CheckCircle2,
+  ArrowLeft, Sword, Target, ShieldAlert, TrendingUp,
+  Clock, Activity, Zap, BarChart3, AlertTriangle, CheckCircle2,
   XCircle, HelpCircle, ChevronRight, Sparkles
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';

@@ -8,6 +8,8 @@ import { ModelDocPage } from './ui/pages/ModelDocPage';
 import { LuxiaoHistoryPage } from './ui/pages/LuxiaoHistoryPage';
 import { StrategyAdvisorPage } from './ui/pages/StrategyAdvisorPage';
 import { PaperTradingPage } from './ui/pages/PaperTradingPage';
+import { MomentumScanPage } from './ui/pages/MomentumScanPage';
+import { StrategyRebuildPage } from './ui/pages/StrategyRebuildPage';
 import { useAppStore } from './ui/store/app-store';
 
 function App() {
@@ -20,6 +22,8 @@ function App() {
   const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
   const showStrategyAdvisorPage = useAppStore((s) => s.showStrategyAdvisorPage);
   const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
+  const showMomentumScanPage = useAppStore((s) => s.showMomentumScanPage);
+  const showStrategyRebuildPage = useAppStore((s) => s.showStrategyRebuildPage);
   const loadFavorites = useAppStore((s) => s.loadFavorites);
   const theme = useAppStore((s) => s.theme);
 
@@ -40,6 +44,8 @@ function App() {
   const showDashboard = selectedStock && (report || loadingState === 'analyzing' || loadingState === 'error');
 
   function renderPage() {
+    if (showStrategyRebuildPage) return <StrategyRebuildPage />;
+    if (showMomentumScanPage) return <MomentumScanPage />;
     if (showPaperTradingPage) return <PaperTradingPage />;
     if (showStrategyAdvisorPage) return <StrategyAdvisorPage />;
     if (showLuxiaoHistoryPage) return <LuxiaoHistoryPage />;

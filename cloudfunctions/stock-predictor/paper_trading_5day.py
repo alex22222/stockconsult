@@ -34,7 +34,8 @@ from feature_engineer import FeatureEngineer
 # ============ 模拟盘配置 ============
 PT_DIR = os.path.join(os.path.dirname(__file__), "paper_trading")
 LABEL_DAYS = 5
-COST_PER_TRADE = 0.0017
+COST_PER_TRADE = 0.004   # 来回成本 0.4%（保守估计）
+STOP_LOSS_PCT = 0.03     # 3% 硬止损
 INIT_CAPITAL = 10000.0
 
 # 每只股票的最优配置（来自optimize_5day_strategy.py）
@@ -233,27 +234,26 @@ def train_and_predict(symbol, config):
         top_features = importance.nlargest(config["top_k"]).index.tolist()
         X = X[top_features]
     
-    # 训练最终模型
+    # 训练最终模型（排除最后一个样本，防止数据泄露）
     scaler = StandardScaler()
     X_s = scaler.fit_transform(X)
     gbdt = GradientBoostingClassifier(
         n_estimators=150, max_depth=4, learning_rate=0.08,
         min_samples_split=20, min_samples_leaf=10, random_state=42
     )
-    gbdt.fit(X_s, y)
+    gbdt.fit(X_s[:-1], y.iloc[:-1])
     
     # 获取特征重要性
     importance = pd.Series(gbdt.feature_importances_, index=X.columns)
     
-    # 预测最新样本（最后一个有效样本）
-    latest_idx = valid_indices[-1]
-    X_latest = X.iloc[[-1]]
-    X_latest_s = scaler.transform(X_latest)
+    # 预测最新一天（取全部数据的最后一行，不是训练集的最后一行）
+    latest_feature = features[X.columns].iloc[[-1]]
+    X_latest_s = scaler.transform(latest_feature)
     pred = gbdt.predict(X_latest_s)[0]
     proba = gbdt.predict_proba(X_latest_s)[0, 1]
     
-    latest_date = stock_df.iloc[latest_idx]["日期"]
-    latest_price = stock_df.iloc[latest_idx]["收盘"]
+    latest_date = stock_df.iloc[-1]["日期"]
+    latest_price = stock_df.iloc[-1]["收盘"]
     
     return {
         "date": pd.to_datetime(latest_date).strftime("%Y-%m-%d"),
@@ -318,10 +318,36 @@ def generate_signals():
     return signals
 
 
+def _check_stop_loss(sig, stock_df):
+    """
+    检查是否触发3%硬止损。
+    返回 (triggered, exit_date, exit_price, reason) 或 (False, None, None, None)
+    """
+    entry_date = sig["date"]
+    entry_price = sig["price"]
+    
+    # 找到买入日之后的所有交易日
+    entry_idx = stock_df[stock_df["日期"] >= entry_date].index
+    if len(entry_idx) == 0:
+        return False, None, None, None
+    
+    post_entry = stock_df.loc[entry_idx[0]:]
+    # 跳过买入日当天，从次日开始检查
+    post_entry = post_entry.iloc[1:]
+    
+    stop_price = entry_price * (1 - STOP_LOSS_PCT)
+    
+    for _, row in post_entry.iterrows():
+        if row["收盘"] <= stop_price:
+            return True, row["日期"], float(row["收盘"]), "STOP_LOSS"
+    
+    return False, None, None, None
+
+
 def settle_positions():
-    """结算到期持仓"""
+    """结算到期持仓（含3%硬止损检查）"""
     print("\n" + "=" * 60)
-    print("💰 结算到期持仓")
+    print("💰 结算到期持仓（含-3%硬止损）")
     print("=" * 60)
     
     signals = load_json("signals.json")
@@ -334,22 +360,56 @@ def settle_positions():
         if sig["status"] != "pending" or sig["signal"] != "buy":
             continue
         
+        symbol = sig["symbol"]
+        config = STOCK_CONFIG[symbol]
+        entry_date = sig["date"]
+        entry_price = sig["price"]
+        
+        # 加载实际数据
+        data = load_stock_data(symbol)
+        stock_df = data["stock_daily"]
+        
+        # ========== 优先检查止损 ==========
+        sl_triggered, sl_date, sl_price, sl_reason = _check_stop_loss(sig, stock_df)
+        if sl_triggered and pd.to_datetime(sl_date) <= pd.to_datetime(today):
+            gross_return = (sl_price / entry_price - 1)
+            net_return = gross_return - COST_PER_TRADE
+            
+            sig["status"] = "settled"
+            sig["actual_exit_date"] = pd.to_datetime(sl_date).strftime("%Y-%m-%d")
+            sig["actual_exit_price"] = sl_price
+            sig["actual_return"] = round(net_return * 100, 4)
+            sig["gross_return"] = round(gross_return * 100, 4)
+            sig["stop_loss_triggered"] = True
+            
+            trade = {
+                "id": sig["id"],
+                "symbol": symbol,
+                "name": config["name"],
+                "entry_date": entry_date,
+                "exit_date": pd.to_datetime(sl_date).strftime("%Y-%m-%d"),
+                "entry_price": entry_price,
+                "exit_price": sl_price,
+                "gross_return": round(gross_return * 100, 4),
+                "net_return": round(net_return * 100, 4),
+                "holding_days": LABEL_DAYS,
+                "reason": "STOP_LOSS",
+            }
+            
+            existing_trade = [t for t in trades if t["id"] == trade["id"]]
+            if not existing_trade:
+                trades.append(trade)
+                settled_count += 1
+                print(f"  🛑 {config['name']}: 买入{entry_date}@{entry_price:.2f} → 止损{sl_date}@{sl_price:.2f} | 净收益={net_return*100:+.2f}%")
+            continue
+        
+        # ========== 再检查是否到了平仓日 ==========
         exit_date = sig.get("expected_exit_date")
         if not exit_date:
             continue
         
-        # 检查是否到了平仓日（今天 >= 平仓日）
         if pd.to_datetime(today) < pd.to_datetime(exit_date):
             continue
-        
-        symbol = sig["symbol"]
-        config = STOCK_CONFIG[symbol]
-        
-        # 加载实际数据获取平仓价
-        data = load_stock_data(symbol)
-        stock_df = data["stock_daily"]
-        entry_date = sig["date"]
-        entry_price = sig["price"]
         
         # 找到平仓日或之后第一个交易日的收盘价
         exit_df = stock_df[stock_df["日期"] >= exit_date]
@@ -382,6 +442,7 @@ def settle_positions():
             "gross_return": round(gross_return * 100, 4),
             "net_return": round(net_return * 100, 4),
             "holding_days": LABEL_DAYS,
+            "reason": "EXPIRE",
         }
         
         # 避免重复记录

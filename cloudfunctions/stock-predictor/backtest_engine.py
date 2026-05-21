@@ -22,11 +22,11 @@ from sklearn.preprocessing import StandardScaler
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
-# 交易成本
+# 交易成本（保守估计：来回约0.55% = 佣金双向0.05% + 印花税0.1% + 滑点双向0.4%）
 COMMISSION_RATE = 0.00025  # 佣金 0.025%
 STAMP_TAX_RATE = 0.001     # 印花税 0.1%（仅卖出）
 MIN_COMMISSION = 5         # 最低佣金5元
-SLIPPAGE = 0.001           # 滑点 0.1%
+SLIPPAGE = 0.002           # 滑点 0.2%（单侧）
 
 
 class BacktestEngine:
@@ -45,7 +45,7 @@ class BacktestEngine:
                  lookback_days: int = 252,
                  retrain_days: int = 20,
                  confidence_threshold: float = 0.15,
-                 stop_loss: float = 0.05,      # 5% 止损
+                 stop_loss: float = 0.03,      # 3% 硬止损（不可协商）
                  take_profit: float = 0.10,    # 10% 止盈
                  position_size: float = 0.8,   # 每次使用80%资金
                  ):
@@ -65,12 +65,17 @@ class BacktestEngine:
         self.entry_price = 0
         self.trades = []
         self.equity_curve = []
+        self.predictions = []  # (date, y_true, y_pred, y_prob, conf)
         
         # 数据
         self.local = LocalDataProvider(DATA_DIR)
         self.raw = self.local.get_all_data_for_stock(symbol, days=5000)
         self.stock_df = self.raw["stock_daily"].sort_values("日期").reset_index(drop=True)
         self.close = self.stock_df["收盘"].astype(float).values
+        self.open_ = self.stock_df["开盘"].astype(float).values
+        self.high = self.stock_df["最高"].astype(float).values
+        self.low = self.stock_df["最低"].astype(float).values
+        self.change_pct = self.stock_df["涨跌幅"].astype(float).values
         self.dates = self.stock_df["日期"].astype(str).values
         self.engineer = FeatureEngineer()
         
@@ -105,31 +110,19 @@ class BacktestEngine:
         if not trainer.models:
             return 0, 0.5, 0
         
-        # 预测最新一天
-        last_X = X.iloc[-1:]
-        last_X_clean = last_X.replace([np.inf, -np.inf], 0).fillna(0)
-        
-        scaler = trainer.scalers.get("default")
-        if scaler is None:
+        # 预测最新一天（使用 trainer.predict 自动处理特征选择+标准化）
+        result = trainer.predict(X, use_ensemble=True)
+        if "error" in result:
             return 0, 0.5, 0
-        last_X_scaled = scaler.transform(last_X_clean)
         
-        probs = []
-        weights = []
-        for mname, model in trainer.models.items():
-            w = trainer.model_weights.get(mname, 0.25)
-            p = model.predict_proba(last_X_scaled)[:, 1]
-            probs.append(p[0])
-            weights.append(w)
-        
-        avg_prob = sum(p * w for p, w in zip(probs, weights)) / sum(weights)
-        pred = 1 if avg_prob > 0.5 else 0
-        confidence = abs(avg_prob - 0.5) * 2
+        pred = result["prediction"]
+        avg_prob = result["up_probability"]
+        confidence = result["confidence"]
         
         return pred, avg_prob, confidence
     
     def run(self) -> Dict:
-        """运行回测"""
+        """运行回测（修复T+1错配：信号T日生成，T+1开盘执行）"""
         start_idx = self.lookback_days + 10
         end_idx = len(self.close) - 1
         
@@ -137,10 +130,44 @@ class BacktestEngine:
         current_pred = 0
         current_prob = 0.5
         current_conf = 0
+        self.predictions = []
+        
+        # T+1延迟执行：今日信号/触发 → 明日开盘执行
+        pending_action = None   # 'BUY' | 'SELL'
+        pending_reason = None   # 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT'
+        pending_conf = 0.0      # 用于计算明日仓位
         
         for i in range(start_idx, end_idx):
             date = self.dates[i]
             price = self.close[i]
+            open_price = self.open_[i]
+            
+            # ========== 执行前一日pending的动作（T+1开盘成交）==========
+            if pending_action == 'BUY' and self.position == 0:
+                if not self._is_limit_up(i):
+                    size = self._calc_position_size(pending_conf)
+                    self._buy(open_price, date, position_size=size)
+                else:
+                    self.trades.append({"date": date, "action": "SKIP", "reason": "LIMIT_UP"})
+            elif pending_action == 'SELL' and self.position > 0:
+                if not self._is_limit_down(i):
+                    self._sell(open_price, date, pending_reason)
+                else:
+                    self.trades.append({"date": date, "action": "SKIP", "reason": "LIMIT_DOWN"})
+            
+            pending_action = None
+            pending_reason = None
+            pending_conf = 0.0
+            
+            # 计算实际标签（下一天涨跌）用于评估
+            y_true = 1 if (i + 1 < len(self.close) and self.close[i + 1] > price) else 0
+            self.predictions.append({
+                "date": date,
+                "y_true": y_true,
+                "y_pred": current_pred,
+                "y_prob": current_prob,
+                "conf": current_conf,
+            })
             
             # 计算当前权益
             equity = self.capital + self.position * price
@@ -153,42 +180,74 @@ class BacktestEngine:
                 "conf": current_conf,
             })
             
-            # 定期重新训练
+            # 定期重新训练（用[0:i]数据预测i+1）
             if i - last_retrain >= self.retrain_days:
                 current_pred, current_prob, current_conf = self._train_and_predict(i)
                 last_retrain = i
             
-            # 止损/止盈检查
+            # 止损/止盈检查（盘中触发，次日开盘执行）
             if self.position > 0 and self.entry_price > 0:
                 ret = (price - self.entry_price) / self.entry_price
                 if ret <= -self.stop_loss:
-                    self._sell(price, date, "STOP_LOSS")
-                    continue
-                if ret >= self.take_profit:
-                    self._sell(price, date, "TAKE_PROFIT")
-                    continue
+                    pending_action = 'SELL'
+                    pending_reason = 'STOP_LOSS'
+                elif ret >= self.take_profit:
+                    pending_action = 'SELL'
+                    pending_reason = 'TAKE_PROFIT'
             
-            # 信号太弱，不操作
+            # 信号太弱，不生成新信号
             if current_conf < self.confidence_threshold:
                 continue
             
-            # 买入信号 & 空仓
+            # 买入信号 & 空仓 → 记入pending，明日开盘执行
             if current_pred == 1 and self.position == 0:
-                self._buy(price, date)
+                pending_action = 'BUY'
+                pending_reason = 'SIGNAL'
+                pending_conf = current_conf
             
-            # 卖出信号 & 持仓
+            # 卖出信号 & 持仓 → 记入pending，明日开盘执行
             elif current_pred == 0 and self.position > 0:
-                self._sell(price, date, "SIGNAL")
+                pending_action = 'SELL'
+                pending_reason = 'SIGNAL'
+                pending_conf = current_conf
         
-        # 最终平仓
+        # 最终平仓（直接按收盘价，不再延迟）
         if self.position > 0:
             self._sell(self.close[-1], self.dates[-1], "FINAL")
         
         return self._calculate_metrics()
     
-    def _buy(self, price: float, date: str):
+    def _get_limit_pct(self) -> float:
+        """获取该股票的涨跌停限制百分比"""
+        if self.symbol.startswith(('300', '301', '688')):
+            return 20.0
+        return 10.0
+
+    def _is_limit_up(self, idx: int) -> bool:
+        """判断是否涨停（无法买入）"""
+        if idx >= len(self.change_pct):
+            return False
+        return self.change_pct[idx] >= self._get_limit_pct() * 0.99
+
+    def _is_limit_down(self, idx: int) -> bool:
+        """判断是否跌停（无法卖出）"""
+        if idx >= len(self.change_pct):
+            return False
+        return self.change_pct[idx] <= -self._get_limit_pct() * 0.99
+
+    def _calc_position_size(self, confidence: float) -> float:
+        """根据置信度动态计算仓位：置信度越高仓位越大"""
+        if confidence < self.confidence_threshold:
+            return 0.0
+        # 置信度 [threshold, 0.50] 映射到仓位 [0.3, 0.9]
+        size = 0.3 + (confidence - self.confidence_threshold) / (0.50 - self.confidence_threshold) * 0.6
+        return min(size, 0.95)
+
+    def _buy(self, price: float, date: str, position_size: float = None):
         """买入"""
-        buy_amount = self.capital * self.position_size
+        if position_size is None:
+            position_size = self.position_size
+        buy_amount = self.capital * position_size
         price_with_slippage = price * (1 + SLIPPAGE)
         max_shares = int(buy_amount / price_with_slippage / 100) * 100
         
@@ -293,6 +352,7 @@ class BacktestEngine:
             "avg_trade_return": avg_trade_return,
             "equity_curve": df_equity,
             "trade_list": self.trades,
+            "predictions": self.predictions,
         }
 
 

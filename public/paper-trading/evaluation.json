@@ -1,0 +1,380 @@
+{
+  "002617": {
+    "name": "露笑科技",
+    "sample_size": 324,
+    "positive_rate": 0.4660493827160494,
+    "overall_score": 14.285714285714285,
+    "verdict": "模型未通过合理性检验，可能为过拟合或伪相关",
+    "verdict_level": "fail",
+    "tests": {
+      "binomial_test": {
+        "test": "binomial",
+        "correct": "171",
+        "total": 324,
+        "accuracy": 0.5277777777777778,
+        "p_value": 0.172478249869511,
+        "significant": "False",
+        "confidence_level": 0.95,
+        "ci_lower": 0.47341136643726256,
+        "ci_upper": 0.5814932208737789,
+        "effect_size": 0.02777777777777779,
+        "min_significant_correct": 177
+      },
+      "permutation_test": {
+        "test": "permutation",
+        "metric": "auc",
+        "true_metric": 0.5164414500631627,
+        "p_value": 0.304,
+        "significant": "False",
+        "n_permutations": 500,
+        "permuted_mean": 0.5007538184741416,
+        "permuted_std": 0.032165544668344925,
+        "permuted_95th": 0.5554023274509053
+      },
+      "runs_test": {
+        "test": "runs",
+        "runs": 161,
+        "expected_runs": 162.5,
+        "z_score": -0.16744367165578428,
+        "p_value": 0.867020965182346,
+        "significant": "False",
+        "interpretation": "错误聚集"
+      },
+      "calibration": {
+        "ece": 0.17305864803102086,
+        "brier_score": 0.28634935860449073,
+        "uncertainty": 0.24884735558603868,
+        "reliability": 0.0384116471133233,
+        "resolution": 0.0005638023384936959,
+        "bin_accuracies": [
+          0.4375,
+          0.4625,
+          0.5079365079365079,
+          0.4691358024691358,
+          0.45
+        ],
+        "bin_confidences": [
+          0.17594450327278638,
+          0.21334027734196642,
+          0.3416827534920074,
+          0.43237066064459206,
+          0.5380910696719706
+        ],
+        "bin_counts": [
+          "80",
+          "80",
+          "63",
+          "81",
+          "20"
+        ],
+        "well_calibrated": "False",
+        "interpretation": "校准差"
+      },
+      "benchmark": {
+        "strategy_return": 0.03831907432517956,
+        "buyhold_return": 0.2558400718501771,
+        "random_mean_return": 0.11447286934431546,
+        "random_std": 0.28650086340377406,
+        "reverse_return": 0.19573151060337268,
+        "momentum_return": 0.3593007117991466,
+        "beats_random": "False",
+        "beats_buyhold": "False",
+        "beats_momentum": "False",
+        "reverse_better": "True"
+      },
+      "economic_significance": {
+        "gross_return": 0.02998737940000007,
+        "estimated_costs": 0.0969,
+        "net_return": -0.06691262059999993,
+        "profitable_after_costs": "False",
+        "annualized_volatility": 0.11951058420915156,
+        "information_ratio": -0.02115344374982935,
+        "profit_factor": 1.2206047840400251,
+        "sharpe_approx": 0.250153543016926,
+        "economically_meaningful": "False"
+      }
+    }
+  },
+  "601318": {
+    "name": "中国平安",
+    "sample_size": 324,
+    "positive_rate": 0.49074074074074076,
+    "overall_score": 35.714285714285715,
+    "verdict": "模型未通过合理性检验，可能为过拟合或伪相关",
+    "verdict_level": "fail",
+    "tests": {
+      "binomial_test": {
+        "test": "binomial",
+        "correct": "166",
+        "total": 324,
+        "accuracy": 0.5123456790123457,
+        "p_value": 0.3487107390843057,
+        "significant": "False",
+        "confidence_level": 0.95,
+        "ci_lower": 0.45809379155250335,
+        "ci_upper": 0.566308247252404,
+        "effect_size": 0.012345679012345734,
+        "min_significant_correct": 177
+      },
+      "permutation_test": {
+        "test": "permutation",
+        "metric": "auc",
+        "true_metric": 0.4805031446540881,
+        "p_value": 0.718,
+        "significant": "False",
+        "n_permutations": 500,
+        "permuted_mean": 0.5004747093577282,
+        "permuted_std": 0.03314356207442362,
+        "permuted_95th": 0.5582742519534971
+      },
+      "runs_test": {
+        "test": "runs",
+        "runs": 170,
+        "expected_runs": 162.90123456790124,
+        "z_score": 0.7904589453135836,
+        "p_value": 0.42925978938742393,
+        "significant": "False",
+        "interpretation": "错误分散"
+      },
+      "calibration": {
+        "ece": 0.10264453288752376,
+        "brier_score": 0.2675782772678279,
+        "uncertainty": 0.24991426611796985,
+        "reliability": 0.015836211358606835,
+        "resolution": 0.0010354083148130429,
+        "bin_accuracies": [
+          0.5,
+          0.4567901234567901,
+          0.5581395348837209,
+          0.4666666666666667
+        ],
+        "bin_confidences": [
+          0.34401374835300097,
+          0.44289087946866196,
+          0.554205985864036,
+          0.6353962009015501
+        ],
+        "bin_counts": [
+          "140",
+          "81",
+          "43",
+          "60"
+        ],
+        "well_calibrated": "False",
+        "interpretation": "校准差"
+      },
+      "benchmark": {
+        "strategy_return": 0.30776390418267474,
+        "buyhold_return": 0.2978185887577781,
+        "random_mean_return": 0.16030457919692842,
+        "random_std": 0.17226597644587918,
+        "reverse_return": -0.09818429864597689,
+        "momentum_return": -0.06328749716003157,
+        "beats_random": "False",
+        "beats_buyhold": "True",
+        "beats_momentum": "True",
+        "reverse_better": "False"
+      },
+      "economic_significance": {
+        "gross_return": 0.3374421415719988,
+        "estimated_costs": 0.0969,
+        "net_return": 0.24054214157199882,
+        "profitable_after_costs": "True",
+        "annualized_volatility": 0.16384260342778595,
+        "information_ratio": 0.002537046982513015,
+        "profit_factor": 1.732756316929552,
+        "sharpe_approx": 1.4655102519400551,
+        "economically_meaningful": "False"
+      }
+    }
+  },
+  "300622": {
+    "name": "博士眼镜",
+    "sample_size": 324,
+    "positive_rate": 0.5123456790123457,
+    "overall_score": 14.285714285714285,
+    "verdict": "模型未通过合理性检验，可能为过拟合或伪相关",
+    "verdict_level": "fail",
+    "tests": {
+      "binomial_test": {
+        "test": "binomial",
+        "correct": "150",
+        "total": 324,
+        "accuracy": 0.46296296296296297,
+        "p_value": 0.9176170922601801,
+        "significant": "False",
+        "confidence_level": 0.95,
+        "ci_lower": 0.40942035290495465,
+        "ci_upper": 0.5173735306803233,
+        "effect_size": 0.037037037037037035,
+        "min_significant_correct": 177
+      },
+      "permutation_test": {
+        "test": "permutation",
+        "metric": "auc",
+        "true_metric": 0.45209318285801436,
+        "p_value": 0.926,
+        "significant": "False",
+        "n_permutations": 500,
+        "permuted_mean": 0.5002856870520055,
+        "permuted_std": 0.032597881999537025,
+        "permuted_95th": 0.5531416806466373
+      },
+      "runs_test": {
+        "test": "runs",
+        "runs": 174,
+        "expected_runs": 162.11111111111111,
+        "z_score": 1.3303595983206051,
+        "p_value": 0.18339981938115146,
+        "significant": "False",
+        "interpretation": "错误分散"
+      },
+      "calibration": {
+        "ece": 0.1574895383704727,
+        "brier_score": 0.2835777498987081,
+        "uncertainty": 0.24984758420972414,
+        "reliability": 0.03545029793376039,
+        "resolution": 0.002500718112858032,
+        "bin_accuracies": [
+          0.5875,
+          0.5,
+          0.5096153846153846,
+          0.425,
+          0.4875
+        ],
+        "bin_confidences": [
+          0.26800084463422663,
+          0.3306842681046319,
+          0.4634100756373622,
+          0.5440428545595287,
+          0.6439162131096055
+        ],
+        "bin_counts": [
+          "80",
+          "20",
+          "104",
+          "40",
+          "80"
+        ],
+        "well_calibrated": "False",
+        "interpretation": "校准差"
+      },
+      "benchmark": {
+        "strategy_return": -0.747985301586153,
+        "buyhold_return": 1.3015733463712311,
+        "random_mean_return": 0.6697208244707756,
+        "random_std": 0.4899973891737215,
+        "reverse_return": 1.666977246582706,
+        "momentum_return": 0.9463857072147145,
+        "beats_random": "False",
+        "beats_buyhold": "False",
+        "beats_momentum": "False",
+        "reverse_better": "True"
+      },
+      "economic_significance": {
+        "gross_return": -0.5522675760680005,
+        "estimated_costs": 0.0969,
+        "net_return": -0.6491675760680005,
+        "profitable_after_costs": "False",
+        "annualized_volatility": 0.29037110997870413,
+        "information_ratio": -0.12009045355853118,
+        "profit_factor": 0.4862086062454175,
+        "sharpe_approx": -2.0097298244238684,
+        "economically_meaningful": "False"
+      }
+    }
+  },
+  "002896": {
+    "name": "中大力德",
+    "sample_size": 324,
+    "positive_rate": 0.5123456790123457,
+    "overall_score": 42.857142857142854,
+    "verdict": "模型合理性存疑，建议深入分析",
+    "verdict_level": "warning",
+    "tests": {
+      "binomial_test": {
+        "test": "binomial",
+        "correct": "174",
+        "total": 324,
+        "accuracy": 0.5370370370370371,
+        "p_value": 0.10062738402118114,
+        "significant": "False",
+        "confidence_level": 0.95,
+        "ci_lower": 0.4826264693196766,
+        "ci_upper": 0.5905796470950453,
+        "effect_size": 0.03703703703703709,
+        "min_significant_correct": 177
+      },
+      "permutation_test": {
+        "test": "permutation",
+        "metric": "auc",
+        "true_metric": 0.5572098520664938,
+        "p_value": 0.026,
+        "significant": "True",
+        "n_permutations": 500,
+        "permuted_mean": 0.5010169284733872,
+        "permuted_std": 0.02973668869839092,
+        "permuted_95th": 0.5479783056275735
+      },
+      "runs_test": {
+        "test": "runs",
+        "runs": 166,
+        "expected_runs": 162.11111111111111,
+        "z_score": 0.43516435459085195,
+        "p_value": 0.6634431339635762,
+        "significant": "False",
+        "interpretation": "错误分散"
+      },
+      "calibration": {
+        "ece": 0.030198450775897563,
+        "brier_score": 0.24928654961964672,
+        "uncertainty": 0.24984758420972414,
+        "reliability": 0.0030187558842938345,
+        "resolution": 0.0018181445136177658,
+        "bin_accuracies": [
+          0.4,
+          0.5,
+          0.4807692307692308,
+          0.55
+        ],
+        "bin_confidences": [
+          0.2809346055137836,
+          0.37236823406644604,
+          0.4605004186156654,
+          0.5488139808727905
+        ],
+        "bin_counts": [
+          "20",
+          "40",
+          "104",
+          "160"
+        ],
+        "well_calibrated": "True",
+        "interpretation": "校准良好"
+      },
+      "benchmark": {
+        "strategy_return": 0.21574159174972063,
+        "buyhold_return": 1.0547478853301149,
+        "random_mean_return": 0.5337086171034346,
+        "random_std": 0.36226374422388413,
+        "reverse_return": 0.2202613425789569,
+        "momentum_return": 0.8284469257283927,
+        "beats_random": "False",
+        "beats_buyhold": "False",
+        "beats_momentum": "False",
+        "reverse_better": "True"
+      },
+      "economic_significance": {
+        "gross_return": 0.1751539040880017,
+        "estimated_costs": 0.0969,
+        "net_return": 0.07825390408800169,
+        "profitable_after_costs": "True",
+        "annualized_volatility": 0.2921424580524359,
+        "information_ratio": -0.07294696094638443,
+        "profit_factor": 1.1415485741686573,
+        "sharpe_approx": 0.5761521913807125,
+        "economically_meaningful": "False"
+      }
+    }
+  }
+}

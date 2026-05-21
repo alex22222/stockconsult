@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft, Wallet, TrendingUp, TrendingDown, Clock, Calendar,
-  BarChart3, Target, AlertCircle, CheckCircle2, XCircle, Loader2,
-  RefreshCw, ChevronDown, ChevronUp, Activity, PiggyBank,
+  ArrowLeft, Wallet, Clock, Calendar,
+  BarChart3, Target, AlertCircle, Loader2,
+  RefreshCw, ChevronDown, Activity, PiggyBank,
   ClipboardList, Play, RotateCcw, BookOpen, Terminal, GitCommit
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
@@ -209,7 +209,6 @@ export function PaperTradingPage() {
   }, [loadData]);
 
   const pendingBuys = signals.filter(s => s.signal === 'buy' && s.status === 'pending');
-  const settledSignals = signals.filter(s => s.status === 'settled');
 
   return (
     <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 dark:text-gray-100">
@@ -331,7 +330,7 @@ export function PaperTradingPage() {
           </div>
 
           {/* 按股票统计 */}
-          {report && Object.keys(report.by_symbol).length > 0 && (
+          {report?.by_symbol && Object.keys(report.by_symbol).length > 0 && (
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-blue-500" />

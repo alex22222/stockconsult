@@ -15,6 +15,7 @@ from datetime import datetime
 
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, classification_report
 
 # 导入各模型 (纯 sklearn，跨平台兼容)
@@ -23,7 +24,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 
-from config import MODEL_CONFIG, MODEL_DIR
+from config import MODEL_CONFIG, MODEL_DIR, EVOLUTION_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,8 @@ class ModelTrainer:
         self.config = MODEL_CONFIG
         self.models = {}           # 存储训练好的模型
         self.scalers = {}          # 存储标准化器
+        self.selectors = {}        # 存储特征选择器
+        self.selected_features = {}  # 存储每模型选中的特征名
         self.model_weights = self.config["model_weights"].copy()  # 模型权重
         self.training_history = []  # 训练历史
         self.feature_importance = {}  # 特征重要性
@@ -66,8 +69,45 @@ class ModelTrainer:
         else:
             raise ValueError(f"未知模型: {model_name}")
     
+    def _select_features(self, model_name: str, X: pd.DataFrame, y: pd.Series = None,
+                         fit: bool = True) -> pd.DataFrame:
+        """
+        特征选择 - 只保留最重要的 K 个特征
+        
+        Args:
+            model_name: 模型名称
+            X: 特征矩阵
+            y: 目标变量 (fit=True时需要)
+            fit: 是否拟合选择器
+            
+        Returns:
+            选择后的特征矩阵
+        """
+        k = min(EVOLUTION_CONFIG["feature_select_topk"], X.shape[1])
+        
+        if fit:
+            X_clean = X.replace([np.inf, -np.inf], 0).fillna(0)
+            y_clean = y.fillna(0) if y is not None else pd.Series([0] * len(X))
+            selector = SelectKBest(score_func=f_classif, k=k)
+            selector.fit(X_clean, y_clean)
+            self.selectors[model_name] = selector
+            mask = selector.get_support()
+            self.selected_features[model_name] = [X.columns[i] for i in range(len(X.columns)) if mask[i]]
+            logger.info(f"模型 {model_name}: 从 {X.shape[1]} 个特征中选择了 {k} 个")
+        
+        selected_cols = self.selected_features.get(model_name, X.columns.tolist())
+        # 确保所有选中的列都存在于 X 中
+        available_cols = [c for c in selected_cols if c in X.columns]
+        if len(available_cols) < len(selected_cols):
+            missing = set(selected_cols) - set(X.columns)
+            logger.warning(f"模型 {model_name}: 缺少特征 {missing}，用0填充")
+            for col in missing:
+                X[col] = 0
+            available_cols = selected_cols
+        return X[available_cols]
+    
     def _prepare_data(self, X: pd.DataFrame, y: pd.Series, 
-                     fit_scaler: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                     fit_scaler: bool = True, model_name: str = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         数据预处理
         
@@ -75,6 +115,7 @@ class ModelTrainer:
             X: 特征矩阵
             y: 目标变量
             fit_scaler: 是否拟合标准化器
+            model_name: 模型名称（用于特征选择）
             
         Returns:
             X_scaled, y_array
@@ -84,7 +125,7 @@ class ModelTrainer:
         y_clean = y.fillna(0)
         
         # 标准化
-        scaler_key = "default"
+        scaler_key = model_name or "default"
         if fit_scaler:
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(X_clean)
@@ -103,7 +144,7 @@ class ModelTrainer:
     def train_single_model(self, model_name: str, X: pd.DataFrame, y: pd.Series,
                           validation_split: float = 0.2) -> Dict:
         """
-        训练单个模型
+        训练单个模型（含特征选择）
         
         Args:
             model_name: 模型名称
@@ -116,8 +157,11 @@ class ModelTrainer:
         """
         logger.info(f"开始训练模型: {model_name}")
         
+        # 特征选择
+        X_selected = self._select_features(model_name, X, y, fit=True)
+        
         # 数据预处理
-        X_scaled, y_array = self._prepare_data(X, y, fit_scaler=True)
+        X_scaled, y_array = self._prepare_data(X_selected, y, fit_scaler=True, model_name=model_name)
         
         # 时间序列分割训练/验证集
         split_idx = int(len(X_scaled) * (1 - validation_split))
@@ -150,9 +194,16 @@ class ModelTrainer:
             # 保存模型
             self.models[model_name] = model
             
-            # 获取特征重要性
+            # 获取特征重要性（基于选中特征）
             if hasattr(model, "feature_importances_"):
-                self.feature_importance[model_name] = model.feature_importances_
+                selected_cols = self.selected_features.get(model_name, X.columns.tolist())
+                # 扩展回原始特征维度（未选中的为0）
+                full_importance = np.zeros(len(X.columns))
+                col_map = {c: i for i, c in enumerate(X.columns)}
+                for feat_name, imp in zip(selected_cols, model.feature_importances_):
+                    if feat_name in col_map:
+                        full_importance[col_map[feat_name]] = imp
+                self.feature_importance[model_name] = full_importance
             
             logger.info(f"模型 {model_name} 训练完成: accuracy={metrics['accuracy']:.4f}, auc={metrics['auc']:.4f}")
             
@@ -307,14 +358,16 @@ class ModelTrainer:
         
         # 取最后一行作为最新数据
         X_latest = X.iloc[-1:]
-        X_scaled, _ = self._prepare_data(X_latest, pd.Series([0]), fit_scaler=False)
         
         predictions = {}
         probabilities = {}
         
-        # 各模型预测
+        # 各模型预测（使用各自选中的特征）
         for model_name, model in self.models.items():
             try:
+                X_selected = self._select_features(model_name, X_latest, fit=False)
+                X_scaled, _ = self._prepare_data(X_selected, pd.Series([0]), fit_scaler=False, model_name=model_name)
+        
                 pred = model.predict(X_scaled)[0]
                 prob = model.predict_proba(X_scaled)[0]
                 

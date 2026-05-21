@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, BarChart3, Sword, PiggyBank, LayoutDashboard } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, PiggyBank, LayoutDashboard, Zap, FlaskConical } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -79,17 +79,13 @@ function Marquee({ indices }: { indices: MarketIndex[] }) {
 
 export function Header() {
   const showRecordsPage = useAppStore((s) => s.showRecordsPage);
-  const toggleRecordsPage = useAppStore((s) => s.toggleRecordsPage);
   const showFortunePage = useAppStore((s) => s.showFortunePage);
-  const toggleFortunePage = useAppStore((s) => s.toggleFortunePage);
   const showModelDocPage = useAppStore((s) => s.showModelDocPage);
-  const toggleModelDocPage = useAppStore((s) => s.toggleModelDocPage);
-  // const showLuxiaoHistoryPage = useAppStore((s) => s.showLuxiaoHistoryPage);
-  // const toggleLuxiaoHistoryPage = useAppStore((s) => s.toggleLuxiaoHistoryPage);
   const showStrategyAdvisorPage = useAppStore((s) => s.showStrategyAdvisorPage);
-  const toggleStrategyAdvisorPage = useAppStore((s) => s.toggleStrategyAdvisorPage);
   const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
-  const togglePaperTradingPage = useAppStore((s) => s.togglePaperTradingPage);
+  const showMomentumScanPage = useAppStore((s) => s.showMomentumScanPage);
+  const showStrategyRebuildPage = useAppStore((s) => s.showStrategyRebuildPage);
+  const navigateTo = useAppStore((s) => s.navigateTo);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
@@ -130,25 +126,38 @@ export function Header() {
     <>
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          {/* 左侧：Logo + 走马灯 */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">投资座舱</h1>
-            </div>
-
-            {/* 桌面端走马灯 */}
-            <div className="hidden lg:flex flex-1 items-center ml-3 border-l border-gray-200 dark:border-gray-700 pl-3 min-w-0">
-              <div className="flex-1 max-w-md">
-                <Marquee indices={indices} />
-              </div>
-            </div>
+          {/* 左侧：Logo */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <TrendingUp className="w-6 h-6 text-blue-600" />
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">投资座舱</h1>
           </div>
 
-          {/* 右侧：占卜师 + 记录 + 设置 */}
+          {/* 右侧：导航按钮 */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <button
-              onClick={() => toggleFortunePage(!showFortunePage)}
+              onClick={() => navigateTo(showStrategyRebuildPage ? null : 'strategyRebuild')}
+              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
+                showStrategyRebuildPage
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">策略重建</span>
+            </button>
+            <button
+              onClick={() => navigateTo(showMomentumScanPage ? null : 'momentum')}
+              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
+                showMomentumScanPage
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">爆破力</span>
+            </button>
+            <button
+              onClick={() => navigateTo(showFortunePage ? null : 'fortune')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
                 showFortunePage
                   ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 shadow-sm'
@@ -159,7 +168,7 @@ export function Header() {
               <span className="hidden sm:inline">占卜师</span>
             </button>
             <button
-              onClick={() => toggleModelDocPage(!showModelDocPage)}
+              onClick={() => navigateTo(showModelDocPage ? null : 'modelDoc')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
                 showModelDocPage
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shadow-sm'
@@ -170,7 +179,7 @@ export function Header() {
               <span className="hidden sm:inline">模型说明</span>
             </button>
             <button
-              onClick={() => toggleStrategyAdvisorPage(!showStrategyAdvisorPage)}
+              onClick={() => navigateTo(showStrategyAdvisorPage ? null : 'strategy')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
                 showStrategyAdvisorPage
                   ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 shadow-sm'
@@ -181,7 +190,7 @@ export function Header() {
               <span className="hidden sm:inline">策略页面</span>
             </button>
             <button
-              onClick={() => togglePaperTradingPage(!showPaperTradingPage)}
+              onClick={() => navigateTo(showPaperTradingPage ? null : 'paperTrading')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
                 showPaperTradingPage
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shadow-sm'
@@ -193,7 +202,7 @@ export function Header() {
             </button>
 
             <button
-              onClick={() => toggleRecordsPage(!showRecordsPage)}
+              onClick={() => navigateTo(showRecordsPage ? null : 'records')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
                 showRecordsPage
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm'
@@ -252,9 +261,11 @@ export function Header() {
           </div>
         </div>
 
-        {/* 移动端走马灯 */}
-        <div className="lg:hidden border-t border-gray-100 dark:border-gray-800 py-1">
-          <Marquee indices={indices} />
+        {/* 走马灯 — 菜单栏下方 */}
+        <div className="border-t border-gray-100 dark:border-gray-800 py-1">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Marquee indices={indices} />
+          </div>
         </div>
       </header>
     </>

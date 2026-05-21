@@ -130,28 +130,43 @@ export interface MCPFinanceValuation {
 export interface MCPStockScore {
   stockCode: string;
   stockName: string;
-  sentimentScore: number;
+  score: number;
+  scoreAvg: number;
+  skillScore: number;
+  skillScoreAvg: number;
+  emotionScore: number;
+  emotionScoreAvg: number;
   financeScore: number;
-  trackScore: number;
-  techScore: number;
-  sentimentScoreAvg: number;
   financeScoreAvg: number;
-  trackScoreAvg: number;
-  techScoreAvg: number;
-  induCode3: string;
-  induName3: string;
+  industryScore: number;
+  industryScoreAvg: number;
+  idu4Lv1Id: string;
+  idu4Lv1Name: string;
+  idu4Lv2Id: string;
+  idu4Lv2Name: string;
+  idu4Lv3Id: string;
+  idu4Lv3Name: string;
 }
 
 export interface MCPQuoteHistory {
-  STOCKCODE: string;
-  STOCKNAME: string;
-  QUOTETIME: string;
-  OPENPRICE: number;
-  HIGHPRICE: number;
-  LOWPRICE: number;
-  CLOSEPRICE: number;
-  DEALSTOCKAMOUNT: number;
-  DEALMONEY: number;
+  stockCode: string;
+  stockName: string;
+  tradeDate: string;
+  prevClosePrice: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
+  closePrice: number;
+  volume: number;
+  amount: number;
+  turnover: number;
+  marketCapFloat: number;
+  marketCap: number;
+  changePct: number;
+  peTtm: number;
+  pb: number;
+  isTrading: number;
+  vwap: number;
 }
 
 // 新闻数据结构（灵活处理不同字段名）
