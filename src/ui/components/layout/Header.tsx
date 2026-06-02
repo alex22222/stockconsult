@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sun, Moon, BrainCircuit, PiggyBank, Zap, FlaskConical } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sun, Moon, BrainCircuit, PiggyBank, Zap, FlaskConical, Home } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -85,6 +85,7 @@ export function Header() {
   const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
   const showMomentumScanPage = useAppStore((s) => s.showMomentumScanPage);
   const showStrategyRebuildPage = useAppStore((s) => s.showStrategyRebuildPage);
+  const showLandingPage = useAppStore((s) => s.showLandingPage);
   const navigateTo = useAppStore((s) => s.navigateTo);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
@@ -127,13 +128,27 @@ export function Header() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           {/* 左侧：Logo */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => navigateTo('landing')}
+            className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+          >
             <TrendingUp className="w-6 h-6 text-blue-600" />
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">投资座舱</h1>
-          </div>
+          </button>
 
           {/* 右侧：导航按钮 */}
           <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={() => navigateTo(showLandingPage ? null : 'landing')}
+              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
+                showLandingPage
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">首页</span>
+            </button>
             <button
               onClick={() => navigateTo(showStrategyRebuildPage ? null : 'strategyRebuild')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${

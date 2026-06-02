@@ -103,6 +103,24 @@ interface PortfolioHistoryItem {
   daily_return_pct: number;
 }
 
+interface WalkforwardStock {
+  symbol: string;
+  name: string;
+  n_predictions: number;
+  direction_accuracy: number;
+  correlation: number;
+  strategy_return_pct: number;
+  buyhold_return_pct: number;
+  reverse_better: boolean;
+}
+
+interface WalkforwardReport {
+  generated_at: string;
+  method: string;
+  params: Record<string, unknown>;
+  stocks: Record<string, WalkforwardStock>;
+}
+
 interface Report {
   generated_at: string;
   focus_pool: FocusPoolItem[];
@@ -277,23 +295,26 @@ export function PaperTradingPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [focusPool, setFocusPool] = useState<FocusPoolItem[]>([]);
   const [focusDate, setFocusDate] = useState('');
+  const [walkforwardReport, setWalkforwardReport] = useState<WalkforwardReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'positions' | 'overview' | 'signals' | 'trades' | 'ops'>('positions');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, tRes, rRes, pRes, fRes] = await Promise.all([
+      const [sRes, tRes, rRes, pRes, fRes, wRes] = await Promise.all([
         fetch('/paper-trading/signals.json').then(r => r.json()).catch(() => []),
         fetch('/paper-trading/trades.json').then(r => r.json()).catch(() => []),
         fetch('/paper-trading/report.json').then(r => r.json()).catch(() => null),
         fetch('/paper-trading/portfolio.json').then(r => r.json()).catch(() => null),
         fetch('/paper-trading/rebuild_focus_pool.json').then(r => r.json()).catch(() => null),
+        fetch('/paper-trading/rebuild_walkforward_report.json').then(r => r.json()).catch(() => null),
       ]);
       setSignals(sRes);
       setTrades(tRes);
       setReport(rRes);
       setPortfolio(pRes);
+      setWalkforwardReport(wRes);
       if (fRes && fRes.focus) {
         setFocusPool(fRes.focus);
         setFocusDate(fRes.date || '');
@@ -765,6 +786,50 @@ export function PaperTradingPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 模型历史表现参考（来自验证实验室 walk-forward 回测） */}
+          {walkforwardReport?.stocks && (
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">模型历史表现参考</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">来源：验证实验室 walk-forward 回测</span>
+              </div>
+              <div className="px-4 py-3">
+                {(() => {
+                  const stocks = Object.values(walkforwardReport.stocks);
+                  const avgAcc = stocks.reduce((s, x) => s + x.direction_accuracy, 0) / stocks.length;
+                  const avgCorr = stocks.reduce((s, x) => s + x.correlation, 0) / stocks.length;
+                  const reverseBetter = stocks.filter(x => x.reverse_better).length;
+                  const stratWins = stocks.filter(x => x.strategy_return_pct > x.buyhold_return_pct).length;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{(avgAcc * 100).toFixed(1)}%</div>
+                        <div className="text-[10px] text-gray-400">平均方向准确率</div>
+                      </div>
+                      <div className="text-center">
+                        <div className={`text-lg font-bold ${avgCorr >= 0 ? 'text-red-600' : 'text-green-600'}`}>{avgCorr >= 0 ? '+' : ''}{avgCorr.toFixed(4)}</div>
+                        <div className="text-[10px] text-gray-400">预测-真实相关</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{stratWins}/{stocks.length}</div>
+                        <div className="text-[10px] text-gray-400">策略跑赢买入持有</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-amber-600">{reverseBetter}/{stocks.length}</div>
+                        <div className="text-[10px] text-gray-400">反向信号更优</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded px-3 py-2">
+                  <p className="font-medium text-amber-600">⚠️ 注意：walk-forward 回测存在未来函数问题（训练时多留未来数据），结果仅供参考，不能作为策略有效性的证据。</p>
+                  <p>当前模型方向准确率接近随机水平（约 50%），多只股票的反向信号表现优于正向信号。模拟盘的真实前向跟踪更有意义，但样本尚不足。</p>
+                </div>
               </div>
             </div>
           )}

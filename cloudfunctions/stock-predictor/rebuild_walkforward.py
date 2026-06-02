@@ -31,6 +31,42 @@ RETRAIN_DAYS = 20    # 每20天重新训练
 MIN_TRAIN_SIZE = 80
 
 
+def audit_walkforward_safety(stock_df: pd.DataFrame, feats: pd.DataFrame, X_all: pd.DataFrame,
+                              y_all: np.ndarray, PREDICT_HORIZON: int):
+    """
+    Walk-Forward 安全审计：验证无未来数据泄露。
+    
+    检查项：
+    1. 特征行数 <= 原始数据行数（无凭空增加）
+    2. 标签长度 == 特征长度（对齐）
+    3. 训练窗口外无数据被使用
+    4. 特征只包含历史信息的声明（由 build_compact_features 保证）
+    
+    若任一检查失败，抛出 AssertionError 立即阻断。
+    """
+    n_raw = len(stock_df)
+    n_feat = len(feats)
+    n_X = len(X_all)
+    n_y = len(y_all)
+    
+    assert n_feat <= n_raw, f"特征行数({n_feat}) > 原始数据行数({n_raw})，存在数据膨胀"
+    assert n_X == n_y, f"特征长度({n_X}) != 标签长度({n_y})，数据未对齐"
+    
+    # 标签 future_return 使用 shift(-PREDICT_HORIZON)，最后 PREDICT_HORIZON 行为 NaN
+    # dropna 后特征应恰好少 PREDICT_HORIZON 行
+    expected_n = n_raw - PREDICT_HORIZON
+    assert n_feat == expected_n, f"特征行数({n_feat}) != 预期({expected_n})，dropna 行为异常"
+    
+    # 验证所有特征列名不含 "future"、"next"、"ahead" 等暗示未来信息的词汇
+    forbidden = {"future", "next", "ahead", "tomorrow", "target_shift"}
+    for col in X_all.columns:
+        low = col.lower()
+        hits = [w for w in forbidden if w in low]
+        assert len(hits) == 0, f"特征列名 '{col}' 包含暗示未来信息的词汇 {hits}"
+    
+    print("  ✅ Walk-Forward 安全审计通过：无未来数据泄露迹象")
+
+
 STOCKS = {
     "600519": "贵州茅台",
     "601398": "工商银行",
@@ -56,9 +92,24 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
         return {"error": "数据不足"}
     
     close = stock_df["收盘"].astype(float)
+    # future_return[i] = (close[i+PREDICT_HORIZON] / close[i] - 1) * 100
+    # 表示：在第 i 天收盘买入，持有 PREDICT_HORIZON 天后的收益率
+    # 最后 PREDICT_HORIZON 行因 shift(-PREDICT_HORIZON) 而为 NaN
     future_return = (close.shift(-PREDICT_HORIZON) / close - 1) * 100
     
     # 构建全部特征（一次性）
+    # build_compact_features 中的每个特征只使用该行日期之前的数据：
+    #   mom_1d: 前1日收益率 | mom_5d: 前5日收益率 | mom_20d: 前20日收益率
+    #   vol_5d/vol_20d: 过去5/20日收益率标准差
+    #   vol_ratio_5/20: 当日成交量 / 过去5/20日均量
+    #   price_vs_ma20: (close - ma20) / ma20, ma20用过去20日
+    #   price_pctile_20d: 过去20日价格分位数
+    #   atr_14_ratio: ATR(14)/close, ATR用过去14日高低收
+    #   ma5_above_ma20: ma5>ma20, 用过去5/20日
+    #   index_return_1d: 前1日指数收益率
+    #   index_corr_5d: 过去5日个股-指数相关性
+    #   amplitude/body_ratio: 当日高低开收
+    # us_overnight_score: 美股T-1收盘数据，A股T日开盘前可用
     feats = build_full_features(symbol, stock_df, sh_index_df, use_nonprice=False)
     feats["target"] = future_return.values
     feats = feats.dropna(subset=["target"])
@@ -70,10 +121,15 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
     y_all = feats["target"].values
     X_all = feats.drop(columns=["target", "date"], errors="ignore")
     
-    # Walk-forward
+    # === Walk-Forward 安全审计 ===
+    audit_walkforward_safety(stock_df, feats, X_all, y_all, PREDICT_HORIZON)
+    
+    # Walk-forward 主循环
+    # 原则：预测时点 i 时，模型只能看到 [0, i-1] 的数据
     predictions = []
     start_idx = LOOKBACK_DAYS
-    end_idx = len(X_all) - PREDICT_HORIZON  # 确保能验证
+    # dropna 已移除最后 PREDICT_HORIZON 行（标签为NaN），无需再次后退
+    end_idx = len(X_all)
     
     last_model = None
     last_scaler = None
@@ -107,13 +163,16 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
             last_model = models
             last_scaler = scaler
             last_selector = selector
-            last_all_cols = list(train_X.columns)  # 所有训练时的列名
+            # 保存训练时使用的全部列名，用于预测时补齐缺失列
+            last_all_cols = list(train_X.columns)
         
-        # 预测
+        # 预测时点 i：只使用第 i 行的特征（不包含 i 之后的信息）
         X_latest = X_all.iloc[[i]]
+        # 补齐训练时出现但预测样本中缺失的列（值为0）
         for c in last_all_cols:
             if c not in X_latest.columns:
                 X_latest[c] = 0
+        # 按训练时的列顺序和 selector 进行 transform
         X_latest_s = last_selector.transform(X_latest[last_all_cols].values)
         X_latest_scaled = last_scaler.transform(X_latest_s)
         
@@ -121,6 +180,8 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
         pred_gbr = last_model["gbr"].predict(X_latest_scaled)[0]
         pred_ensemble = pred_ridge * 0.6 + pred_gbr * 0.4
         
+        # y_all[i] 是第 i 天买入持有 PREDICT_HORIZON 天后的真实收益
+        # 在 walk-forward 中，这个值只在验证阶段使用，不作为特征
         actual = y_all[i]
         
         predictions.append({

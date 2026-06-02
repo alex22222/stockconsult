@@ -92,6 +92,9 @@ interface AppState {
   // 策略重建
   showStrategyRebuildPage: boolean;
 
+  // 首页
+  showLandingPage: boolean;
+
   // Actions
   setQuery: (query: string) => void;
   searchStocks: (query: string) => Promise<void>;
@@ -109,7 +112,8 @@ interface AppState {
   togglePaperTradingPage: (show?: boolean) => void;
   toggleMomentumScanPage: (show?: boolean) => void;
   toggleStrategyRebuildPage: (show?: boolean) => void;
-  navigateTo: (page: 'search' | 'records' | 'modelDoc' | 'luxiao' | 'paperTrading' | 'momentum' | 'strategyRebuild' | null) => void;
+  toggleLandingPage: (show?: boolean) => void;
+  navigateTo: (page: 'search' | 'records' | 'modelDoc' | 'luxiao' | 'paperTrading' | 'momentum' | 'strategyRebuild' | 'landing' | null) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -151,6 +155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showPaperTradingPage: false,
   showMomentumScanPage: false,
   showStrategyRebuildPage: false,
+  showLandingPage: true,
 
   setQuery: (query) => set({ query }),
 
@@ -287,6 +292,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleStrategyRebuildPage: (show) => {
     set((state) => ({
       showStrategyRebuildPage: show !== undefined ? show : !state.showStrategyRebuildPage,
+    }));
+  },
+
+  toggleLandingPage: (show) => {
+    set((state) => ({
+      showLandingPage: show !== undefined ? show : !state.showLandingPage,
     }));
   },
 

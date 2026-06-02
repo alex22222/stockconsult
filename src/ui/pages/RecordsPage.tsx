@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Search, Calendar, FileText, Loader2, Clock,
   BarChart3, Newspaper, Lightbulb, Target, ShieldAlert,
-  Brain, TrendingUp, TrendingDown, Check, X, Activity
+  Brain, TrendingUp, TrendingDown, Check, X, Activity,
+  Terminal, Zap, AlertCircle
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 
-type RecordType = 'search' | 'report' | 'prediction';
+type RecordType = 'search' | 'report' | 'prediction' | 'api_log';
 
 interface DailyStat {
   date: string;
@@ -21,6 +22,24 @@ interface PredictionStats {
   correctPredictions: number;
   accuracy: number;
   dailyStats?: DailyStat[];
+}
+
+interface ApiLogItem {
+  id: string;
+  tool_name: string;
+  stock_code: string;
+  params: Record<string, unknown>;
+  latency_ms: number;
+  response_summary: string;
+  response_error?: string;
+  created_at: string;
+}
+
+interface ApiLogStats {
+  totalCalls: number;
+  avgLatency: number;
+  errorCount: number;
+  errorRate: number;
 }
 
 interface RecordItem {
@@ -125,6 +144,10 @@ export function RecordsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportDetail | null>(null);
   // Prediction stats
   const [predictionStats, setPredictionStats] = useState<PredictionStats | null>(null);
+  // API log stats
+  const [apiLogStats, setApiLogStats] = useState<ApiLogStats | null>(null);
+  // Selected API log
+  const [selectedApiLog, setSelectedApiLog] = useState<ApiLogItem | null>(null);
 
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedPath, setSelectedPath] = useState('');
@@ -147,6 +170,8 @@ export function RecordsPage() {
       setSelectedReport(null);
       setSelectedPath('');
       setPredictionStats(null);
+      setSelectedApiLog(null);
+      setApiLogStats(null);
 
       if (type === 'prediction') {
         const [listRes, statsRes] = await Promise.all([
@@ -160,6 +185,28 @@ export function RecordsPage() {
         }
         if (statsData.success) {
           setPredictionStats(statsData.stats);
+        }
+      } else if (type === 'api_log') {
+        const response = await fetch(`${CLOUDBASE_API_URL}/list-api-logs?page=1&pageSize=100`);
+        const data = await response.json();
+        if (data.success) {
+          const apiLogs: ApiLogItem[] = data.records || [];
+          setRecords(apiLogs.map((log) => ({
+            path: log.id,
+            date: log.created_at?.split('T')[0] || '',
+            name: log.tool_name,
+            size: 0,
+            query: log.stock_code || '',
+            stockCode: log.stock_code,
+            stockName: log.tool_name,
+          })));
+          // 计算统计
+          const totalCalls = apiLogs.length;
+          const avgLatency = totalCalls > 0 ? Math.round(apiLogs.reduce((s, l) => s + (l.latency_ms || 0), 0) / totalCalls) : 0;
+          const errorCount = apiLogs.filter(l => l.response_error).length;
+          setApiLogStats({ totalCalls, avgLatency, errorCount, errorRate: totalCalls > 0 ? Math.round((errorCount / totalCalls) * 100) : 0 });
+          // 存储原始数据用于详情
+          (window as unknown as Record<string, ApiLogItem[]>).__apiLogs = apiLogs;
         }
       } else {
         const response = await fetch(`${CLOUDBASE_API_URL}/list-records?type=${type}`);
@@ -258,6 +305,17 @@ export function RecordsPage() {
             预测记录
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('api_log')}
+          className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+            activeTab === 'api_log' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Terminal className="w-3.5 h-3.5" />
+            API 日志
+          </span>
+        </button>
       </div>
 
       {error && (
@@ -270,10 +328,10 @@ export function RecordsPage() {
             <FileText className="w-8 h-8 text-gray-300" />
           </div>
           <p className="text-gray-500 font-medium">
-            {activeTab === 'search' ? '暂无查询记录' : activeTab === 'report' ? '暂无分析报告' : '暂无预测记录'}
+            {activeTab === 'search' ? '暂无查询记录' : activeTab === 'report' ? '暂无分析报告' : activeTab === 'prediction' ? '暂无预测记录' : '暂无 API 调用日志'}
           </p>
           <p className="text-sm text-gray-400 mt-2 max-w-sm mx-auto">
-            {activeTab === 'search' ? '在搜索页查询股票后，记录会自动保存到这里' : activeTab === 'report' ? '在搜索页分析股票后，报告会自动保存到这里' : '每日21:00自动对收藏股票做预测，次日收盘后验证'}
+            {activeTab === 'search' ? '在搜索页查询股票后，记录会自动保存到这里' : activeTab === 'report' ? '在搜索页分析股票后，报告会自动保存到这里' : activeTab === 'prediction' ? '每日21:00自动对收藏股票做预测，次日收盘后验证' : '调用 investoday API 后，日志会自动记录到这里'}
           </p>
         </div>
       )}
@@ -282,6 +340,28 @@ export function RecordsPage() {
         {/* 记录列表 */}
         <div className="lg:col-span-3 space-y-6">
           {/* 预测记录统计卡片 */}
+          {/* API 日志统计卡片 */}
+          {activeTab === 'api_log' && apiLogStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+              <div className="bg-gradient-to-b from-white to-gray-50/50 border border-gray-200 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-gray-400 mb-1">总调用</div>
+                <div className="text-2xl font-bold text-gray-900">{apiLogStats.totalCalls}</div>
+              </div>
+              <div className="bg-gradient-to-b from-blue-50 to-blue-100/30 border border-blue-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-blue-400 mb-1">平均耗时</div>
+                <div className="text-2xl font-bold text-blue-600">{apiLogStats.avgLatency}<span className="text-sm font-normal">ms</span></div>
+              </div>
+              <div className="bg-gradient-to-b from-red-50 to-red-100/30 border border-red-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-red-400 mb-1">错误数</div>
+                <div className="text-2xl font-bold text-red-600">{apiLogStats.errorCount}</div>
+              </div>
+              <div className="bg-gradient-to-b from-amber-50 to-amber-100/30 border border-amber-100 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <div className="text-xs text-amber-400 mb-1">错误率</div>
+                <div className="text-2xl font-bold text-amber-600">{apiLogStats.errorRate}%</div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'prediction' && predictionStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
               <div className="bg-gradient-to-b from-white to-gray-50/50 border border-gray-200 rounded-xl p-3 text-center hover:shadow-md hover:-translate-y-0.5 transition-all">
@@ -328,7 +408,16 @@ export function RecordsPage() {
                 {grouped[date].map((record) => (
                   <button
                     key={record.path}
-                    onClick={() => activeTab === 'prediction' ? setSelectedPath(record.path) : fetchDetail(record.path)}
+                    onClick={() => {
+                      if (activeTab === 'prediction') {
+                        setSelectedPath(record.path);
+                      } else if (activeTab === 'api_log') {
+                        const log = (window as unknown as Record<string, ApiLogItem[]>).__apiLogs?.find(l => l.id === record.path);
+                        setSelectedApiLog(log || null);
+                      } else {
+                        fetchDetail(record.path);
+                      }
+                    }}
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-all duration-200 ${
                       selectedPath === record.path
                         ? 'border-blue-300 bg-blue-50 shadow-sm'
@@ -345,6 +434,24 @@ export function RecordsPage() {
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs text-gray-400">{record.name}</span>
                             {record.size > 0 && <span className="text-xs text-gray-300">· {(record.size / 1024).toFixed(1)} KB</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ) : activeTab === 'api_log' ? (
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${record.stockName === 'ERROR' ? 'bg-red-50' : 'bg-gray-50'}`}>
+                          <Terminal className={`w-4 h-4 ${record.stockName === 'ERROR' ? 'text-red-500' : 'text-gray-600'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">{record.name}</span>
+                            {record.query && <span className="text-xs text-gray-400 font-mono">{record.query}</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
+                            <span className="flex items-center gap-0.5"><Zap className="w-3 h-3" />{(window as unknown as Record<string, ApiLogItem[]>).__apiLogs?.find(l => l.id === record.path)?.latency_ms || 0}ms</span>
+                            {(window as unknown as Record<string, ApiLogItem[]>).__apiLogs?.find(l => l.id === record.path)?.response_error && (
+                              <span className="text-red-500 flex items-center gap-0.5"><AlertCircle className="w-3 h-3" />错误</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -572,6 +679,42 @@ export function RecordsPage() {
               </div>
             )}
 
+            {/* API 日志详情 */}
+            {activeTab === 'api_log' && selectedApiLog && (
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{selectedApiLog.tool_name}</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">股票代码</span>
+                    <span className="text-sm text-gray-700 font-mono">{selectedApiLog.stock_code || '--'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">调用时间</span>
+                    <span className="text-sm text-gray-700">{new Date(selectedApiLog.created_at).toLocaleString('zh-CN')}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">耗时</span>
+                    <span className="text-sm font-medium text-gray-700">{selectedApiLog.latency_ms}ms</span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <div className="text-xs font-medium text-gray-500 mb-2">请求参数</div>
+                    <pre className="text-[11px] text-gray-600 bg-gray-50 rounded-lg p-2 overflow-x-auto">{JSON.stringify(selectedApiLog.params, null, 2)}</pre>
+                  </div>
+                  {selectedApiLog.response_error ? (
+                    <div className="pt-2 border-t border-gray-100">
+                      <div className="text-xs font-medium text-red-500 mb-2">错误信息</div>
+                      <div className="text-[11px] text-red-600 bg-red-50 rounded-lg p-2">{selectedApiLog.response_error}</div>
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-gray-100">
+                      <div className="text-xs font-medium text-gray-500 mb-2">响应摘要</div>
+                      <div className="text-[11px] text-gray-600 bg-gray-50 rounded-lg p-2">{selectedApiLog.response_summary || '--'}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 预测记录详情 */}
             {activeTab === 'prediction' && selectedPath && (() => {
               const rec = records.find((r) => r.path === selectedPath);
@@ -642,7 +785,7 @@ export function RecordsPage() {
             })()}
 
             {/* 空状态 */}
-            {!detailLoading && !selectedSearch && !selectedReport && activeTab !== 'prediction' && (
+            {!detailLoading && !selectedSearch && !selectedReport && !selectedApiLog && activeTab !== 'prediction' && activeTab !== 'api_log' && (
               <div className="text-center py-12 text-gray-400">
                 <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">点击左侧记录查看详情</p>
@@ -652,6 +795,12 @@ export function RecordsPage() {
               <div className="text-center py-12 text-gray-400">
                 <Brain className="w-10 h-10 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">点击左侧预测记录查看详情</p>
+              </div>
+            )}
+            {activeTab === 'api_log' && !selectedApiLog && (
+              <div className="text-center py-12 text-gray-400">
+                <Terminal className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">点击左侧 API 日志查看详情</p>
               </div>
             )}
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-02T16:46:07.392410",
+  "generated_at": "2026-06-03T00:45:35.018154",
   "method": "walkforward_rebuild_predictor",
   "params": {
     "lookback_days": 252,
@@ -12,16 +12,16 @@
     "600519": {
       "symbol": "600519",
       "name": "贵州茅台",
-      "n_predictions": 802,
-      "direction_accuracy": 0.4863,
+      "n_predictions": 807,
+      "direction_accuracy": 0.4833,
       "direction_correct": 390,
-      "mae": 2.6042,
-      "rmse": 3.9022,
-      "correlation": -0.0399,
-      "strategy_return_pct": -22.69,
-      "buyhold_return_pct": -26.55,
+      "mae": 2.6051,
+      "rmse": 3.8968,
+      "correlation": -0.0408,
+      "strategy_return_pct": -25.36,
+      "buyhold_return_pct": -24.52,
       "reverse_return_pct": 3.46,
-      "excess_return_pct": 3.86,
+      "excess_return_pct": -0.84,
       "reverse_better": true,
       "predictions": [
         {
@@ -4835,22 +4835,52 @@
           "predicted": 0.1613,
           "actual": -3.2072,
           "direction_correct": false
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.1699,
+          "actual": -2.8057,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.1835,
+          "actual": -3.8451,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.2217,
+          "actual": -0.9125,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.143,
+          "actual": -2.6712,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": -0.0419,
+          "actual": 2.7748,
+          "direction_correct": false
         }
       ]
     },
     "601398": {
       "symbol": "601398",
       "name": "工商银行",
-      "n_predictions": 802,
-      "direction_accuracy": 0.5274,
-      "direction_correct": 423,
-      "mae": 2.2265,
-      "rmse": 3.008,
-      "correlation": 0.0358,
-      "strategy_return_pct": 46.45,
-      "buyhold_return_pct": 131.61,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5266,
+      "direction_correct": 425,
+      "mae": 2.2173,
+      "rmse": 2.997,
+      "correlation": 0.0387,
+      "strategy_return_pct": 44.91,
+      "buyhold_return_pct": 132.9,
       "reverse_return_pct": 44.16,
-      "excess_return_pct": -85.17,
+      "excess_return_pct": -88.0,
       "reverse_better": false,
       "predictions": [
         {
@@ -5215,121 +5245,121 @@
         },
         {
           "date": "2023-04-19T00:00:00.000000",
-          "predicted": -0.7771,
+          "predicted": -0.5658,
           "actual": -0.2833,
           "direction_correct": true
         },
         {
           "date": "2023-04-20T00:00:00.000000",
-          "predicted": -0.5393,
+          "predicted": -0.4132,
           "actual": 0.2849,
           "direction_correct": false
         },
         {
           "date": "2023-04-21T00:00:00.000000",
-          "predicted": -0.2945,
+          "predicted": 0.0881,
           "actual": 0.5764,
-          "direction_correct": false
+          "direction_correct": true
         },
         {
           "date": "2023-04-24T00:00:00.000000",
-          "predicted": -0.4868,
+          "predicted": -0.2822,
           "actual": 6.5903,
           "direction_correct": false
         },
         {
           "date": "2023-04-25T00:00:00.000000",
-          "predicted": -1.3604,
+          "predicted": -1.1989,
           "actual": 6.8182,
           "direction_correct": false
         },
         {
           "date": "2023-04-26T00:00:00.000000",
-          "predicted": -0.8146,
+          "predicted": -0.7248,
           "actual": 15.625,
           "direction_correct": false
         },
         {
           "date": "2023-04-27T00:00:00.000000",
-          "predicted": 0.2971,
+          "predicted": 0.2793,
           "actual": 14.7727,
           "direction_correct": true
         },
         {
           "date": "2023-04-28T00:00:00.000000",
-          "predicted": 0.5471,
+          "predicted": 0.5204,
           "actual": 8.8825,
           "direction_correct": true
         },
         {
           "date": "2023-05-04T00:00:00.000000",
-          "predicted": -3.1909,
+          "predicted": -2.7846,
           "actual": 1.3441,
           "direction_correct": false
         },
         {
           "date": "2023-05-05T00:00:00.000000",
-          "predicted": -2.282,
+          "predicted": -2.3294,
           "actual": -0.266,
           "direction_correct": true
         },
         {
           "date": "2023-05-08T00:00:00.000000",
-          "predicted": -4.2541,
+          "predicted": -4.0619,
           "actual": -6.3882,
           "direction_correct": true
         },
         {
           "date": "2023-05-09T00:00:00.000000",
-          "predicted": -3.4058,
+          "predicted": -3.3075,
           "actual": -6.4356,
           "direction_correct": true
         },
         {
           "date": "2023-05-10T00:00:00.000000",
-          "predicted": -2.6251,
+          "predicted": -2.8242,
           "actual": -1.0526,
           "direction_correct": true
         },
         {
           "date": "2023-05-11T00:00:00.000000",
-          "predicted": -2.2817,
+          "predicted": -2.641,
           "actual": 3.183,
           "direction_correct": false
         },
         {
           "date": "2023-05-12T00:00:00.000000",
-          "predicted": -2.3192,
+          "predicted": -2.5248,
           "actual": 1.6,
           "direction_correct": false
         },
         {
           "date": "2023-05-15T00:00:00.000000",
-          "predicted": -2.6187,
+          "predicted": -2.57,
           "actual": 0.7874,
           "direction_correct": false
         },
         {
           "date": "2023-05-16T00:00:00.000000",
-          "predicted": -2.162,
+          "predicted": -2.2406,
           "actual": -2.1164,
           "direction_correct": true
         },
         {
           "date": "2023-05-17T00:00:00.000000",
-          "predicted": -0.8429,
+          "predicted": -1.2483,
           "actual": -6.117,
           "direction_correct": true
         },
         {
           "date": "2023-05-18T00:00:00.000000",
-          "predicted": -1.2471,
+          "predicted": -1.2728,
           "actual": -9.7686,
           "direction_correct": true
         },
         {
           "date": "2023-05-19T00:00:00.000000",
-          "predicted": -0.1215,
+          "predicted": -0.7058,
           "actual": -6.2992,
           "direction_correct": true
         },
@@ -9664,22 +9694,52 @@
           "predicted": 0.3302,
           "actual": -0.8287,
           "direction_correct": false
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.4546,
+          "actual": -0.2782,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.3666,
+          "actual": -1.1019,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.5976,
+          "actual": -0.1403,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.5468,
+          "actual": -1.5385,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.6284,
+          "actual": 0.5571,
+          "direction_correct": true
         }
       ]
     },
     "601857": {
       "symbol": "601857",
       "name": "中国石油",
-      "n_predictions": 802,
-      "direction_accuracy": 0.5087,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5056,
       "direction_correct": 408,
-      "mae": 3.7441,
-      "rmse": 5.1945,
-      "correlation": -0.1363,
-      "strategy_return_pct": 52.61,
-      "buyhold_return_pct": 197.05,
+      "mae": 3.7565,
+      "rmse": 5.2002,
+      "correlation": -0.1361,
+      "strategy_return_pct": 48.27,
+      "buyhold_return_pct": 191.42,
       "reverse_return_pct": 76.09,
-      "excess_return_pct": -144.44,
+      "excess_return_pct": -143.15,
       "reverse_better": true,
       "predictions": [
         {
@@ -14493,22 +14553,52 @@
           "predicted": -0.481,
           "actual": -3.7359,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.5554,
+          "actual": -7.0191,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.5777,
+          "actual": -5.1903,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.6767,
+          "actual": -7.1367,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.6136,
+          "actual": -4.3401,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.7474,
+          "actual": -1.8953,
+          "direction_correct": false
         }
       ]
     },
     "601288": {
       "symbol": "601288",
       "name": "农业银行",
-      "n_predictions": 802,
-      "direction_accuracy": 0.5374,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5341,
       "direction_correct": 431,
-      "mae": 2.6867,
-      "rmse": 3.5797,
-      "correlation": -0.012,
-      "strategy_return_pct": 86.69,
-      "buyhold_return_pct": 227.92,
+      "mae": 2.6956,
+      "rmse": 3.5836,
+      "correlation": -0.015,
+      "strategy_return_pct": 82.08,
+      "buyhold_return_pct": 220.81,
       "reverse_return_pct": 43.79,
-      "excess_return_pct": -141.23,
+      "excess_return_pct": -138.73,
       "reverse_better": false,
       "predictions": [
         {
@@ -16793,121 +16883,121 @@
         },
         {
           "date": "2024-08-13T00:00:00.000000",
-          "predicted": 1.1766,
+          "predicted": 1.1859,
           "actual": 6.235,
           "direction_correct": true
         },
         {
           "date": "2024-08-14T00:00:00.000000",
-          "predicted": 1.1411,
+          "predicted": 1.142,
           "actual": 5.036,
           "direction_correct": true
         },
         {
           "date": "2024-08-15T00:00:00.000000",
-          "predicted": 1.2829,
+          "predicted": 1.2821,
           "actual": 5.4893,
           "direction_correct": true
         },
         {
           "date": "2024-08-16T00:00:00.000000",
-          "predicted": 0.4323,
+          "predicted": 0.4515,
           "actual": 3.7471,
           "direction_correct": true
         },
         {
           "date": "2024-08-19T00:00:00.000000",
-          "predicted": 0.187,
+          "predicted": 0.0988,
           "actual": 0.6818,
           "direction_correct": true
         },
         {
           "date": "2024-08-20T00:00:00.000000",
-          "predicted": 0.2773,
+          "predicted": 0.2638,
           "actual": 1.3544,
           "direction_correct": true
         },
         {
           "date": "2024-08-21T00:00:00.000000",
-          "predicted": 1.4266,
+          "predicted": 1.8678,
           "actual": 1.5982,
           "direction_correct": true
         },
         {
           "date": "2024-08-22T00:00:00.000000",
-          "predicted": 0.1165,
+          "predicted": 0.1497,
           "actual": -4.5249,
           "direction_correct": false
         },
         {
           "date": "2024-08-23T00:00:00.000000",
-          "predicted": 1.0973,
+          "predicted": 1.1039,
           "actual": -9.0293,
           "direction_correct": false
         },
         {
           "date": "2024-08-26T00:00:00.000000",
-          "predicted": 1.1033,
+          "predicted": 1.0988,
           "actual": -5.1919,
           "direction_correct": false
         },
         {
           "date": "2024-08-27T00:00:00.000000",
-          "predicted": 1.622,
+          "predicted": 1.4236,
           "actual": -11.1359,
           "direction_correct": false
         },
         {
           "date": "2024-08-28T00:00:00.000000",
-          "predicted": 0.5572,
+          "predicted": 0.5185,
           "actual": -9.4382,
           "direction_correct": false
         },
         {
           "date": "2024-08-29T00:00:00.000000",
-          "predicted": 1.5255,
+          "predicted": 1.4938,
           "actual": -4.9763,
           "direction_correct": false
         },
         {
           "date": "2024-08-30T00:00:00.000000",
-          "predicted": 3.0476,
+          "predicted": 2.6673,
           "actual": -0.2481,
           "direction_correct": false
         },
         {
           "date": "2024-09-02T00:00:00.000000",
-          "predicted": -0.5734,
+          "predicted": -0.5422,
           "actual": -4.0476,
           "direction_correct": true
         },
         {
           "date": "2024-09-03T00:00:00.000000",
-          "predicted": 2.7019,
+          "predicted": 2.3738,
           "actual": 3.0075,
           "direction_correct": true
         },
         {
           "date": "2024-09-04T00:00:00.000000",
-          "predicted": 1.7239,
+          "predicted": 1.4086,
           "actual": -1.4888,
           "direction_correct": false
         },
         {
           "date": "2024-09-05T00:00:00.000000",
-          "predicted": 1.724,
+          "predicted": 1.4736,
           "actual": -0.4988,
           "direction_correct": false
         },
         {
           "date": "2024-09-06T00:00:00.000000",
-          "predicted": 1.3752,
+          "predicted": 1.2258,
           "actual": -1.7413,
           "direction_correct": false
         },
         {
           "date": "2024-09-09T00:00:00.000000",
-          "predicted": 1.7639,
+          "predicted": 1.5164,
           "actual": -0.4963,
           "direction_correct": false
         },
@@ -19322,22 +19412,52 @@
           "predicted": 0.3,
           "actual": -3.1484,
           "direction_correct": false
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 1.0303,
+          "actual": -2.4242,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 1.0002,
+          "actual": -3.0211,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 1.6817,
+          "actual": -2.322,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 1.7319,
+          "actual": -4.6083,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 1.6917,
+          "actual": -2.1672,
+          "direction_correct": false
         }
       ]
     },
     "601988": {
       "symbol": "601988",
       "name": "中国银行",
-      "n_predictions": 802,
-      "direction_accuracy": 0.5611,
-      "direction_correct": 450,
-      "mae": 2.1521,
-      "rmse": 2.9889,
-      "correlation": 0.07,
-      "strategy_return_pct": 69.74,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5626,
+      "direction_correct": 454,
+      "mae": 2.1469,
+      "rmse": 2.9816,
+      "correlation": 0.0701,
+      "strategy_return_pct": 69.91,
       "buyhold_return_pct": 116.31,
       "reverse_return_pct": 13.64,
-      "excess_return_pct": -46.57,
+      "excess_return_pct": -46.4,
       "reverse_better": false,
       "predictions": [
         {
@@ -19462,121 +19582,121 @@
         },
         {
           "date": "2023-02-21T00:00:00.000000",
-          "predicted": 0.2776,
+          "predicted": 0.3365,
           "actual": -0.3086,
           "direction_correct": false
         },
         {
           "date": "2023-02-22T00:00:00.000000",
-          "predicted": 0.3733,
+          "predicted": 0.3423,
           "actual": 0.3096,
           "direction_correct": true
         },
         {
           "date": "2023-02-23T00:00:00.000000",
-          "predicted": 0.1471,
+          "predicted": 0.1156,
           "actual": 0.9288,
           "direction_correct": true
         },
         {
           "date": "2023-02-24T00:00:00.000000",
-          "predicted": 0.3158,
+          "predicted": 0.3452,
           "actual": 2.795,
           "direction_correct": true
         },
         {
           "date": "2023-02-27T00:00:00.000000",
-          "predicted": 0.4657,
+          "predicted": 0.4502,
           "actual": 3.1153,
           "direction_correct": true
         },
         {
           "date": "2023-02-28T00:00:00.000000",
-          "predicted": -0.0484,
+          "predicted": -0.0485,
           "actual": 3.4056,
           "direction_correct": false
         },
         {
           "date": "2023-03-01T00:00:00.000000",
-          "predicted": 0.312,
+          "predicted": 0.334,
           "actual": 2.7778,
           "direction_correct": true
         },
         {
           "date": "2023-03-02T00:00:00.000000",
-          "predicted": 0.1147,
+          "predicted": 0.0275,
           "actual": 2.7607,
           "direction_correct": true
         },
         {
           "date": "2023-03-03T00:00:00.000000",
-          "predicted": -0.6636,
+          "predicted": -0.8004,
           "actual": -0.3021,
           "direction_correct": true
         },
         {
           "date": "2023-03-06T00:00:00.000000",
-          "predicted": -0.2871,
+          "predicted": -0.4824,
           "actual": 0.3021,
           "direction_correct": false
         },
         {
           "date": "2023-03-07T00:00:00.000000",
-          "predicted": -0.3553,
+          "predicted": -0.6416,
           "actual": -0.2994,
           "direction_correct": true
         },
         {
           "date": "2023-03-08T00:00:00.000000",
-          "predicted": 0.287,
+          "predicted": 0.1379,
           "actual": 1.8018,
           "direction_correct": true
         },
         {
           "date": "2023-03-09T00:00:00.000000",
-          "predicted": -0.0433,
+          "predicted": -0.0935,
           "actual": 4.1791,
           "direction_correct": false
         },
         {
           "date": "2023-03-10T00:00:00.000000",
-          "predicted": 0.8486,
+          "predicted": 0.6486,
           "actual": 5.4545,
           "direction_correct": true
         },
         {
           "date": "2023-03-13T00:00:00.000000",
-          "predicted": 0.2305,
+          "predicted": 0.1731,
           "actual": 5.7229,
           "direction_correct": true
         },
         {
           "date": "2023-03-14T00:00:00.000000",
-          "predicted": 0.3484,
+          "predicted": 0.3144,
           "actual": 3.003,
           "direction_correct": true
         },
         {
           "date": "2023-03-15T00:00:00.000000",
-          "predicted": -0.5237,
+          "predicted": -0.6033,
           "actual": 1.4749,
           "direction_correct": false
         },
         {
           "date": "2023-03-16T00:00:00.000000",
-          "predicted": 1.0365,
+          "predicted": 0.6855,
           "actual": -0.5731,
           "direction_correct": false
         },
         {
           "date": "2023-03-17T00:00:00.000000",
-          "predicted": 0.7759,
+          "predicted": 0.6522,
           "actual": -2.2989,
           "direction_correct": false
         },
         {
           "date": "2023-03-20T00:00:00.000000",
-          "predicted": 1.2337,
+          "predicted": 0.9505,
           "actual": -4.2735,
           "direction_correct": false
         },
@@ -20542,121 +20662,121 @@
         },
         {
           "date": "2023-11-16T00:00:00.000000",
-          "predicted": -0.0107,
+          "predicted": -0.0904,
           "actual": -0.2519,
           "direction_correct": true
         },
         {
           "date": "2023-11-17T00:00:00.000000",
-          "predicted": 0.4769,
+          "predicted": 0.4725,
           "actual": 0.7595,
           "direction_correct": true
         },
         {
           "date": "2023-11-20T00:00:00.000000",
-          "predicted": -0.0709,
+          "predicted": -0.0146,
           "actual": 0.2519,
           "direction_correct": false
         },
         {
           "date": "2023-11-21T00:00:00.000000",
-          "predicted": -0.2535,
+          "predicted": -0.2872,
           "actual": 0.0,
           "direction_correct": true
         },
         {
           "date": "2023-11-22T00:00:00.000000",
-          "predicted": 0.4161,
+          "predicted": 0.449,
           "actual": 0.2519,
           "direction_correct": true
         },
         {
           "date": "2023-11-23T00:00:00.000000",
-          "predicted": 0.5985,
+          "predicted": 0.4675,
           "actual": 0.7576,
           "direction_correct": true
         },
         {
           "date": "2023-11-24T00:00:00.000000",
-          "predicted": 0.4581,
+          "predicted": 0.3542,
           "actual": 1.5075,
           "direction_correct": true
         },
         {
           "date": "2023-11-27T00:00:00.000000",
-          "predicted": 0.4901,
+          "predicted": 0.4369,
           "actual": 1.2563,
           "direction_correct": true
         },
         {
           "date": "2023-11-28T00:00:00.000000",
-          "predicted": 0.4448,
+          "predicted": 0.3359,
           "actual": 1.0076,
           "direction_correct": true
         },
         {
           "date": "2023-11-29T00:00:00.000000",
-          "predicted": 0.3631,
+          "predicted": 0.3279,
           "actual": -0.5025,
           "direction_correct": false
         },
         {
           "date": "2023-11-30T00:00:00.000000",
-          "predicted": 0.5182,
+          "predicted": 0.4343,
           "actual": 0.0,
           "direction_correct": false
         },
         {
           "date": "2023-12-01T00:00:00.000000",
-          "predicted": 0.6516,
+          "predicted": 0.5973,
           "actual": -2.4752,
           "direction_correct": false
         },
         {
           "date": "2023-12-04T00:00:00.000000",
-          "predicted": 0.0475,
+          "predicted": 0.0485,
           "actual": -2.7295,
           "direction_correct": false
         },
         {
           "date": "2023-12-05T00:00:00.000000",
-          "predicted": 0.2967,
+          "predicted": 0.2808,
           "actual": -0.7481,
           "direction_correct": false
         },
         {
           "date": "2023-12-06T00:00:00.000000",
-          "predicted": 0.7549,
+          "predicted": 0.7476,
           "actual": 0.5051,
           "direction_correct": true
         },
         {
           "date": "2023-12-07T00:00:00.000000",
-          "predicted": 0.9147,
+          "predicted": 0.9218,
           "actual": -0.2506,
           "direction_correct": false
         },
         {
           "date": "2023-12-08T00:00:00.000000",
-          "predicted": 0.8072,
+          "predicted": 0.7688,
           "actual": -0.7614,
           "direction_correct": false
         },
         {
           "date": "2023-12-11T00:00:00.000000",
-          "predicted": 2.321,
+          "predicted": 2.1056,
           "actual": 1.7857,
           "direction_correct": true
         },
         {
           "date": "2023-12-12T00:00:00.000000",
-          "predicted": 1.6906,
+          "predicted": 1.6855,
           "actual": -0.2513,
           "direction_correct": false
         },
         {
           "date": "2023-12-13T00:00:00.000000",
-          "predicted": 1.1483,
+          "predicted": 0.9894,
           "actual": 0.2513,
           "direction_correct": true
         },
@@ -22222,121 +22342,121 @@
         },
         {
           "date": "2025-01-10T00:00:00.000000",
-          "predicted": 0.439,
+          "predicted": 0.4218,
           "actual": 0.0,
           "direction_correct": false
         },
         {
           "date": "2025-01-13T00:00:00.000000",
-          "predicted": 1.8932,
+          "predicted": 1.9059,
           "actual": 1.1215,
           "direction_correct": true
         },
         {
           "date": "2025-01-14T00:00:00.000000",
-          "predicted": 1.5729,
+          "predicted": 1.6238,
           "actual": -0.3683,
           "direction_correct": false
         },
         {
           "date": "2025-01-15T00:00:00.000000",
-          "predicted": 1.7188,
+          "predicted": 1.7957,
           "actual": -2.5688,
           "direction_correct": false
         },
         {
           "date": "2025-01-16T00:00:00.000000",
-          "predicted": 1.6645,
+          "predicted": 1.5211,
           "actual": -0.3017,
           "direction_correct": false
         },
         {
           "date": "2025-01-17T00:00:00.000000",
-          "predicted": 1.2859,
+          "predicted": 1.2197,
           "actual": -0.3161,
           "direction_correct": false
         },
         {
           "date": "2025-01-20T00:00:00.000000",
-          "predicted": 0.784,
+          "predicted": 0.7763,
           "actual": 3.0686,
           "direction_correct": true
         },
         {
           "date": "2025-01-21T00:00:00.000000",
-          "predicted": 1.086,
+          "predicted": 1.1086,
           "actual": 0.6101,
           "direction_correct": true
         },
         {
           "date": "2025-01-22T00:00:00.000000",
-          "predicted": 0.9792,
+          "predicted": 1.0415,
           "actual": 2.1194,
           "direction_correct": true
         },
         {
           "date": "2025-01-23T00:00:00.000000",
-          "predicted": 0.7349,
+          "predicted": 0.8116,
           "actual": -1.1236,
           "direction_correct": false
         },
         {
           "date": "2025-01-24T00:00:00.000000",
-          "predicted": 0.8366,
+          "predicted": 0.8265,
           "actual": -0.7533,
           "direction_correct": false
         },
         {
           "date": "2025-01-27T00:00:00.000000",
-          "predicted": 0.6086,
+          "predicted": 0.7058,
           "actual": -1.2844,
           "direction_correct": false
         },
         {
           "date": "2025-02-05T00:00:00.000000",
-          "predicted": 0.8789,
+          "predicted": 0.8912,
           "actual": 1.5038,
           "direction_correct": true
         },
         {
           "date": "2025-02-06T00:00:00.000000",
-          "predicted": 0.6422,
+          "predicted": 0.6443,
           "actual": 2.0755,
           "direction_correct": true
         },
         {
           "date": "2025-02-07T00:00:00.000000",
-          "predicted": 0.3223,
+          "predicted": 0.3788,
           "actual": 2.4621,
           "direction_correct": true
         },
         {
           "date": "2025-02-10T00:00:00.000000",
-          "predicted": 0.763,
+          "predicted": 0.7332,
           "actual": 3.2258,
           "direction_correct": true
         },
         {
           "date": "2025-02-11T00:00:00.000000",
-          "predicted": 0.2229,
+          "predicted": 0.2118,
           "actual": 3.3457,
           "direction_correct": true
         },
         {
           "date": "2025-02-12T00:00:00.000000",
-          "predicted": 0.4739,
+          "predicted": 0.4191,
           "actual": 2.4074,
           "direction_correct": true
         },
         {
           "date": "2025-02-13T00:00:00.000000",
-          "predicted": 0.4039,
+          "predicted": 0.3503,
           "actual": 2.5878,
           "direction_correct": true
         },
         {
           "date": "2025-02-14T00:00:00.000000",
-          "predicted": 0.5435,
+          "predicted": 0.5205,
           "actual": 0.9242,
           "direction_correct": true
         },
@@ -24151,22 +24271,52 @@
           "predicted": 0.7769,
           "actual": 1.209,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.7978,
+          "actual": 1.8998,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.9246,
+          "actual": 1.3722,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.9785,
+          "actual": 2.6316,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 1.3665,
+          "actual": 0.1724,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 1.7899,
+          "actual": 0.0,
+          "direction_correct": false
         }
       ]
     },
     "601628": {
       "symbol": "601628",
       "name": "中国人寿",
-      "n_predictions": 802,
-      "direction_accuracy": 0.4938,
-      "direction_correct": 396,
-      "mae": 3.5764,
-      "rmse": 4.7556,
-      "correlation": -0.0277,
-      "strategy_return_pct": -9.06,
-      "buyhold_return_pct": -1.37,
+      "n_predictions": 807,
+      "direction_accuracy": 0.4944,
+      "direction_correct": 399,
+      "mae": 3.5668,
+      "rmse": 4.7443,
+      "correlation": -0.0267,
+      "strategy_return_pct": -11.0,
+      "buyhold_return_pct": -1.34,
       "reverse_return_pct": 24.67,
-      "excess_return_pct": -7.69,
+      "excess_return_pct": -9.66,
       "reverse_better": true,
       "predictions": [
         {
@@ -28980,22 +29130,52 @@
           "predicted": -0.5043,
           "actual": -4.3552,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": -0.2689,
+          "actual": -2.6475,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": -0.2979,
+          "actual": -2.6217,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.2419,
+          "actual": -3.1268,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.0941,
+          "actual": -1.9383,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.0191,
+          "actual": 0.0296,
+          "direction_correct": true
         }
       ]
     },
     "600036": {
       "symbol": "600036",
       "name": "招商银行",
-      "n_predictions": 802,
-      "direction_accuracy": 0.51,
-      "direction_correct": 409,
-      "mae": 2.389,
-      "rmse": 3.2547,
-      "correlation": -0.0156,
-      "strategy_return_pct": 37.94,
-      "buyhold_return_pct": 8.97,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5081,
+      "direction_correct": 410,
+      "mae": 2.3816,
+      "rmse": 3.2463,
+      "correlation": -0.0154,
+      "strategy_return_pct": 37.86,
+      "buyhold_return_pct": 11.88,
       "reverse_return_pct": -21.92,
-      "excess_return_pct": 28.97,
+      "excess_return_pct": 25.98,
       "reverse_better": false,
       "predictions": [
         {
@@ -33809,22 +33989,52 @@
           "predicted": -0.9057,
           "actual": -1.6733,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.1033,
+          "actual": -1.4145,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.0739,
+          "actual": -0.9901,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.2473,
+          "actual": -0.4574,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.3205,
+          "actual": -0.0808,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.4049,
+          "actual": 2.6742,
+          "direction_correct": true
         }
       ]
     },
     "601088": {
       "symbol": "601088",
       "name": "中国神华",
-      "n_predictions": 802,
-      "direction_accuracy": 0.5249,
-      "direction_correct": 421,
-      "mae": 2.4534,
-      "rmse": 3.1975,
-      "correlation": -0.0138,
-      "strategy_return_pct": 32.6,
-      "buyhold_return_pct": 94.83,
+      "n_predictions": 807,
+      "direction_accuracy": 0.5254,
+      "direction_correct": 424,
+      "mae": 2.45,
+      "rmse": 3.1927,
+      "correlation": -0.0112,
+      "strategy_return_pct": 34.57,
+      "buyhold_return_pct": 103.23,
       "reverse_return_pct": 42.05,
-      "excess_return_pct": -62.22,
+      "excess_return_pct": -68.66,
       "reverse_better": true,
       "predictions": [
         {
@@ -38149,121 +38359,121 @@
         },
         {
           "date": "2026-01-08T00:00:00.000000",
-          "predicted": 0.3469,
+          "predicted": 0.3054,
           "actual": 0.2654,
           "direction_correct": true
         },
         {
           "date": "2026-01-09T00:00:00.000000",
-          "predicted": 0.262,
+          "predicted": 0.2383,
           "actual": -3.4158,
           "direction_correct": false
         },
         {
           "date": "2026-01-12T00:00:00.000000",
-          "predicted": 0.5077,
+          "predicted": 0.5152,
           "actual": -2.7711,
           "direction_correct": false
         },
         {
           "date": "2026-01-13T00:00:00.000000",
-          "predicted": 0.3046,
+          "predicted": 0.1951,
           "actual": -2.506,
           "direction_correct": false
         },
         {
           "date": "2026-01-14T00:00:00.000000",
-          "predicted": -0.029,
+          "predicted": -0.0115,
           "actual": -3.977,
           "direction_correct": true
         },
         {
           "date": "2026-01-15T00:00:00.000000",
-          "predicted": 0.3475,
+          "predicted": 0.23,
           "actual": -2.1896,
           "direction_correct": false
         },
         {
           "date": "2026-01-16T00:00:00.000000",
-          "predicted": -0.1905,
+          "predicted": -0.6671,
           "actual": -2.439,
           "direction_correct": true
         },
         {
           "date": "2026-01-19T00:00:00.000000",
-          "predicted": 1.4781,
+          "predicted": 1.2031,
           "actual": 2.3342,
           "direction_correct": true
         },
         {
           "date": "2026-01-20T00:00:00.000000",
-          "predicted": 0.4376,
+          "predicted": 0.1918,
           "actual": -0.4896,
           "direction_correct": false
         },
         {
           "date": "2026-01-21T00:00:00.000000",
-          "predicted": 1.0096,
+          "predicted": 1.0558,
           "actual": 2.7445,
           "direction_correct": true
         },
         {
           "date": "2026-01-22T00:00:00.000000",
-          "predicted": 0.6881,
+          "predicted": 0.7532,
           "actual": 1.7958,
           "direction_correct": true
         },
         {
           "date": "2026-01-23T00:00:00.000000",
-          "predicted": 0.6633,
+          "predicted": 0.745,
           "actual": 4.825,
           "direction_correct": true
         },
         {
           "date": "2026-01-26T00:00:00.000000",
-          "predicted": -0.4664,
+          "predicted": -0.3814,
           "actual": -3.4574,
           "direction_correct": true
         },
         {
           "date": "2026-01-27T00:00:00.000000",
-          "predicted": 0.7736,
+          "predicted": 0.948,
           "actual": -2.583,
           "direction_correct": false
         },
         {
           "date": "2026-01-28T00:00:00.000000",
-          "predicted": -0.209,
+          "predicted": -0.198,
           "actual": 3.0112,
           "direction_correct": false
         },
         {
           "date": "2026-01-29T00:00:00.000000",
-          "predicted": 0.247,
+          "predicted": 0.3815,
           "actual": 1.16,
           "direction_correct": true
         },
         {
           "date": "2026-01-30T00:00:00.000000",
-          "predicted": -0.0403,
+          "predicted": -0.2725,
           "actual": -0.6201,
           "direction_correct": true
         },
         {
           "date": "2026-02-02T00:00:00.000000",
-          "predicted": 1.6044,
+          "predicted": 1.8961,
           "actual": 4.9739,
           "direction_correct": true
         },
         {
           "date": "2026-02-03T00:00:00.000000",
-          "predicted": 0.8848,
+          "predicted": 0.9023,
           "actual": 7.2727,
           "direction_correct": true
         },
         {
           "date": "2026-02-04T00:00:00.000000",
-          "predicted": -1.0319,
+          "predicted": -0.9529,
           "actual": 1.0372,
           "direction_correct": false
         },
@@ -38638,22 +38848,52 @@
           "predicted": -0.3679,
           "actual": -1.5755,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": 0.1553,
+          "actual": -2.3337,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": 0.1063,
+          "actual": -2.7567,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.3023,
+          "actual": 0.2174,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.2517,
+          "actual": 1.9664,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.5637,
+          "actual": 4.313,
+          "direction_correct": true
         }
       ]
     },
     "600900": {
       "symbol": "600900",
       "name": "长江电力",
-      "n_predictions": 802,
-      "direction_accuracy": 0.4925,
-      "direction_correct": 395,
-      "mae": 1.5463,
-      "rmse": 1.9905,
-      "correlation": -0.0884,
-      "strategy_return_pct": 21.32,
-      "buyhold_return_pct": 42.46,
+      "n_predictions": 807,
+      "direction_accuracy": 0.4957,
+      "direction_correct": 400,
+      "mae": 1.5473,
+      "rmse": 1.9917,
+      "correlation": -0.087,
+      "strategy_return_pct": 23.42,
+      "buyhold_return_pct": 48.84,
       "reverse_return_pct": 16.89,
-      "excess_return_pct": -21.14,
+      "excess_return_pct": -25.42,
       "reverse_better": false,
       "predictions": [
         {
@@ -43467,22 +43707,52 @@
           "predicted": -0.2508,
           "actual": -1.7388,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-18T00:00:00.000000",
+          "predicted": -0.0119,
+          "actual": -0.8181,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": -0.0249,
+          "actual": -0.4037,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.073,
+          "actual": 1.2639,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.2242,
+          "actual": 2.1005,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.2144,
+          "actual": 4.4804,
+          "direction_correct": true
         }
       ]
     },
     "601318": {
       "symbol": "601318",
       "name": "中国平安",
-      "n_predictions": 665,
-      "direction_accuracy": 0.5008,
-      "direction_correct": 333,
-      "mae": 2.7605,
-      "rmse": 3.9583,
-      "correlation": -0.0608,
+      "n_predictions": 670,
+      "direction_accuracy": 0.4985,
+      "direction_correct": 334,
+      "mae": 2.7505,
+      "rmse": 3.9463,
+      "correlation": -0.0612,
       "strategy_return_pct": -14.36,
-      "buyhold_return_pct": 25.57,
-      "reverse_return_pct": 48.65,
-      "excess_return_pct": -39.93,
+      "buyhold_return_pct": 24.72,
+      "reverse_return_pct": 48.27,
+      "excess_return_pct": -39.07,
       "reverse_better": true,
       "predictions": [
         {
@@ -47474,6 +47744,36 @@
           "predicted": -0.7216,
           "actual": -1.2206,
           "direction_correct": true
+        },
+        {
+          "date": "2026-05-19T00:00:00.000000",
+          "predicted": -0.3027,
+          "actual": -0.3855,
+          "direction_correct": true
+        },
+        {
+          "date": "2026-05-20T00:00:00.000000",
+          "predicted": 0.4733,
+          "actual": -1.5524,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-21T00:00:00.000000",
+          "predicted": 0.5117,
+          "actual": -2.3996,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-22T00:00:00.000000",
+          "predicted": 0.6945,
+          "actual": -0.3353,
+          "direction_correct": false
+        },
+        {
+          "date": "2026-05-25T00:00:00.000000",
+          "predicted": 0.3664,
+          "actual": -0.6824,
+          "direction_correct": false
         }
       ]
     }

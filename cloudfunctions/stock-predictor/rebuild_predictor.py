@@ -37,6 +37,17 @@ ANOMALY_THRESHOLD = 2.0  # |收益率| > 2% 视为异常
 def build_compact_features(stock_df: pd.DataFrame, sh_index_df: pd.DataFrame = None) -> pd.DataFrame:
     """
     构建精简的核心价格特征 (~16个，对齐 feature_engineer.py 的 compact set)
+    
+    所有特征严格使用历史数据，无未来信息：
+    - mom_*: 使用 t-N 到 t 的收盘价
+    - vol_*: 使用过去 N 日收益率的标准差
+    - vol_ratio_*: 当日成交量 / 过去 N 日均量
+    - price_vs_ma20/ma5_above_ma20: 使用过去 5/20 日均价
+    - price_pctile_20d: 过去 20 日价格分位数
+    - atr_14_ratio: 过去 14 日 ATR / 当日收盘
+    - index_return_1d: 前 1 日指数收益率
+    - index_corr_5d: 过去 5 日个股-指数相关性
+    - amplitude/body_ratio: 当日高低开收
     """
     close = stock_df["收盘"].astype(float)
     volume = stock_df["成交量"].astype(float)
@@ -46,44 +57,44 @@ def build_compact_features(stock_df: pd.DataFrame, sh_index_df: pd.DataFrame = N
     
     f = pd.DataFrame(index=stock_df.index)
     
-    # 1. 动量 (3)
-    f["mom_1d"] = close.pct_change() * 100
-    f["mom_5d"] = close.pct_change(5) * 100
-    f["mom_20d"] = close.pct_change(20) * 100
+    # 1. 动量 (3) — 只使用历史收盘价
+    f["mom_1d"] = close.pct_change() * 100           # (t-1, t]
+    f["mom_5d"] = close.pct_change(5) * 100          # (t-5, t]
+    f["mom_20d"] = close.pct_change(20) * 100        # (t-20, t]
     
-    # 2. 波动率 (2)
-    f["vol_5d"] = close.pct_change().rolling(5).std() * 100
-    f["vol_20d"] = close.pct_change().rolling(20).std() * 100
+    # 2. 波动率 (2) — 过去 N 日收益率标准差
+    f["vol_5d"] = close.pct_change().rolling(5).std() * 100   # [t-4, t]
+    f["vol_20d"] = close.pct_change().rolling(20).std() * 100 # [t-19, t]
     
-    # 3. 量能 (2)
-    f["vol_ratio_5"] = volume / volume.rolling(5).mean()
-    f["vol_ratio_20"] = volume / volume.rolling(20).mean()
+    # 3. 量能 (2) — 当日 / 过去 N 日均量
+    f["vol_ratio_5"] = volume / volume.rolling(5).mean()     # [t-4, t]
+    f["vol_ratio_20"] = volume / volume.rolling(20).mean()   # [t-19, t]
     
     # 4. 技术位置 (3)
-    ma5 = close.rolling(5).mean()
-    ma20 = close.rolling(20).mean()
+    ma5 = close.rolling(5).mean()                     # [t-4, t]
+    ma20 = close.rolling(20).mean()                   # [t-19, t]
     f["price_vs_ma20"] = (close - ma20) / ma20 * 100
     f["price_pctile_20d"] = close.rolling(20).apply(
         lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
-    )
-    atr14 = _calc_atr(high, low, close, 14)
+    )                                                 # [t-19, t]
+    atr14 = _calc_atr(high, low, close, 14)          # [t-13, t]
     f["atr_14_ratio"] = atr14 / close * 100
     
     # 5. 趋势状态 (1)
-    f["ma5_above_ma20"] = (ma5 > ma20).astype(int)
+    f["ma5_above_ma20"] = (ma5 > ma20).astype(int)   # [t-4, t] vs [t-19, t]
     
-    # 6. 大盘相对 (2)
+    # 6. 大盘相对 (2) — 指数数据同样只使用历史
     if sh_index_df is not None and not sh_index_df.empty and "收盘" in sh_index_df.columns:
         sh_close = sh_index_df["收盘"].astype(float).reindex(stock_df.index, method="ffill")
-        f["index_return_1d"] = sh_close.pct_change() * 100
-        f["index_corr_5d"] = close.rolling(5).corr(sh_close)
+        f["index_return_1d"] = sh_close.pct_change() * 100     # (t-1, t]
+        f["index_corr_5d"] = close.rolling(5).corr(sh_close)   # [t-4, t]
     else:
         f["index_return_1d"] = 0.0
         f["index_corr_5d"] = 0.0
     
-    # 7. 形态 (2)
-    f["amplitude"] = (high - low) / close.shift(1) * 100
-    f["body_ratio"] = abs(close - open_) / (high - low + 1e-10) * 100
+    # 7. 形态 (2) — 当日数据
+    f["amplitude"] = (high - low) / close.shift(1) * 100      # t 日高低 / t-1 日收盘
+    f["body_ratio"] = abs(close - open_) / (high - low + 1e-10) * 100  # t 日开收/高低
     
     return f.replace([np.inf, -np.inf], 0).fillna(0)
 
@@ -117,11 +128,19 @@ def load_nonprice_features(symbol: str) -> pd.DataFrame:
 
 
 def build_full_features(symbol: str, stock_df: pd.DataFrame, sh_index_df: pd.DataFrame = None,
-                          use_nonprice: bool = True) -> pd.DataFrame:
+                          use_nonprice: bool = True,
+                          us_overnight_df: pd.DataFrame = None) -> pd.DataFrame:
     """合并价格特征 + 非价格特征（us_overnight_score + investoday 独立信号源）
     
     Args:
         use_nonprice: 是否加载 investoday 非价格特征。训练时若数据不足会自动禁用。
+        us_overnight_df: 外部传入的 us_overnight 数据（避免内部重新获取导致数据范围不一致）。
+                         若为 None，则从本地加载全部可用数据。
+    
+    安全保证：
+    - 所有价格特征由 build_compact_features 计算，只使用历史数据
+    - us_overnight_score 是美股 T-1 收盘数据，A股 T 日开盘前可用
+    - 非价格特征按日期左连接，不会引入未来日期的数据
     """
     price_feats = build_compact_features(stock_df, sh_index_df)
     
@@ -132,12 +151,18 @@ def build_full_features(symbol: str, stock_df: pd.DataFrame, sh_index_df: pd.Dat
         price_feats["date"] = pd.to_datetime(stock_df.index)
     
     # 1. 加载 us_overnight_score（唯一被验证有效的跨市场 alpha）
-    local = LocalDataProvider(DATA_DIR)
-    raw = local.get_all_data_for_stock(symbol, days=120)
-    us_df = raw.get("us_overnight", pd.DataFrame())
+    # 优先使用外部传入的数据（确保 walk-forward 中数据范围一致）
+    if us_overnight_df is not None and not us_overnight_df.empty:
+        us_df = us_overnight_df.copy()
+    else:
+        local = LocalDataProvider(DATA_DIR)
+        raw = local.get_all_data_for_stock(symbol, days=120)
+        us_df = raw.get("us_overnight", pd.DataFrame())
+    
     if not us_df.empty and "date" in us_df.columns and "us_overnight_score" in us_df.columns:
         us_df = us_df[["date", "us_overnight_score"]].copy()
         us_df["date"] = pd.to_datetime(us_df["date"])
+        # 左连接：只合并 stock_df 中已存在的日期，不会引入未来日期
         price_feats = pd.merge(price_feats, us_df, on="date", how="left")
         price_feats["us_overnight_score"] = price_feats["us_overnight_score"].fillna(0)
     
@@ -159,6 +184,7 @@ def build_full_features(symbol: str, stock_df: pd.DataFrame, sh_index_df: pd.Dat
             available = [c for c in core_cols if c in nonprice.columns]
             if len(available) > 1:
                 np_core = nonprice[available].copy()
+                # 左连接：只合并 stock_df 中已存在的日期
                 price_feats = pd.merge(price_feats, np_core, on="date", how="left")
                 for col in available:
                     if col != "date":

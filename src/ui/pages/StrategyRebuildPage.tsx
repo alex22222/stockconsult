@@ -3,8 +3,9 @@ import {
   FlaskConical, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2,
   Clock, BarChart3, BrainCircuit, Activity, FileText, ShieldAlert,
   Zap, XCircle, ChevronRight, Sparkles, HelpCircle, Target, Sword,
-  LayoutDashboard
+  LayoutDashboard, PiggyBank, ArrowRight
 } from 'lucide-react';
+import { useAppStore } from '../store/app-store';
 
 
 /* =================== 类型定义 =================== */
@@ -152,20 +153,23 @@ export function StrategyRebuildPage() {
   const [backtest, setBacktest] = useState<Record<string, BacktestResult>>({});
   const [evalReport, setEvalReport] = useState<EvalReport | null>(null);
   const [wfReport, setWfReport] = useState<Record<string, WalkforwardStock>>({});
+  const [paperTradingReport, setPaperTradingReport] = useState<{ nav: number; total_return_pct: number; total_trades: number; holding_positions: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const togglePaperTradingPage = useAppStore((s) => s.togglePaperTradingPage);
 
   useEffect(() => {
     async function loadData() {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const [histRes, sumRes, focusRes, btRes, evalRes, wfRes] = await Promise.all([
+        const [histRes, sumRes, focusRes, btRes, evalRes, wfRes, ptRes] = await Promise.all([
           fetch('/paper-trading/rebuild_prediction_history.json'),
           fetch(`/paper-trading/rebuild_daily_summary_${today}.json`),
           fetch('/paper-trading/rebuild_focus_pool.json'),
           fetch('/paper-trading/rebuild_backtest.json'),
           fetch('/paper-trading/rebuild_evaluation_report.json'),
           fetch('/paper-trading/rebuild_walkforward_report.json'),
+          fetch('/paper-trading/report.json'),
         ]);
 
         if (histRes.ok) {
@@ -188,6 +192,15 @@ export function StrategyRebuildPage() {
         if (wfRes.ok) {
           const wf = await wfRes.json();
           setWfReport(wf.stocks || {});
+        }
+        if (ptRes.ok) {
+          const pt = await ptRes.json();
+          setPaperTradingReport({
+            nav: pt.nav ?? 1,
+            total_return_pct: pt.total_return_pct ?? 0,
+            total_trades: pt.total_trades ?? 0,
+            holding_positions: (pt.holding_positions || []).length,
+          });
         }
       } catch (e) {
         console.warn('[StrategyRebuild] load failed:', e);
@@ -611,6 +624,47 @@ export function StrategyRebuildPage() {
                 </div>
               </div>
             </div>
+
+            {/* 实盘跟踪入口 */}
+            {paperTradingReport && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <PiggyBank className="w-4 h-4 text-emerald-500" />
+                    模拟盘实盘跟踪
+                  </h2>
+                  <button
+                    onClick={() => togglePaperTradingPage(true)}
+                    className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium"
+                  >
+                    查看详情 <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{paperTradingReport.nav.toFixed(4)}</div>
+                    <div className="text-[10px] text-gray-400">当前净值</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${paperTradingReport.total_return_pct >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {paperTradingReport.total_return_pct >= 0 ? '+' : ''}{paperTradingReport.total_return_pct.toFixed(2)}%
+                    </div>
+                    <div className="text-[10px] text-gray-400">累计收益</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{paperTradingReport.total_trades}</div>
+                    <div className="text-[10px] text-gray-400">已完成交易</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{paperTradingReport.holding_positions}</div>
+                    <div className="text-[10px] text-gray-400">当前持仓</div>
+                  </div>
+                </div>
+                <div className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
+                  模拟盘是真实的前向跟踪，每天根据实验信号实际执行买卖，包含真实交易成本。历史回测仅供参考，实盘跟踪才是最终裁判。
+                </div>
+              </div>
+            )}
 
             {/* 统计卡片 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

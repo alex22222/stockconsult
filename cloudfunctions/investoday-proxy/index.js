@@ -25,6 +25,7 @@ const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
 const db = app.database();
 const FAVORITES_COLLECTION = 'favorites';
 const PREDICT_COLLECTION = 'predict';
+const API_LOGS_COLLECTION = 'api_logs';
 const DEFAULT_USER_ID = 'anonymous';
 
 // 版本标记（用于确认部署生效）
@@ -100,6 +101,11 @@ exports.main = async (event, context) => {
   // 查询记录详情
   if (event.path === '/get-record' || event.path === '/investoday-proxy/get-record') {
     return handleGetRecord(event);
+  }
+
+  // API 调用日志列表
+  if (event.path === '/list-api-logs' || event.path === '/investoday-proxy/list-api-logs') {
+    return handleListApiLogs(event);
   }
 
   // 重建索引（扫描 COS 文件重建 index.json）
@@ -217,8 +223,13 @@ exports.main = async (event, context) => {
     }
 
     // 调用 investoday MCP
+    const startTime = Date.now();
     const result = await proxyMCPRequest(requestBody);
-    
+    const latency = Date.now() - startTime;
+
+    // 记录 API 调用日志到数据库（异步，不阻塞响应）
+    logApiCall(requestBody, result, latency).catch(err => console.error('[ApiLog] failed:', err.message));
+
     return {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -738,11 +749,51 @@ function searchDuckDuckGo(query) {
   });
 }
 
+/**
+ * 记录 API 调用日志到 CloudBase 数据库
+ */
+async function logApiCall(requestBody, response, latency) {
+  try {
+    const toolName = requestBody?.params?.name || requestBody?.method || 'unknown';
+    const params = requestBody?.params?.arguments || {};
+    const stockCode = params.code || params.input || params.stock_code || '';
+
+    // 提取响应摘要（避免存储过大的响应体）
+    let responseSummary = null;
+    if (response?.result?.content?.[0]?.text) {
+      try {
+        const parsed = JSON.parse(response.result.content[0].text);
+        // 根据工具类型提取摘要
+        if (Array.isArray(parsed)) {
+          responseSummary = { count: parsed.length, sample: parsed[0] ? Object.keys(parsed[0]).reduce((acc, k) => { acc[k] = parsed[0][k]; return acc; }, {}) : null };
+        } else if (typeof parsed === 'object') {
+          responseSummary = { keys: Object.keys(parsed).slice(0, 10) };
+        }
+      } catch {
+        responseSummary = { textLength: response.result.content[0].text.length };
+      }
+    }
+
+    await db.collection(API_LOGS_COLLECTION).add({
+      tool_name: toolName,
+      stock_code: stockCode,
+      params: params,
+      latency_ms: latency,
+      response_summary: responseSummary,
+      response_error: response?.error ? true : false,
+      source: 'investoday-proxy',
+      created_at: new Date(),
+    });
+  } catch (err) {
+    console.error('[ApiLog] log failed:', err.message);
+  }
+}
+
 function proxyMCPRequest(body) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(body);
     const url = new URL(`https://${BASE_URL}/data/mcp/preset?apiKey=${API_KEY}`);
-    
+
     const options = {
       hostname: BASE_URL,
       path: `/data/mcp/preset?apiKey=${API_KEY}`,
@@ -897,6 +948,60 @@ async function handleGetFavorites(event) {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ success: false, error: error.message }),
+    };
+  }
+}
+
+/**
+ * 查询 API 调用日志列表
+ */
+async function handleListApiLogs(event) {
+  try {
+    const query = event.queryString || event.queryStringParameters || {};
+    const page = parseInt(query.page, 10) || 1;
+    const pageSize = Math.min(parseInt(query.pageSize, 10) || 50, 100);
+    const stockCode = query.stockCode || '';
+    const toolName = query.toolName || '';
+
+    let dbQuery = db.collection(API_LOGS_COLLECTION);
+
+    if (stockCode) {
+      dbQuery = dbQuery.where({ stock_code: stockCode });
+    }
+    if (toolName) {
+      dbQuery = dbQuery.where({ tool_name: toolName });
+    }
+
+    const countRes = await dbQuery.count();
+    const total = countRes.total || 0;
+
+    const res = await dbQuery.orderBy('created_at', 'desc').skip((page - 1) * pageSize).limit(pageSize).get();
+    const records = res.data || [];
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
+        records: records.map(r => ({
+          id: r._id,
+          tool_name: r.tool_name,
+          stock_code: r.stock_code,
+          params: r.params,
+          latency_ms: r.latency_ms,
+          response_summary: r.response_summary,
+          response_error: r.response_error,
+          created_at: r.created_at,
+        })),
+        pagination: { page, pageSize, total },
+      }),
+    };
+  } catch (error) {
+    console.error('[ListApiLogs Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Failed to list api logs', message: error.message }),
     };
   }
 }
