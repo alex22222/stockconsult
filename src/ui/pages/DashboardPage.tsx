@@ -9,7 +9,7 @@ import { MetricCard } from '../components/common/MetricCard';
 import { InsightTag } from '../components/common/InsightTag';
 import { PriceChart } from '../components/charts/PriceChart';
 import { TableOfContents } from '../components/common/TableOfContents';
-import { DualPredictionPanel } from '../components/DualPredictionPanel';
+// import { DualPredictionPanel } from '../components/DualPredictionPanel'; // 已迁移到策略重建实验室
 
 function RatingLabel({ rating }: { rating: ResearchReport['rating'] }) {
   const config: Record<ResearchReport['rating'], { text: string; class: string }> = {
@@ -215,10 +215,7 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* AI 涨跌预测（露笑科技专用双模型对比） */}
-        {selectedStock && (
-          <DualPredictionPanel stockCode={selectedStock.code} stockName={selectedStock.name} />
-        )}
+        {/* 策略重建预测已统一展示在策略重建实验室页面 */}
 
         {/* 价格走势 */}
         {dataBundle?.market?.history && dataBundle.market.history.length > 0 && (

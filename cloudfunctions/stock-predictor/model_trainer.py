@@ -146,6 +146,8 @@ class ModelTrainer:
         """
         训练单个模型（含特征选择）
         
+        修复: 特征选择和标准化严格只在训练集 fit，避免数据泄露。
+        
         Args:
             model_name: 模型名称
             X: 特征矩阵
@@ -157,38 +159,40 @@ class ModelTrainer:
         """
         logger.info(f"开始训练模型: {model_name}")
         
-        # 特征选择
-        X_selected = self._select_features(model_name, X, y, fit=True)
+        # 1. 先按时间切分训练/验证集（防止信息前置）
+        split_idx = int(len(X) * (1 - validation_split))
+        X_train_raw, X_val_raw = X.iloc[:split_idx], X.iloc[split_idx:]
+        y_train_raw, y_val_raw = y.iloc[:split_idx], y.iloc[split_idx:]
         
-        # 数据预处理
-        X_scaled, y_array = self._prepare_data(X_selected, y, fit_scaler=True, model_name=model_name)
-        
-        # 时间序列分割训练/验证集
-        split_idx = int(len(X_scaled) * (1 - validation_split))
-        X_train, X_val = X_scaled[:split_idx], X_scaled[split_idx:]
-        y_train, y_val = y_array[:split_idx], y_array[split_idx:]
-        
-        if len(X_val) == 0:
+        if len(X_val_raw) == 0:
             logger.warning("验证集为空，使用训练集作为验证集")
-            X_val, y_val = X_train, y_train
+            X_val_raw, y_val_raw = X_train_raw, y_train_raw
+        
+        # 2. 特征选择：只在训练集 fit
+        X_train_selected = self._select_features(model_name, X_train_raw, y_train_raw, fit=True)
+        X_val_selected = self._select_features(model_name, X_val_raw, fit=False)
+        
+        # 3. 标准化：只在训练集 fit
+        X_train_scaled, y_train_array = self._prepare_data(X_train_selected, y_train_raw, fit_scaler=True, model_name=model_name)
+        X_val_scaled, y_val_array = self._prepare_data(X_val_selected, y_val_raw, fit_scaler=False, model_name=model_name)
         
         # 创建并训练模型
         model = self._get_model_instance(model_name)
         
         try:
-            model.fit(X_train, y_train)
+            model.fit(X_train_scaled, y_train_array)
             
             # 验证集预测
-            y_pred = model.predict(X_val)
-            y_prob = model.predict_proba(X_val)[:, 1]
+            y_pred = model.predict(X_val_scaled)
+            y_prob = model.predict_proba(X_val_scaled)[:, 1]
             
             # 计算评估指标
             metrics = {
-                "accuracy": accuracy_score(y_val, y_pred),
-                "precision": precision_score(y_val, y_pred, zero_division=0),
-                "recall": recall_score(y_val, y_pred, zero_division=0),
-                "f1": f1_score(y_val, y_pred, zero_division=0),
-                "auc": roc_auc_score(y_val, y_prob) if len(np.unique(y_val)) > 1 else 0.5,
+                "accuracy": accuracy_score(y_val_array, y_pred),
+                "precision": precision_score(y_val_array, y_pred, zero_division=0),
+                "recall": recall_score(y_val_array, y_pred, zero_division=0),
+                "f1": f1_score(y_val_array, y_pred, zero_division=0),
+                "auc": roc_auc_score(y_val_array, y_prob) if len(np.unique(y_val_array)) > 1 else 0.5,
             }
             
             # 保存模型
@@ -210,8 +214,8 @@ class ModelTrainer:
             return {
                 "model_name": model_name,
                 "metrics": metrics,
-                "val_size": len(y_val),
-                "train_size": len(y_train),
+                "val_size": len(y_val_array),
+                "train_size": len(y_train_array),
                 "status": "success"
             }
             
@@ -250,19 +254,17 @@ class ModelTrainer:
             result = self.train_single_model(model_name, X, y, validation_split)
             results[model_name] = result
             
-            # 更新模型权重 (基于验证集表现)
+            # 记录验证集表现，但不基于单次验证直接改写权重
+            # 原因: 单次验证 AUC 受噪声影响大，动态权重容易追逐最近一次噪声
             if result["status"] == "success":
-                # 权重与AUC成正比
-                auc = result["metrics"]["auc"]
-                # 确保权重为正
-                self.model_weights[model_name] = max(0.1, auc)
+                logger.info(f"模型 {model_name} 验证AUC: {result['metrics']['auc']:.4f} (仅记录，不更新权重)")
         
-        # 归一化模型权重
+        # 保持配置中的原始权重（等权重或预设权重比单次验证更稳健）
         total_weight = sum(self.model_weights.values())
         if total_weight > 0:
             self.model_weights = {k: v / total_weight for k, v in self.model_weights.items()}
         
-        logger.info(f"模型权重已更新: {self.model_weights}")
+        logger.info(f"当前模型权重 (未因单次验证调整): {self.model_weights}")
         
         # 记录训练历史
         self.training_history.append({
@@ -393,6 +395,8 @@ class ModelTrainer:
             weighted_prob_down = 1 - weighted_prob_up
             
             ensemble_pred = 1 if weighted_prob_up > 0.5 else 0
+            # WARNING: 这是未校准的"模型一致性分数"（离0.5的距离），
+            # 不是真实命中率。如需用于仓位管理，必须先走 calibration。
             confidence = max(weighted_prob_up, weighted_prob_down)
         else:
             # 单模型预测
@@ -418,6 +422,9 @@ class ModelTrainer:
         """
         评估模型性能
         
+        修复: 每个模型必须走各自的特征选择器和标准化器，
+        不能拿统一 X_scaled 硬喂，否则维度不匹配或被静默吞掉。
+        
         Args:
             X: 特征矩阵
             y: 真实标签
@@ -430,34 +437,46 @@ class ModelTrainer:
         if "error" in result:
             return result
         
-        # 需要逐行预测才能与y比较
-        X_scaled, y_array = self._prepare_data(X, y, fit_scaler=False)
-        
+        y_array = y.fillna(0).values
         all_predictions = []
         all_probs = []
         
         for model_name, model in self.models.items():
             try:
+                # 必须对每个模型分别做特征选择 + 标准化
+                X_selected = self._select_features(model_name, X, fit=False)
+                X_scaled, _ = self._prepare_data(X_selected, y, fit_scaler=False, model_name=model_name)
                 preds = model.predict(X_scaled)
                 probs = model.predict_proba(X_scaled)[:, 1]
                 all_predictions.append(preds)
                 all_probs.append(probs)
-            except:
+            except Exception as e:
+                logger.warning(f"模型 {model_name} 评估失败: {e}")
                 continue
         
         if not all_predictions:
             return {"error": "无法评估"}
         
-        # 集成预测
-        avg_probs = np.mean(all_probs, axis=0)
-        ensemble_preds = (avg_probs > 0.5).astype(int)
+        # 集成预测（按模型权重加权平均概率）
+        weighted_probs = np.zeros(len(y_array))
+        total_weight = 0.0
+        for probs, model_name in zip(all_probs, self.models.keys()):
+            w = self.model_weights.get(model_name, 0.0)
+            weighted_probs += probs * w
+            total_weight += w
+        if total_weight > 0:
+            weighted_probs /= total_weight
+        else:
+            weighted_probs = np.mean(all_probs, axis=0)
+        
+        ensemble_preds = (weighted_probs > 0.5).astype(int)
         
         metrics = {
             "accuracy": accuracy_score(y_array, ensemble_preds),
             "precision": precision_score(y_array, ensemble_preds, zero_division=0),
             "recall": recall_score(y_array, ensemble_preds, zero_division=0),
             "f1": f1_score(y_array, ensemble_preds, zero_division=0),
-            "auc": roc_auc_score(y_array, avg_probs) if len(np.unique(y_array)) > 1 else 0.5,
+            "auc": roc_auc_score(y_array, weighted_probs) if len(np.unique(y_array)) > 1 else 0.5,
         }
         
         # 计算涨跌准确率分别
@@ -477,6 +496,9 @@ class ModelTrainer:
         """
         时间序列交叉验证
         
+        修复: 每个 fold 的 scaler 必须只在训练段 fit，
+        严禁先对全量数据标准化再做 TimeSeriesSplit。
+        
         Args:
             X: 特征矩阵
             y: 目标变量
@@ -488,15 +510,20 @@ class ModelTrainer:
         logger.info(f"开始{n_splits}折时间序列交叉验证...")
         
         tscv = TimeSeriesSplit(n_splits=n_splits)
-        X_scaled, y_array = self._prepare_data(X, y, fit_scaler=True)
+        y_array = y.fillna(0).values
         
         cv_results = []
         
-        for fold, (train_idx, val_idx) in enumerate(tscv.split(X_scaled)):
-            X_train, X_val = X_scaled[train_idx], X_scaled[val_idx]
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(X)):
+            X_train_raw, X_val_raw = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y_array[train_idx], y_array[val_idx]
             
             logger.info(f"Fold {fold+1}: train={len(train_idx)}, val={len(val_idx)}")
+            
+            # 每个 fold 单独 fit scaler（防止数据泄露）
+            scaler = StandardScaler()
+            X_train = scaler.fit_transform(X_train_raw.replace([np.inf, -np.inf], 0).fillna(0))
+            X_val = scaler.transform(X_val_raw.replace([np.inf, -np.inf], 0).fillna(0))
             
             fold_metrics = {}
             for model_name in self.config["models"].keys():

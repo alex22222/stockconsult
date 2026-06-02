@@ -248,7 +248,7 @@ function scoreTechnical(rows: QuoteRow[]): { name: string; score: number; detail
   else if (macdBull) details.push('MACD 金叉维持，但红柱未明显扩大');
   else details.push('MACD 尚未形成明确多头信号');
 
-  return { name: '技术突破', score, details };
+  return { name: '波动释放', score, details };
 }
 
 function scoreCapital(rows: QuoteRow[]): { name: string; score: number; details: string[] } {
@@ -270,7 +270,7 @@ function scoreCapital(rows: QuoteRow[]): { name: string; score: number; details:
   if (ratio >= 1.5) details.push('交易活跃度显著提升，资金关注度增加');
   else details.push('成交相对平稳，未出现明显资金异动');
 
-  return { name: '技术突破', score, details };
+  return { name: '资金涌入', score, details };
 }
 
 function scoreSentiment(rows: QuoteRow[], scoreData: MCPStockScore | null): { name: string; score: number; details: string[] } {
@@ -471,7 +471,8 @@ async function scanViaAPI(onProgress?: (done: number, total: number) => void): P
 
 async function fetchLocalMomentumPicks(): Promise<MomentumScanResult | null> {
   try {
-    const res = await fetch('/data/momentum_scan.json', { cache: 'no-store' });
+    // 加时间戳绕过 CDN/浏览器缓存
+    const res = await fetch(`/data/momentum_scan.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.picks || !Array.isArray(data.picks)) return null;
@@ -555,9 +556,10 @@ export async function scanMomentumPicks(
   // 第一优先级：investoday API 真实数据
   try {
     const apiResult = await scanViaAPI(onProgress);
-    if (apiResult.picks.length > 0) {
+    if (apiResult.picks.length >= 5) {
       return apiResult;
     }
+    console.warn('[MomentumScanner] API scan returned only', apiResult.picks.length, 'picks, falling back to local');
   } catch (e) {
     console.warn('[MomentumScanner] API scan failed, falling back:', e);
   }

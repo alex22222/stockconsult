@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { TrendingUp, TrendingDown, Settings, FileText, Sparkles, Sun, Moon, BrainCircuit, PiggyBank, LayoutDashboard, Zap, FlaskConical } from 'lucide-react';
+import { TrendingUp, TrendingDown, Settings, FileText, Sun, Moon, BrainCircuit, PiggyBank, Zap, FlaskConical } from 'lucide-react';
 import { useAppStore } from '../../store/app-store';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
@@ -79,9 +79,9 @@ function Marquee({ indices }: { indices: MarketIndex[] }) {
 
 export function Header() {
   const showRecordsPage = useAppStore((s) => s.showRecordsPage);
-  const showFortunePage = useAppStore((s) => s.showFortunePage);
+  // const showFortunePage = useAppStore((s) => s.showFortunePage); // 已迁移到策略重建实验室
   const showModelDocPage = useAppStore((s) => s.showModelDocPage);
-  const showStrategyAdvisorPage = useAppStore((s) => s.showStrategyAdvisorPage);
+  // showStrategyAdvisorPage 已合并到策略重建实验室
   const showPaperTradingPage = useAppStore((s) => s.showPaperTradingPage);
   const showMomentumScanPage = useAppStore((s) => s.showMomentumScanPage);
   const showStrategyRebuildPage = useAppStore((s) => s.showStrategyRebuildPage);
@@ -156,17 +156,7 @@ export function Header() {
               <Zap className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">爆破力</span>
             </button>
-            <button
-              onClick={() => navigateTo(showFortunePage ? null : 'fortune')}
-              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
-                showFortunePage
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">占卜师</span>
-            </button>
+            {/* 占卜师已迁移到策略重建实验室 */}
             <button
               onClick={() => navigateTo(showModelDocPage ? null : 'modelDoc')}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
@@ -177,17 +167,6 @@ export function Header() {
             >
               <BrainCircuit className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">模型说明</span>
-            </button>
-            <button
-              onClick={() => navigateTo(showStrategyAdvisorPage ? null : 'strategy')}
-              className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 ${
-                showStrategyAdvisorPage
-                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">策略页面</span>
             </button>
             <button
               onClick={() => navigateTo(showPaperTradingPage ? null : 'paperTrading')}

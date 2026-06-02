@@ -1,32 +1,10 @@
 {
-  "generated_at": "2026-06-02 22:25:38",
   "initial_capital": 10000.0,
   "current_cash": 869.78,
   "total_assets": 9981.78,
-  "nav": 0.9982,
   "total_return_pct": -0.1822,
-  "focus_pool": [
-    {
-      "rank": 1,
-      "symbol": "601288",
-      "name": "农业银行",
-      "predicted_return_5d": 2.381,
-      "signal": "买入",
-      "confidence": 0.48,
-      "reason": "预测5日收益 +2.38%，模型置信度0.48"
-    },
-    {
-      "rank": 2,
-      "symbol": "601988",
-      "name": "中国银行",
-      "predicted_return_5d": 1.4826,
-      "signal": "买入",
-      "confidence": 0.3,
-      "reason": "预测5日收益 +1.48%，模型置信度0.30"
-    }
-  ],
-  "focus_date": "2026-06-01",
-  "holding_positions": [
+  "nav": 0.9982,
+  "positions": [
     {
       "symbol": "601288",
       "name": "农业银行",
@@ -80,23 +58,7 @@
       "sector": "银行"
     }
   ],
-  "closed_positions": [],
-  "total_trades": 0,
-  "winning_trades": 0,
-  "losing_trades": 0,
-  "win_rate": 0,
-  "total_pnl": 0,
-  "by_symbol": {},
-  "portfolio_history": [
-    {
-      "date": "2026-06-02",
-      "cash": 869.78,
-      "market_value": 9112.0,
-      "total_assets": 9981.78,
-      "nav": 0.9982,
-      "return_pct": -0.1822,
-      "daily_return_pct": -0.18,
-      "daily_pnl": 117.0
-    }
-  ]
+  "updated_at": "2026-06-02T22:25:38.797896",
+  "daily_pnl": 117.0,
+  "daily_pnl_pct": 1.3007
 }

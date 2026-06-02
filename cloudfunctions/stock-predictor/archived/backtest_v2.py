@@ -1,13 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-回测V2 — 回归预测 + 市场状态过滤 + 多因子择时
-=================================================
+⚠️ 警告：此脚本已归档，存在已知问题，不作为决策依据
+=====================================================
+问题说明：
+  - 训练时为构造预测点特征，多保留了未来数据，导致未来函数泄露
+  - 回测结果不可引用，不能作为策略有效性的证据
+  - 详见 docs/prediction-model-sharp-review-2026-06-02.md
 
-改进点：
-1. 从分类（涨/跌）转向回归（预测未来5日收益率）
-2. 市场状态过滤：上证指数跌破20日均线 → 空仓
-3. 多因子择时：预期收益>2% + 均线多头 + 放量 + 北向流入
-4. 仓位管理：根据预期收益和置信度动态调整
+状态：已归档，不再维护。新的权威回测框架正在开发中。
+"""
+"""
+[ARCHIVED / FROZEN] 回测V2 — 回归预测 + 市场状态过滤 + 多因子择时
+====================================================================
+
+状态: 已冻结，不再维护。
+原因:
+1. 架构层面为单次静态 train/test split，非 walk-forward，在时序数据中不可信。
+2. 模型本身经 V1 walk-forward 验证已无交易优势，继续维护多套回测框架无意义。
+3. 日期对齐 bug 已修复（见 git history），但单次 split 的设计缺陷无法通过单行修复解决。
+
+如需恢复，必须先重写为滚动窗口（rolling window）形式，并与 backtest_engine.py 统一。
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -78,10 +90,12 @@ def backtest_v2(symbol, name, train_ratio=0.7):
     # 获取大盘20日均线用于市场状态过滤
     sh_index = raw['sh_index'].sort_values('日期').reset_index(drop=True) if 'sh_index' in raw else None
     
-    # 日期和价格
-    dates = stock_df['日期'].astype(str).values[1:1+len(pred_ret)]
-    close_vals = close.values[1:1+len(pred_ret)]
-    volumes = stock_df['成交量'].astype(float).values[1:1+len(pred_ret)] if '成交量' in stock_df.columns else None
+    # 日期和价格（严格对齐测试集，修复原代码从第1行开始取的错位问题）
+    # X_test 起始于 split，pred_ret[i] 对应 stock_df[split + i]
+    test_start = split
+    dates = stock_df['日期'].astype(str).values[test_start:test_start+len(pred_ret)]
+    close_vals = close.values[test_start:test_start+len(pred_ret)]
+    volumes = stock_df['成交量'].astype(float).values[test_start:test_start+len(pred_ret)] if '成交量' in stock_df.columns else None
     
     # 计算均线和成交量
     ma20 = pd.Series(close_vals).rolling(20).mean().values
@@ -242,16 +256,25 @@ def main():
         '002896': '中大力德',
     }
     
-    print("=" * 95)
+    print("=" * 110)
     print("回测V2：回归预测 + 市场状态过滤 + 多因子择时")
-    print("=" * 95)
-    print(f"{'股票':<10} {'总收益':>10} {'年化':>8} {'夏普':>8} {'最大回撤':>8} {'交易':>6} {'胜率':>8} {'均收益':>8}")
-    print("-" * 95)
+    print("=" * 110)
+    print(f"{'股票':<10} {'策略收益':>10} {'年化':>8} {'夏普':>8} {'最大回撤':>8} {'交易':>6} {'胜率':>8} {'均收益':>8} {'买入持有':>10} {'超额':>8}")
+    print("-" * 110)
     
     for sym, name in symbols.items():
         r = backtest_v2(sym, name)
         if r:
-            print(f"{name:<10} {r['total_return']:>+9.2%} {r['annual']:>+7.1%} {r['sharpe']:>7.2f} {r['max_dd']:>7.1f}% {r['trades']:>5}次 {r['win_rate']:>6.1f}% {r['avg_trade']:>+6.2f}%")
+            # 计算同期买入持有（对齐V2的测试集起点）
+            local = LocalDataProvider(DATA_DIR)
+            raw = local.get_all_data_for_stock(sym, days=5000)
+            stock_df = raw['stock_daily'].sort_values('日期').reset_index(drop=True)
+            close = stock_df['收盘'].astype(float).values
+            # V2 测试集起点约为 train_ratio=0.7 处
+            split = int(len(close) * 0.7)
+            bh = (close[-1] / close[split] - 1) * 100 if split < len(close) else 0
+            excess = r['total_return'] * 100 - bh
+            print(f"{name:<10} {r['total_return']:>+9.2%} {r['annual']:>+7.1%} {r['sharpe']:>7.2f} {r['max_dd']:>7.1f}% {r['trades']:>5}次 {r['win_rate']:>6.1f}% {r['avg_trade']:>+6.2f}% {bh:>+9.2f}% {excess:>+7.2f}%")
         else:
             print(f"{name:<10} 数据不足")
 

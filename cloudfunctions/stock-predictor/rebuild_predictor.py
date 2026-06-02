@@ -29,19 +29,20 @@ REBUILD_DIR = os.path.join(DATA_DIR, "rebuild")
 os.makedirs(REBUILD_DIR, exist_ok=True)
 
 # 预测目标天数
-PREDICT_HORIZON = 1  # 次日收益率（噪声更小）
+PREDICT_HORIZON = 5  # 5日收益率（与最优配置一致）
 ANOMALY_HORIZON = 5  # 异常检测用5日窗口
 ANOMALY_THRESHOLD = 2.0  # |收益率| > 2% 视为异常
 
 
-def build_compact_features(stock_df: pd.DataFrame) -> pd.DataFrame:
+def build_compact_features(stock_df: pd.DataFrame, sh_index_df: pd.DataFrame = None) -> pd.DataFrame:
     """
-    构建精简的核心价格特征 (15个，避免维度灾难)
+    构建精简的核心价格特征 (~16个，对齐 feature_engineer.py 的 compact set)
     """
     close = stock_df["收盘"].astype(float)
     volume = stock_df["成交量"].astype(float)
     high = stock_df["最高"].astype(float)
     low = stock_df["最低"].astype(float)
+    open_ = stock_df["开盘"].astype(float)
     
     f = pd.DataFrame(index=stock_df.index)
     
@@ -54,26 +55,35 @@ def build_compact_features(stock_df: pd.DataFrame) -> pd.DataFrame:
     f["vol_5d"] = close.pct_change().rolling(5).std() * 100
     f["vol_20d"] = close.pct_change().rolling(20).std() * 100
     
-    # 3. 量能 (3)
+    # 3. 量能 (2)
     f["vol_ratio_5"] = volume / volume.rolling(5).mean()
     f["vol_ratio_20"] = volume / volume.rolling(20).mean()
-    f["vol_price_corr_5"] = close.rolling(5).corr(volume)
     
     # 4. 技术位置 (3)
+    ma5 = close.rolling(5).mean()
     ma20 = close.rolling(20).mean()
     f["price_vs_ma20"] = (close - ma20) / ma20 * 100
     f["price_pctile_20d"] = close.rolling(20).apply(
         lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
     )
-    f["atr_14"] = _calc_atr(high, low, close, 14) / close * 100
+    atr14 = _calc_atr(high, low, close, 14)
+    f["atr_14_ratio"] = atr14 / close * 100
     
-    # 5. 反转/连续信号 (2)
-    f["consecutive_up"] = _consecutive(close, "up")
-    f["consecutive_down"] = _consecutive(close, "down")
+    # 5. 趋势状态 (1)
+    f["ma5_above_ma20"] = (ma5 > ma20).astype(int)
     
-    # 6. 振幅/实体 (2)
+    # 6. 大盘相对 (2)
+    if sh_index_df is not None and not sh_index_df.empty and "收盘" in sh_index_df.columns:
+        sh_close = sh_index_df["收盘"].astype(float).reindex(stock_df.index, method="ffill")
+        f["index_return_1d"] = sh_close.pct_change() * 100
+        f["index_corr_5d"] = close.rolling(5).corr(sh_close)
+    else:
+        f["index_return_1d"] = 0.0
+        f["index_corr_5d"] = 0.0
+    
+    # 7. 形态 (2)
     f["amplitude"] = (high - low) / close.shift(1) * 100
-    f["body_ratio"] = abs(close - stock_df["开盘"]) / (high - low + 1e-10) * 100
+    f["body_ratio"] = abs(close - open_) / (high - low + 1e-10) * 100
     
     return f.replace([np.inf, -np.inf], 0).fillna(0)
 
@@ -106,9 +116,14 @@ def load_nonprice_features(symbol: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-def build_full_features(symbol: str, stock_df: pd.DataFrame) -> pd.DataFrame:
-    """合并价格特征 + 非价格特征"""
-    price_feats = build_compact_features(stock_df)
+def build_full_features(symbol: str, stock_df: pd.DataFrame, sh_index_df: pd.DataFrame = None,
+                          use_nonprice: bool = True) -> pd.DataFrame:
+    """合并价格特征 + 非价格特征（us_overnight_score + investoday 独立信号源）
+    
+    Args:
+        use_nonprice: 是否加载 investoday 非价格特征。训练时若数据不足会自动禁用。
+    """
+    price_feats = build_compact_features(stock_df, sh_index_df)
     
     # 添加日期列用于 merge
     if "日期" in stock_df.columns:
@@ -116,15 +131,44 @@ def build_full_features(symbol: str, stock_df: pd.DataFrame) -> pd.DataFrame:
     else:
         price_feats["date"] = pd.to_datetime(stock_df.index)
     
-    nonprice = load_nonprice_features(symbol)
-    if nonprice.empty:
-        return price_feats
+    # 1. 加载 us_overnight_score（唯一被验证有效的跨市场 alpha）
+    local = LocalDataProvider(DATA_DIR)
+    raw = local.get_all_data_for_stock(symbol, days=120)
+    us_df = raw.get("us_overnight", pd.DataFrame())
+    if not us_df.empty and "date" in us_df.columns and "us_overnight_score" in us_df.columns:
+        us_df = us_df[["date", "us_overnight_score"]].copy()
+        us_df["date"] = pd.to_datetime(us_df["date"])
+        price_feats = pd.merge(price_feats, us_df, on="date", how="left")
+        price_feats["us_overnight_score"] = price_feats["us_overnight_score"].fillna(0)
     
-    merged = pd.merge(price_feats, nonprice, on="date", how="left")
-    # 非价格特征缺失时前向填充（当天的score适用于次日预测）
-    nonprice_cols = [c for c in nonprice.columns if c != "date"]
-    merged[nonprice_cols] = merged[nonprice_cols].ffill().fillna(0)
-    return merged
+    # 2. 加载 investoday 非价格特征（独立 alpha 来源）
+    # 只有当数据覆盖率达到阈值时才启用，避免大量缺失值污染训练
+    nonprice = load_nonprice_features(symbol)
+    if use_nonprice and not nonprice.empty and "date" in nonprice.columns:
+        nonprice["date"] = pd.to_datetime(nonprice["date"])
+        # 计算覆盖率：有非零 score 的日期占比
+        if "score" in nonprice.columns:
+            coverage = nonprice["score"].notna().sum() / len(price_feats)
+        else:
+            coverage = len(nonprice) / len(price_feats)
+        
+        # 覆盖率 >= 10% 才使用 investoday 特征（约 90 天数据）
+        if coverage >= 0.10:
+            core_cols = ["date", "score", "skillScore", "emotionScore", "financeScore",
+                         "industryScore", "scoreAvg", "news_count", "news_sentiment_mean"]
+            available = [c for c in core_cols if c in nonprice.columns]
+            if len(available) > 1:
+                np_core = nonprice[available].copy()
+                price_feats = pd.merge(price_feats, np_core, on="date", how="left")
+                for col in available:
+                    if col != "date":
+                        price_feats[col] = price_feats[col].astype(float)
+                        price_feats[col] = price_feats[col].ffill().fillna(0)
+        else:
+            # 数据不足，标记但不在特征中使用
+            pass
+    
+    return price_feats
 
 
 def train_regression_model(symbol: str, days: int = 500) -> Dict:
@@ -143,12 +187,13 @@ def train_regression_model(symbol: str, days: int = 500) -> Dict:
     local = LocalDataProvider(DATA_DIR)
     raw = local.get_all_data_for_stock(symbol, days=days)
     stock_df = raw["stock_daily"].sort_values("日期").reset_index(drop=True)
+    sh_index_df = raw.get("sh_index", pd.DataFrame())
     
     if len(stock_df) < 100:
         return {"error": "数据不足"}
     
     # 构建特征
-    feats = build_full_features(symbol, stock_df)
+    feats = build_full_features(symbol, stock_df, sh_index_df)
     
     # 目标1: 次日收益率 (回归主目标)
     close = stock_df["收盘"].astype(float)
@@ -186,11 +231,10 @@ def train_regression_model(symbol: str, days: int = 500) -> Dict:
     X_train_scaled = scaler.fit_transform(X_train_s)
     X_test_scaled = scaler.transform(X_test_s)
     
-    # 训练多个回归模型
+    # 训练回归模型（Ridge 为主 + GBR 为辅，去掉表现不稳定的 RF）
     models = {
         "gbr": GradientBoostingRegressor(n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42),
         "ridge": Ridge(alpha=1.0, random_state=42),
-        "rf": RandomForestRegressor(n_estimators=100, max_depth=6, min_samples_leaf=5, random_state=42, n_jobs=-1),
     }
     
     results = {}
@@ -210,8 +254,8 @@ def train_regression_model(symbol: str, days: int = 500) -> Dict:
             "direction_acc": direction_acc,
         }
     
-    # 集成预测 (简单平均)
-    ensemble_pred = np.mean(list(preds.values()), axis=0)
+    # 集成预测 (Ridge 0.6 + GBR 0.4，Ridge 在 walk-forward 上更稳健)
+    ensemble_pred = preds["ridge"] * 0.6 + preds["gbr"] * 0.4
     ensemble_metrics = {
         "r2": r2_score(y_test, ensemble_pred),
         "mae": mean_absolute_error(y_test, ensemble_pred),
@@ -234,13 +278,14 @@ def train_regression_model(symbol: str, days: int = 500) -> Dict:
 
 def predict_next_return(symbol: str, model_bundle: Dict) -> Dict:
     """
-    预测最新一天的未来5日收益率
+    预测最新一天的未来收益率（horizon 由 PREDICT_HORIZON 决定）
     """
     local = LocalDataProvider(DATA_DIR)
     raw = local.get_all_data_for_stock(symbol, days=120)
     stock_df = raw["stock_daily"].sort_values("日期").reset_index(drop=True)
+    sh_index_df = raw.get("sh_index", pd.DataFrame())
     
-    feats = build_full_features(symbol, stock_df)
+    feats = build_full_features(symbol, stock_df, sh_index_df)
     X_df = feats.drop(columns=["date"], errors="ignore")
     
     # 取最新一行
@@ -266,8 +311,8 @@ def predict_next_return(symbol: str, model_bundle: Dict) -> Dict:
         pred = model.predict(X_latest_scaled)[0]
         individual[name] = float(pred)
     
-    # 集成
-    ensemble = float(np.mean(list(individual.values())))
+    # 集成 (Ridge 0.6 + GBR 0.4)
+    ensemble = float(individual.get("ridge", 0) * 0.6 + individual.get("gbr", 0) * 0.4)
     
     # 异常检测: 预测次日收益率 > 1% 或 < -1% 视为短期异常信号
     is_anomaly = abs(ensemble) > 1.0
@@ -276,7 +321,7 @@ def predict_next_return(symbol: str, model_bundle: Dict) -> Dict:
     return {
         "date": datetime.now().strftime("%Y-%m-%d"),
         "symbol": symbol,
-        "predicted_return_5d": round(ensemble, 4),
+        f"predicted_return_{PREDICT_HORIZON}d": round(ensemble, 4),
         "individual_predictions": individual,
         "is_anomaly": is_anomaly,
         "anomaly_direction": anomaly_direction,
@@ -287,25 +332,33 @@ def predict_next_return(symbol: str, model_bundle: Dict) -> Dict:
 
 
 def save_prediction_record(record: Dict):
-    """保存预测记录到 rebuild 目录"""
+    """保存预测记录到 rebuild 目录（自动去重：同一天+同一只股票保留最新）"""
     path = os.path.join(REBUILD_DIR, "prediction_history.json")
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             history = json.load(f)
     else:
         history = []
+    
+    # 去重：同一天+同一只股票只保留最新
+    sym = record.get("symbol")
+    date = record.get("date")
+    history = [r for r in history if not (r.get("symbol") == sym and r.get("date") == date)]
     history.append(record)
+    
     with open(path, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
 def save_nonprice_features(symbol: str, date_str: str, features: Dict):
-    """保存非价格特征到 CSV"""
+    """保存非价格特征到 CSV（自动去重，同一天保留最新）"""
     path = os.path.join(REBUILD_DIR, f"{symbol}_nonprice.csv")
     record = {"date": date_str, **features}
     
     if os.path.exists(path):
         df = pd.read_csv(path, encoding="utf-8-sig")
+        # 删除同一天的旧记录，避免重复
+        df = df[df["date"] != date_str]
     else:
         df = pd.DataFrame()
     
@@ -316,9 +369,9 @@ def save_nonprice_features(symbol: str, date_str: str, features: Dict):
 
 if __name__ == "__main__":
     # 测试
-    sym = "601318"
-    print(f"训练 {sym} 回归模型...")
-    bundle = train_regression_model(sym)
+    for sym in ["600519", "601398", "601857", "601288", "601988", "601628", "600036", "601088", "600900", "601318"]:
+        print(f"\n训练 {sym} 回归模型...")
+        bundle = train_regression_model(sym)
     if "error" in bundle:
         print(f"错误: {bundle['error']}")
     else:

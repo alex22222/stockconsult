@@ -103,6 +103,18 @@ class LocalDataProvider:
         """获取国债收益率数据"""
         return self._load_csv("bond_yield.csv")
 
+    def get_fx_usdcny(self) -> pd.DataFrame:
+        """获取美元兑人民币汇率数据"""
+        return self._load_csv("fx_usdcny.csv")
+
+    def get_commodity_wti(self) -> pd.DataFrame:
+        """获取WTI原油期货数据"""
+        return self._load_csv("commodity_wti.csv")
+
+    def get_commodity_gold(self) -> pd.DataFrame:
+        """获取黄金期货数据"""
+        return self._load_csv("commodity_gold.csv")
+
     def get_all_data_for_stock(self, symbol: str, days: int = 252) -> Dict[str, pd.DataFrame]:
         """获取单股全维度数据（本地版）"""
         data = {}
@@ -117,6 +129,9 @@ class LocalDataProvider:
         data["northbound_money"] = self.get_northbound_money()
         data["zt_pool"] = self.get_zt_pool()
         data["bond_yield"] = self.get_bond_yield()
+        data["fx_usdcny"] = self.get_fx_usdcny()
+        data["commodity_wti"] = self.get_commodity_wti()
+        data["commodity_gold"] = self.get_commodity_gold()
         return data
 
 

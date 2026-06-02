@@ -1005,6 +1005,22 @@ async function handleRemoveFavorite(event) {
  * 占卜师 - 基于历史数据计算涨跌概率
  */
 async function handleFortune(event) {
+  // 占卜师模块已迁移到策略重建实验室
+  // 请访问 /strategyRebuild 页面查看基于机器学习回归模型的5日预测
+  return {
+    statusCode: 200,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      success: true,
+      stocks: [],
+      message: '占卜师模块已迁移到策略重建实验室。请访问策略重建页面查看基于 Ridge+GBR 集成回归模型的 5 日预测及 Walk-Forward 回测结果。',
+    }),
+  };
+}
+
+// 旧版占卜师实现已废弃，保留代码以供参考：
+/*
+async function handleFortuneLegacy(event) {
   try {
     const query = event.queryString || event.queryStringParameters || {};
     const codesStr = query.codes || '';

@@ -73,8 +73,7 @@ interface AppState {
   // 查询记录
   showRecordsPage: boolean;
 
-  // 占卜师频道
-  showFortunePage: boolean;
+  // 占卜师频道已迁移到策略重建实验室
 
   // 模型原理说明
   showModelDocPage: boolean;
@@ -82,8 +81,7 @@ interface AppState {
   // 露笑科技预测历史
   showLuxiaoHistoryPage: boolean;
 
-  // 策略锐评
-  showStrategyAdvisorPage: boolean;
+  // 策略锐评已合并到策略重建实验室
 
   // 模拟盘
   showPaperTradingPage: boolean;
@@ -104,14 +102,14 @@ interface AppState {
   setApiKey: (key: string) => void;
   addToHistory: (stock: StockInfo) => void;
   toggleRecordsPage: (show?: boolean) => void;
-  toggleFortunePage: (show?: boolean) => void;
+  // toggleFortunePage: (show?: boolean) => void; // 已迁移到策略重建实验室
   toggleModelDocPage: (show?: boolean) => void;
   toggleLuxiaoHistoryPage: (show?: boolean) => void;
-  toggleStrategyAdvisorPage: (show?: boolean) => void;
+
   togglePaperTradingPage: (show?: boolean) => void;
   toggleMomentumScanPage: (show?: boolean) => void;
   toggleStrategyRebuildPage: (show?: boolean) => void;
-  navigateTo: (page: 'search' | 'records' | 'fortune' | 'modelDoc' | 'luxiao' | 'strategy' | 'paperTrading' | 'momentum' | 'strategyRebuild' | null) => void;
+  navigateTo: (page: 'search' | 'records' | 'modelDoc' | 'luxiao' | 'paperTrading' | 'momentum' | 'strategyRebuild' | null) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -146,10 +144,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
   theme: (localStorage.getItem('stockconsult-theme') as 'light' | 'dark') || 'light',
   showRecordsPage: false,
-  showFortunePage: false,
+  // showFortunePage: false, // 已迁移到策略重建实验室
   showModelDocPage: false,
   showLuxiaoHistoryPage: false,
-  showStrategyAdvisorPage: false,
+
   showPaperTradingPage: false,
   showMomentumScanPage: false,
   showStrategyRebuildPage: false,
@@ -260,11 +258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  toggleFortunePage: (show) => {
-    set((state) => ({
-      showFortunePage: show !== undefined ? show : !state.showFortunePage,
-    }));
-  },
+  // toggleFortunePage 已迁移到策略重建实验室
 
   toggleModelDocPage: (show) => {
     set((state) => ({
@@ -275,12 +269,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleLuxiaoHistoryPage: (show) => {
     set((state) => ({
       showLuxiaoHistoryPage: show !== undefined ? show : !state.showLuxiaoHistoryPage,
-    }));
-  },
-
-  toggleStrategyAdvisorPage: (show) => {
-    set((state) => ({
-      showStrategyAdvisorPage: show !== undefined ? show : !state.showStrategyAdvisorPage,
     }));
   },
 
@@ -305,10 +293,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   navigateTo: (page) => {
     set({
       showRecordsPage: page === 'records',
-      showFortunePage: page === 'fortune',
+      // showFortunePage: page === 'fortune', // 已迁移到策略重建实验室
       showModelDocPage: page === 'modelDoc',
       showLuxiaoHistoryPage: page === 'luxiao',
-      showStrategyAdvisorPage: page === 'strategy',
+
       showPaperTradingPage: page === 'paperTrading',
       showMomentumScanPage: page === 'momentum',
       showStrategyRebuildPage: page === 'strategyRebuild',

@@ -38,10 +38,16 @@ API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
 API_BASE = "https://data-api.investoday.net"
 
 STOCKS = {
+    "600519": "贵州茅台",
+    "601398": "工商银行",
+    "601857": "中国石油",
+    "601288": "农业银行",
+    "601988": "中国银行",
+    "601628": "中国人寿",
+    "600036": "招商银行",
+    "601088": "中国神华",
+    "600900": "长江电力",
     "601318": "中国平安",
-    "300622": "博士眼镜",
-    "002896": "中大力德",
-    "002617": "露笑科技",
 }
 
 
@@ -238,9 +244,89 @@ def daily_record(symbols: list):
         
         action = "📈" if pred["anomaly_direction"] == "UP" else "📉" if pred["anomaly_direction"] == "DOWN" else "➖"
         horizon_label = "次日" if PREDICT_HORIZON == 1 else f"{PREDICT_HORIZON}日"
-        print(f"     {action} 预测{horizon_label}收益率: {pred['predicted_return_5d']:+.2f}% | 异常检测: {pred['anomaly_direction']} | 置信度: {pred['confidence']:.2f}")
+        pred_key = f"predicted_return_{PREDICT_HORIZON}d"
+        print(f"     {action} 预测{horizon_label}收益率: {pred[pred_key]:+.2f}% | 异常检测: {pred['anomaly_direction']} | 置信度: {pred['confidence']:.2f}")
         
         records.append(pred)
+    
+    # 板块映射（10只市值股）
+    SYMBOL_SECTOR = {
+        "600519": "食品饮料",
+        "601398": "银行",
+        "601857": "石油石化",
+        "601288": "银行",
+        "601988": "银行",
+        "601628": "非银金融",
+        "600036": "银行",
+        "601088": "煤炭",
+        "600900": "电力",
+        "601318": "非银金融",
+    }
+
+    def _sector(symbol):
+        return SYMBOL_SECTOR.get(symbol, "其他")
+
+    # 生成精选池（Top 2 BUY 信号，同板块最多选1只）
+    buy_records = [r for r in records if (r.get("predicted_return_5d") or 0) > 0.5]
+    buy_records.sort(key=lambda r: r.get("predicted_return_5d", 0), reverse=True)
+
+    # 按板块分散选取：同一板块最多1只
+    focus = []
+    selected_sectors = set()
+    skipped = []
+    for r in buy_records:
+        sector = _sector(r["symbol"])
+        if sector in selected_sectors:
+            skipped.append(r)
+            continue
+        focus.append({
+            "rank": len(focus) + 1,
+            "symbol": r["symbol"],
+            "name": r["name"],
+            "predicted_return_5d": round(r.get("predicted_return_5d", 0), 4),
+            "signal": "买入",
+            "confidence": round(r.get("confidence", 0), 4),
+            "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%，模型置信度{r.get('confidence', 0):.2f}",
+            "sector": sector,
+        })
+        selected_sectors.add(sector)
+        if len(focus) >= 2:
+            break
+
+    # 如果 BUY 不足 2 只，用观望中收益最高的补足（同样遵守板块分散）
+    if len(focus) < 2:
+        hold_records = [r for r in records if 0 < (r.get("predicted_return_5d") or 0) <= 0.5]
+        hold_records.sort(key=lambda r: r.get("predicted_return_5d", 0), reverse=True)
+        for r in hold_records:
+            sector = _sector(r["symbol"])
+            if sector in selected_sectors:
+                skipped.append(r)
+                continue
+            focus.append({
+                "rank": len(focus) + 1,
+                "symbol": r["symbol"],
+                "name": r["name"],
+                "predicted_return_5d": round(r.get("predicted_return_5d", 0), 4),
+                "signal": "观望",
+                "confidence": round(r.get("confidence", 0), 4),
+                "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%（未达买入阈值），模型置信度{r.get('confidence', 0):.2f}",
+                "sector": sector,
+            })
+            selected_sectors.add(sector)
+            if len(focus) >= 2:
+                break
+
+    if skipped:
+        print(f"   ⏭ 板块分散跳过: {[r['name'] + '(' + _sector(r['symbol']) + ')' for r in skipped[:3]]}")
+    
+    focus_pool_path = os.path.join(REBUILD_DIR, "focus_pool.json")
+    with open(focus_pool_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "date": today,
+            "recorded_at": datetime.now().isoformat(),
+            "pool_size": len(focus),
+            "focus": focus,
+        }, f, ensure_ascii=False, indent=2)
     
     # 保存今日汇总
     summary_path = os.path.join(REBUILD_DIR, f"daily_summary_{today}.json")
@@ -249,10 +335,12 @@ def daily_record(symbols: list):
             "date": today,
             "recorded_at": datetime.now().isoformat(),
             "predictions": records,
+            "focus_pool": focus,
         }, f, ensure_ascii=False, indent=2)
     
     print("\n" + "=" * 80)
     print(f"✅ 已保存 {len(records)} 条预测记录")
+    print(f"   精选池: {[f['name'] for f in focus]}")
     print(f"   历史记录: {os.path.join(REBUILD_DIR, 'prediction_history.json')}")
     print(f"   今日汇总: {summary_path}")
     print("=" * 80)
@@ -260,7 +348,7 @@ def daily_record(symbols: list):
 
 
 def verify_predictions():
-    """验证过去已到期的预测"""
+    """验证过去已到期的预测（使用交易日计算，跳过周末）"""
     history_path = os.path.join(REBUILD_DIR, "prediction_history.json")
     if not os.path.exists(history_path):
         return
@@ -268,20 +356,18 @@ def verify_predictions():
     with open(history_path, "r", encoding="utf-8") as f:
         history = json.load(f)
     
-    today = datetime.now().strftime("%Y-%m-%d")
     verified_count = 0
+    skipped_no_data = 0
     
     for record in history:
-        if record.get("verified") or not record.get("verify_date"):
-            continue
-        
-        if today < record["verify_date"]:
+        if record.get("verified"):
             continue
         
         sym = record["symbol"]
         predict_date = record["date"]
+        horizon = record.get("predict_horizon", PREDICT_HORIZON)
         
-        # 加载股价数据计算实际5日收益率
+        # 加载股价数据计算实际 horizon 个交易日后的收益率
         import pandas as pd
         stock_path = os.path.join(DATA_DIR, f"{sym}_daily.csv")
         if not os.path.exists(stock_path):
@@ -289,24 +375,31 @@ def verify_predictions():
         
         df = pd.read_csv(stock_path)
         df["日期"] = pd.to_datetime(df["日期"])
+        df = df.sort_values("日期").reset_index(drop=True)
         
-        pred_row = df[df["日期"] == pd.to_datetime(predict_date)]
-        if pred_row.empty:
+        pred_mask = df["日期"] == pd.to_datetime(predict_date)
+        if not pred_mask.any():
             continue
         
-        pred_idx = pred_row.index[0]
-        horizon = record.get("predict_horizon", PREDICT_HORIZON)
+        pred_idx = df[pred_mask].index[0]
         if pred_idx + horizon >= len(df):
+            skipped_no_data += 1
             continue
         
-        pred_price = float(pred_row.iloc[0]["收盘"])
+        pred_price = float(df.iloc[pred_idx]["收盘"])
         actual_price = float(df.iloc[pred_idx + horizon]["收盘"])
         actual_return = (actual_price / pred_price - 1) * 100
         
         record["verified"] = True
         record["actual_return"] = round(actual_return, 4)
-        record["prediction_error"] = round(record["predicted_return_5d"] - actual_return, 4)
-        record["direction_correct"] = (record["predicted_return_5d"] > 0) == (actual_return > 0)
+        pred_key = f"predicted_return_{horizon}d"
+        if pred_key in record:
+            record["prediction_error"] = round(record[pred_key] - actual_return, 4)
+            record["direction_correct"] = (record[pred_key] > 0) == (actual_return > 0)
+        
+        # 更新 verify_date 为实际验证日期（第 horizon 个交易日）
+        actual_verify_date = df.iloc[pred_idx + horizon]["日期"].strftime("%Y-%m-%d")
+        record["verify_date"] = actual_verify_date
         
         verified_count += 1
     
@@ -315,6 +408,8 @@ def verify_predictions():
     
     if verified_count > 0:
         print(f"\n✅ 已验证 {verified_count} 条历史预测")
+    if skipped_no_data > 0:
+        print(f"   ⏳ {skipped_no_data} 条预测数据不足（需等更多交易日数据）")
 
 
 if __name__ == "__main__":

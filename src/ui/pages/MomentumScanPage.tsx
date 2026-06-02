@@ -294,10 +294,13 @@ export function MomentumScanPage() {
   const [result, setResult] = useState<MomentumScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [expandedId, setExpandedId] = useState<number | null>(1);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'api' | 'local' | 'mock'>('local');
 
   const runScan = useCallback(async () => {
     setLoading(true);
+    setScanError(null);
     setProgress({ done: 0, total: 12 });
     try {
       const data = await scanMomentumPicks((done, total) => {
@@ -305,8 +308,18 @@ export function MomentumScanPage() {
       });
       setResult(data);
       setExpandedId(1);
-    } catch (e) {
+      // 判断数据来源：如果 picks 中的股票全是当前10只市值股，说明是本地数据
+      const currentCodes = new Set(['600519','601398','601857','601288','601988','601628','600036','601088','600900','601318']);
+      const allCurrent = data.picks.length > 0 && data.picks.every(p => currentCodes.has(p.stock.code));
+      const hasOldStocks = data.picks.some(p => ['002617','002896','300622'].includes(p.stock.code));
+      if (hasOldStocks || allCurrent) {
+        setDataSource('local');
+      } else {
+        setDataSource('api');
+      }
+    } catch (e: any) {
       console.error('Scan failed:', e);
+      setScanError(e.message || '扫描失败');
     } finally {
       setLoading(false);
       setProgress({ done: 0, total: 0 });
@@ -378,9 +391,20 @@ export function MomentumScanPage() {
           </div>
         )}
 
-        {result && (
+        {/* 错误提示 */}
+      {scanError && !result && (
+        <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 px-4 py-3 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-red-700 dark:text-red-400">扫描失败</div>
+            <div className="text-xs text-red-600 dark:text-red-300 mt-0.5">{scanError}</div>
+          </div>
+        </div>
+      )}
+
+      {result && (
           <>
-            {/* 市场氛围 */}
+            {/* 市场氛围 + 数据来源 */}
             <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
               <span className="text-xs text-gray-500 dark:text-gray-400">市场氛围</span>
               <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -398,12 +422,29 @@ export function MomentumScanPage() {
                   <><Activity className="w-3 h-3" /> 中性</>
                 )}
               </span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ml-2 ${
+                dataSource === 'api'
+                  ? 'bg-green-100 text-green-700'
+                  : dataSource === 'local'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-500'
+              }`}>
+                {dataSource === 'api' ? '实时扫描' : dataSource === 'local' ? '本地缓存' : '演示数据'}
+              </span>
+              {scanError && (
+                <span className="text-[10px] text-red-500 ml-1" title={scanError}>
+                  (API 失败)
+                </span>
+              )}
               <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">
                 本次扫描 {result.totalScanned.toLocaleString()} 只个股 · {result.scanTime}
               </span>
             </div>
 
             {/* 股票列表 */}
+            <div className="text-xs text-gray-400 dark:text-gray-500 px-1">
+              共 {result.picks.length} 只 · 点击卡片展开详情
+            </div>
             <div className="space-y-3">
               {result.picks.map((pick) => (
                 <StockCard

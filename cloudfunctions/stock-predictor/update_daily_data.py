@@ -20,7 +20,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 COLUMN_MAP = {
-    'date': '日期', 'code': '股票代码', 'open': '开盘', 'high': '最高',
+    'date': '日期', 'open': '开盘', 'high': '最高',
     'low': '最低', 'close': '收盘', 'volume': '成交量', 'amount': '成交额',
     'turn': '换手率', 'pctChg': '涨跌幅',
 }
@@ -78,7 +78,7 @@ def fetch_from_baostock(code: str, start: str, end: str, fields: str, max_retrie
                 logger.warning(f"baostock 登录失败 (尝试 {attempt}/{max_retries})")
                 time.sleep(2)
                 continue
-            rs = bs.query_history_k_data_plus(code, fields, start_date=start, end_date=end, frequency='d', adjustflag='3')
+            rs = bs.query_history_k_data_plus(code, fields, start_date=start, end_date=end, frequency='d', adjustflag='2')
             if rs is None:
                 bs.logout()
                 logger.warning(f"baostock 返回空 (尝试 {attempt}/{max_retries})")
@@ -91,7 +91,23 @@ def fetch_from_baostock(code: str, start: str, end: str, fields: str, max_retrie
             if not rows:
                 return pd.DataFrame()
             df = pd.DataFrame(rows, columns=rs.fields)
-            df.rename(columns=COLUMN_MAP, inplace=True)
+            # 计算振幅和涨跌额
+            df['preclose'] = df['preclose'].astype(float)
+            df['open'] = df['open'].astype(float)
+            df['high'] = df['high'].astype(float)
+            df['low'] = df['low'].astype(float)
+            df['close'] = df['close'].astype(float)
+            df['volume'] = df['volume'].astype(float)
+            df['amount'] = df['amount'].astype(float)
+            df['turn'] = df['turn'].astype(float)
+            df['pctChg'] = df['pctChg'].astype(float)
+            df['amplitude'] = (df['high'] - df['low']) / df['preclose'] * 100
+            df['change'] = df['close'] - df['preclose']
+            # 重命名并选择标准列
+            rename_map = {**COLUMN_MAP, 'amplitude': '振幅', 'change': '涨跌额'}
+            df = df.rename(columns=rename_map)
+            std_cols = ['日期', '开盘', '收盘', '最高', '最低', '成交量', '成交额', '振幅', '涨跌幅', '涨跌额', '换手率']
+            df = df[[c for c in std_cols if c in df.columns]]
             logger.info(f"baostock 成功获取 {len(df)} 条")
             return df
         except Exception as e:
@@ -182,31 +198,31 @@ def update_single_file(config: dict, global_attempt: int) -> tuple:
 STOCK_CONFIGS = [
     # 露笑科技
     {'csv': '002617_daily.csv', 'baostock_code': 'sz.002617',
-     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
      'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002617'},
     # 中国平安
     {'csv': '601318_daily.csv', 'baostock_code': 'sh.601318',
-     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
      'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601318'},
     # 博士眼镜
     {'csv': '300622_daily.csv', 'baostock_code': 'sz.300622',
-     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
      'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '300622'},
     # 中大力德
     {'csv': '002896_daily.csv', 'baostock_code': 'sz.002896',
-     'fields': 'date,code,open,high,low,close,volume,amount,turn,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
      'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002896'},
 ]
 
 INDEX_CONFIGS = [
     {'csv': 'sh_index_000001.csv', 'baostock_code': 'sh.000001',
-     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,pctChg',
      'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '000001'},
     {'csv': 'sz_index_399001.csv', 'baostock_code': 'sz.399001',
-     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,pctChg',
      'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '399001'},
     {'csv': 'cy_index_399006.csv', 'baostock_code': 'sz.399006',
-     'fields': 'date,open,high,low,close,volume,amount,pctChg',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,pctChg',
      'akshare_func': fetch_from_akshare_index, 'akshare_symbol': '399006'},
 ]
 

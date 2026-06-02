@@ -744,17 +744,19 @@ class FeatureEngineer:
     
     # ==================== 核心: 构建完整特征集 ====================
     
-    def build_features(self, data: Dict[str, pd.DataFrame], symbol: str) -> Tuple[pd.DataFrame, pd.Series]:
+    def build_features(self, data: Dict[str, pd.DataFrame], symbol: str,
+                        target_mode: str = "classification") -> Tuple[pd.DataFrame, pd.Series]:
         """
         构建完整的特征数据集
         
         Args:
             data: 包含所有原始数据的字典
             symbol: 股票代码
+            target_mode: "classification" (涨跌标签) 或 "regression" (次日收益率)
             
         Returns:
             X: 特征矩阵
-            y: 目标变量 (明日涨跌: 1=涨, 0=跌)
+            y: 目标变量
         """
         logger.info("开始构建多因子特征...")
         
@@ -831,10 +833,14 @@ class FeatureEngineer:
         # 移除重复列
         X = X.loc[:, ~X.columns.duplicated()]
         
-        # 构建目标变量 (明日涨跌)
+        # 构建目标变量
         close = stock_df["收盘"]
-        # 明日收益率 > 0 则为 1 (涨), 否则 0 (跌)
-        y = (close.shift(-1) > close).astype(int)
+        if target_mode == "regression":
+            # 次日收益率 (百分比)
+            y = close.pct_change().shift(-1) * 100
+        else:
+            # 默认: 分类 — 明日涨跌 (1=涨, 0=跌)
+            y = (close.shift(-1) > close).astype(int)
         
         # 移除最后一天（没有明日数据）
         X = X.iloc[:-1]
@@ -846,6 +852,175 @@ class FeatureEngineer:
         logger.info(f"特征构建完成: X.shape={X.shape}, y.shape={y.shape}")
         logger.info(f"特征列表: {self.feature_names}")
         
+        return X, y
+    
+    def build_compact_features(self, data: Dict[str, pd.DataFrame], symbol: str,
+                                target_mode: str = "classification",
+                                predict_horizon: int = 1,
+                                ic_filter: bool = False) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        构建精简核心特征集 (~16个)，删除同源冗余，降低噪声与共线性。
+        
+        Args:
+            ic_filter: 如果为 True，只保留经 IC 验证有效的 8 个核心特征，
+                      避免低质量宏观因子稀释有效信号。
+        
+        保留逻辑:
+        - 动量: 1d/5d/20d 收益
+        - 波动率: 5d/20d 标准差
+        - 量能: 成交量比 5d/20d 均值
+        - 技术位置: 距MA20距离、20d价格分位、ATR/价格
+        - 趋势状态: MA5>MA20、连续涨跌天数
+        - 大盘相对: 指数1d收益、个股-指数5d相关性
+        - 形态: 振幅、实体比例
+        - 跨市场: 美股隔夜评分、汇率、原油、黄金
+        """
+        logger.info("开始构建精简特征...")
+        stock_df = data.get("stock_daily", pd.DataFrame())
+        if stock_df.empty:
+            logger.error("个股数据为空")
+            return pd.DataFrame(), pd.Series()
+        if "日期" in stock_df.columns:
+            stock_df = stock_df.sort_values("日期").reset_index(drop=True)
+        
+        close = stock_df["收盘"].astype(float)
+        volume = stock_df["成交量"].astype(float)
+        high = stock_df["最高"].astype(float)
+        low = stock_df["最低"].astype(float)
+        open_ = stock_df["开盘"].astype(float)
+        
+        f = pd.DataFrame(index=stock_df.index)
+        
+        # 1. 动量 (3)
+        f["mom_1d"] = close.pct_change() * 100
+        f["mom_5d"] = close.pct_change(5) * 100
+        f["mom_20d"] = close.pct_change(20) * 100
+        
+        # 2. 波动率 (2)
+        f["vol_5d"] = close.pct_change().rolling(5).std() * 100
+        f["vol_20d"] = close.pct_change().rolling(20).std() * 100
+        
+        # 3. 量能 (2)
+        f["vol_ratio_5"] = volume / volume.rolling(5).mean()
+        f["vol_ratio_20"] = volume / volume.rolling(20).mean()
+        
+        # 4. 技术位置 (3)
+        ma20 = close.rolling(20).mean()
+        f["price_vs_ma20"] = (close - ma20) / ma20 * 100
+        f["price_pctile_20d"] = close.rolling(20).apply(
+            lambda x: (x.iloc[-1] - x.min()) / (x.max() - x.min() + 1e-10) * 100 if x.max() != x.min() else 50
+        )
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr14 = tr.rolling(14).mean()
+        f["atr_14_ratio"] = atr14 / close * 100
+        
+        # 5. 趋势状态 (3)
+        ma5 = close.rolling(5).mean()
+        f["ma5_above_ma20"] = (ma5 > ma20).astype(int)
+        f["consecutive_up"] = self._calc_consecutive_days(close, "up")
+        f["consecutive_down"] = self._calc_consecutive_days(close, "down")
+        
+        # 6. 大盘相对 (2)
+        sh_index_df = data.get("sh_index", pd.DataFrame())
+        if not sh_index_df.empty and "日期" in sh_index_df.columns and "收盘" in sh_index_df.columns:
+            sh_merged = pd.merge(
+                stock_df[["日期", "收盘"]].rename(columns={"收盘": "close_stock"}),
+                sh_index_df[["日期", "收盘"]].rename(columns={"收盘": "close_index"}),
+                on="日期", how="left"
+            )
+            sh_close = sh_merged["close_index"].ffill()
+            f["index_return_1d"] = sh_close.pct_change() * 100
+            f["index_corr_5d"] = sh_merged["close_stock"].rolling(5).corr(sh_close)
+        else:
+            f["index_return_1d"] = 0.0
+            f["index_corr_5d"] = 0.0
+        
+        # 7. 形态 (2)
+        f["amplitude"] = (high - low) / close.shift(1) * 100
+        f["body_ratio"] = abs(close - open_) / (high - low + 1e-10) * 100
+        
+        # 8. 非价格情绪/宏观特征（新补充的历史数据）
+        if "日期" in stock_df.columns:
+            stock_dates = pd.to_datetime(stock_df["日期"]).dt.strftime("%Y-%m-%d")
+        else:
+            stock_dates = pd.to_datetime(stock_df.index).strftime("%Y-%m-%d")
+        
+        # 8.1 北向资金
+        nb_df = data.get("northbound_money", pd.DataFrame())
+        if not nb_df.empty and "日期" in nb_df.columns:
+            nb_df = nb_df.copy()
+            nb_df["date_key"] = pd.to_datetime(nb_df["日期"]).dt.strftime("%Y-%m-%d")
+            nb_map = {str(r["date_key"]): r for _, r in nb_df.iterrows() if pd.notna(r.get("date_key"))}
+            f["northbound_net"] = [float(nb_map.get(d, {}).get("total_net_buy", 0)) / 1e8 for d in stock_dates]
+            f["northbound_cum5"] = [float(nb_map.get(d, {}).get("net_buy_cum5", 0)) / 1e8 for d in stock_dates]
+        else:
+            f["northbound_net"] = 0.0
+            f["northbound_cum5"] = 0.0
+        
+        # 8.2 美股隔夜
+        us_df = data.get("us_overnight", pd.DataFrame())
+        if not us_df.empty and "date" in us_df.columns:
+            us_df = us_df.copy()
+            us_df["date_key"] = pd.to_datetime(us_df["date"]).dt.strftime("%Y-%m-%d")
+            us_map = {str(r["date_key"]): r for _, r in us_df.iterrows() if pd.notna(r.get("date_key"))}
+            f["us_overnight_score"] = [float(us_map.get(d, {}).get("us_overnight_score", 0)) for d in stock_dates]
+        else:
+            f["us_overnight_score"] = 0.0
+        
+        # 8.3 涨跌停比
+        zt_df = data.get("zt_pool", pd.DataFrame())
+        if not zt_df.empty and "date" in zt_df.columns:
+            zt_df = zt_df.copy()
+            zt_df["date_key"] = pd.to_datetime(zt_df["date"]).dt.strftime("%Y-%m-%d")
+            zt_map = {str(r["date_key"]): r for _, r in zt_df.iterrows() if pd.notna(r.get("date_key"))}
+            f["zt_dt_ratio"] = [float(zt_map.get(d, {}).get("zt_dt_ratio", 1.0)) for d in stock_dates]
+        else:
+            f["zt_dt_ratio"] = 1.0
+        
+        # 8.4 国债收益率变化
+        bond_df = data.get("bond_yield", pd.DataFrame())
+        if not bond_df.empty and "日期" in bond_df.columns:
+            bond_df = bond_df.copy()
+            bond_df["date_key"] = pd.to_datetime(bond_df["日期"]).dt.strftime("%Y-%m-%d")
+            bond_map = {str(r["date_key"]): r for _, r in bond_df.iterrows() if pd.notna(r.get("date_key"))}
+            chg_col = "中国国债收益率10年_chg_1d"
+            f["bond_yield_10y_chg"] = [float(bond_map.get(d, {}).get(chg_col, 0)) for d in stock_dates]
+        else:
+            f["bond_yield_10y_chg"] = 0.0
+        
+        # 8.5-8.7 汇率/原油/黄金（已验证为低IC噪声，暂不注入模型，保留数据文件供后续研究）
+        # fx_df = data.get("fx_usdcny", pd.DataFrame())
+        # wti_df = data.get("commodity_wti", pd.DataFrame())
+        # gold_df = data.get("commodity_gold", pd.DataFrame())
+        
+        # 清洗
+        X = f.replace([np.inf, -np.inf], 0).fillna(0)
+        
+        # 目标变量（支持可变预测周期）
+        if target_mode == "regression":
+            y = (close.shift(-predict_horizon) / close - 1) * 100
+        else:
+            y = (close.shift(-predict_horizon) > close).astype(int)
+        
+        # IC 预筛选：只保留经 walk-forward 验证有效的特征，避免噪声稀释信号
+        if ic_filter:
+            ic_whitelist = [
+                "mom_20d", "price_vs_ma20", "us_overnight_score",
+                "price_pctile_20d", "consecutive_down", "ma5_above_ma20",
+                "mom_5d", "consecutive_up",
+            ]
+            available = [c for c in ic_whitelist if c in X.columns]
+            X = X[available]
+            logger.info(f"IC 过滤后保留 {len(available)} 个特征: {available}")
+        
+        # 移除最后 predict_horizon 天（没有未来数据）
+        X = X.iloc[:-predict_horizon]
+        y = y.iloc[:-predict_horizon]
+        self.feature_names = X.columns.tolist()
+        logger.info(f"精简特征构建完成: X.shape={X.shape}, features={self.feature_names}")
         return X, y
     
     # ==================== 辅助计算函数 ====================

@@ -417,11 +417,12 @@ def send_to_feishu(report: dict) -> bool:
         warnings_text = "**⚠️ 今日预警**\n" + "\n".join([f"• [{w['type']}] {w['name']}: {w['detail']}" for w in report["warnings"]]) + "\n\n"
     
     ms = report["market_sentiment"]
+    stocks_text = "\n\n".join(stocks_content)
     content = (
         f"📰 **每日舆情简报 | {report['date']}**\n\n"
         f"🌡️ **市场情绪: {ms['label']}** | 综合评分: {ms['score']:.1f} | 情绪均值: {ms['emotion']:+.2f}\n\n"
         f"{warnings_text}"
-        f"{'\n\n'.join(stocks_content)}\n\n"
+        f"{stocks_text}\n\n"
         f"💡 免责声明: 本简报仅供参考，不构成投资建议"
     )
     

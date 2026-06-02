@@ -57,7 +57,7 @@ function ProbabilityBadge({ value, type }: { value: number; type: 'up' | 'down' 
 
 export function FortuneTellerPage() {
   const favorites = useAppStore((s) => s.favorites);
-  const toggleFortunePage = useAppStore((s) => s.toggleFortunePage);
+  // const toggleFortunePage = useAppStore((s) => s.toggleFortunePage); // 已迁移到策略重建实验室
 
   const [fortunes, setFortunes] = useState<FortuneStock[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,7 +89,7 @@ export function FortuneTellerPage() {
       {/* 头部 */}
       <div className="flex items-center gap-4 mb-8">
         <button
-          onClick={() => toggleFortunePage(false)}
+          onClick={() => { window.location.href = '/strategyRebuild'; }}
           className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all hover:scale-105"
         >
           <ArrowLeft className="w-5 h-5" />
