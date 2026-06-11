@@ -1,0 +1,79 @@
+{
+  "symbol": "002617",
+  "name": "露笑科技",
+  "updatedAt": "2026-05-16 02:43:55",
+  "latest": {
+    "predictDate": "2026-05-16",
+    "localModel": {
+      "prediction": "涨",
+      "upProbability": 55.0,
+      "downProbability": 45.0,
+      "confidence": 60.0
+    },
+    "cloudModel": {
+      "prediction": "涨",
+      "upProbability": 69,
+      "downProbability": 31,
+      "confidence": 38,
+      "factorScores": {
+        "trend": 85,
+        "momentum": 97,
+        "volume": 50,
+        "technical": 53,
+        "usMarket": 50
+      },
+      "usMarketDetail": {
+        "nasdaq": 0.71,
+        "dow": 0.74,
+        "sp500": 0.79,
+        "chinaDragon": -2.67
+      }
+    },
+    "verified": false,
+    "actualResult": null,
+    "actualChangePercent": null,
+    "localCorrect": null,
+    "cloudCorrect": null
+  },
+  "stats": {
+    "total": 1,
+    "verified": 0,
+    "localAccuracy": null,
+    "cloudAccuracy": null
+  },
+  "history": [
+    {
+      "predictDate": "2026-05-16",
+      "localModel": {
+        "prediction": "涨",
+        "upProbability": 55.0,
+        "downProbability": 45.0,
+        "confidence": 60.0
+      },
+      "cloudModel": {
+        "prediction": "涨",
+        "upProbability": 69,
+        "downProbability": 31,
+        "confidence": 38,
+        "factorScores": {
+          "trend": 85,
+          "momentum": 97,
+          "volume": 50,
+          "technical": 53,
+          "usMarket": 50
+        },
+        "usMarketDetail": {
+          "nasdaq": 0.71,
+          "dow": 0.74,
+          "sp500": 0.79,
+          "chinaDragon": -2.67
+        }
+      },
+      "verified": false,
+      "actualResult": null,
+      "actualChangePercent": null,
+      "localCorrect": null,
+      "cloudCorrect": null
+    }
+  ]
+}

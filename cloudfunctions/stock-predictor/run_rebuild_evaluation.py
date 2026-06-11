@@ -120,7 +120,7 @@ def evaluate_symbol(records: List[Dict], symbol: str) -> Dict:
         "records": [
             {"date": r["date"], "pred": round(r.get("predicted_return_5d", 0) or 0, 2),
              "actual": round(r.get("actual_return", 0) or 0, 2),
-             "correct": (r.get("predicted_return_5d", 0) or 0) > 0 == (r.get("actual_return", 0) or 0) > 0}
+             "correct": ((r.get("predicted_return_5d", 0) or 0) > 0) == ((r.get("actual_return", 0) or 0) > 0)}
             for r in sym_records
         ]
     }

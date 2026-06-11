@@ -25,6 +25,13 @@ export interface MomentumPick {
   level: MomentumLevel;
   dimensions: MomentumDimension[];
   summary: string;            // 一句话总结
+  entryPlan?: {
+    type: 'breakout' | 'pullback' | 'wait';
+    label: string;             // 入场方式：上破追击 / 回踩低吸 / 等待确认
+    trigger: string;           // 触发条件
+    invalidation: string;      // 失效条件
+    note: string;              // 执行备注
+  };
   holdingPeriod: string;      // 建议持仓周期
   riskWarning: string[];      // 风险提示
   updatedAt: string;

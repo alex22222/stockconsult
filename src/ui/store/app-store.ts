@@ -73,15 +73,8 @@ interface AppState {
   // 查询记录
   showRecordsPage: boolean;
 
-  // 占卜师频道已迁移到策略重建实验室
-
   // 模型原理说明
   showModelDocPage: boolean;
-
-  // 露笑科技预测历史
-  showLuxiaoHistoryPage: boolean;
-
-  // 策略锐评已合并到策略重建实验室
 
   // 模拟盘
   showPaperTradingPage: boolean;
@@ -105,15 +98,12 @@ interface AppState {
   setApiKey: (key: string) => void;
   addToHistory: (stock: StockInfo) => void;
   toggleRecordsPage: (show?: boolean) => void;
-  // toggleFortunePage: (show?: boolean) => void; // 已迁移到策略重建实验室
   toggleModelDocPage: (show?: boolean) => void;
-  toggleLuxiaoHistoryPage: (show?: boolean) => void;
-
   togglePaperTradingPage: (show?: boolean) => void;
   toggleMomentumScanPage: (show?: boolean) => void;
   toggleStrategyRebuildPage: (show?: boolean) => void;
   toggleLandingPage: (show?: boolean) => void;
-  navigateTo: (page: 'search' | 'records' | 'modelDoc' | 'luxiao' | 'paperTrading' | 'momentum' | 'strategyRebuild' | 'landing' | null) => void;
+  navigateTo: (page: 'search' | 'records' | 'modelDoc' | 'paperTrading' | 'momentum' | 'strategyRebuild' | 'landing' | null) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addToHotStocks: (stock: StockInfo) => void;
   addToFavorites: (stock: StockInfo) => Promise<boolean>;
@@ -148,10 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',
   theme: (localStorage.getItem('stockconsult-theme') as 'light' | 'dark') || 'light',
   showRecordsPage: false,
-  // showFortunePage: false, // 已迁移到策略重建实验室
   showModelDocPage: false,
-  showLuxiaoHistoryPage: false,
-
   showPaperTradingPage: false,
   showMomentumScanPage: false,
   showStrategyRebuildPage: false,
@@ -271,12 +258,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  toggleLuxiaoHistoryPage: (show) => {
-    set((state) => ({
-      showLuxiaoHistoryPage: show !== undefined ? show : !state.showLuxiaoHistoryPage,
-    }));
-  },
-
   togglePaperTradingPage: (show) => {
     set((state) => ({
       showPaperTradingPage: show !== undefined ? show : !state.showPaperTradingPage,
@@ -304,13 +285,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   navigateTo: (page) => {
     set({
       showRecordsPage: page === 'records',
-      // showFortunePage: page === 'fortune', // 已迁移到策略重建实验室
       showModelDocPage: page === 'modelDoc',
-      showLuxiaoHistoryPage: page === 'luxiao',
-
       showPaperTradingPage: page === 'paperTrading',
       showMomentumScanPage: page === 'momentum',
       showStrategyRebuildPage: page === 'strategyRebuild',
+      showLandingPage: page === 'landing',
     });
   },
 

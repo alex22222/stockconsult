@@ -625,13 +625,13 @@ export function StrategyRebuildPage() {
               </div>
             </div>
 
-            {/* 实盘跟踪入口 */}
+            {/* 实验跟踪入口 */}
             {paperTradingReport && (
               <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                     <PiggyBank className="w-4 h-4 text-emerald-500" />
-                    模拟盘实盘跟踪
+                    模拟盘实验跟踪
                   </h2>
                   <button
                     onClick={() => togglePaperTradingPage(true)}
@@ -661,7 +661,7 @@ export function StrategyRebuildPage() {
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">
-                  模拟盘是真实的前向跟踪，每天根据实验信号实际执行买卖，包含真实交易成本。历史回测仅供参考，实盘跟踪才是最终裁判。
+                  模拟盘是真实的前向跟踪，每天根据实验信号实际执行买卖，包含真实交易成本。历史回测仅供参考，实验跟踪才是最终裁判。
                 </div>
               </div>
             )}

@@ -168,13 +168,13 @@ export function AIPredictionPanel({ stockCode }: { stockCode: string; stockName?
             </div>
             <div className="text-right relative group">
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center justify-end gap-1">
-                置信度
+                信号强度
                 <HelpCircle className="w-3 h-3 text-gray-300 group-hover:text-gray-500" />
               </div>
               <div className="text-xl font-bold text-gray-800 dark:text-gray-200">{data.confidence}%</div>
               <div className="absolute right-0 top-full mt-1 w-56 text-[10px] text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-2 py-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                置信度 = |上涨概率 − 50%| × 2<br />
-                越偏离50%，模型越"有把握"
+                信号强度 = |上涨概率 − 50%| × 2<br />
+                越偏离50%，信号越明显（非校准置信度）
               </div>
             </div>
           </div>
@@ -212,7 +212,7 @@ export function AIPredictionPanel({ stockCode }: { stockCode: string; stockName?
             <div className="mt-2 text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2.5 space-y-1.5 leading-relaxed">
               <p><span className="font-medium text-gray-600 dark:text-gray-300">综合预测</span> = 趋势×22% + 动量×22% + 量能×18% + 技术×25% + 美股×13%</p>
               <p><span className="font-medium text-gray-600 dark:text-gray-300">上涨概率</span> = round(综合预测)，&gt;55判涨，&lt;45判跌，中间判平</p>
-              <p><span className="font-medium text-gray-600 dark:text-gray-300">置信度</span> = |上涨概率 − 50| × 2，越偏离50%越有把握</p>
+              <p><span className="font-medium text-gray-600 dark:text-gray-300">信号强度</span> = |上涨概率 − 50| × 2，越偏离50%信号越明显（非校准置信度）</p>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-1.5 space-y-1">
                 <p><span className="font-medium">趋势分</span>：MA5/MA10/MA20排列 — 多头85/短期上65/空头15/短期下35/纠缠50</p>
                 <p><span className="font-medium">动量分</span>：50 + 近5日累计涨跌×3 + 今日涨跌×0.5，clamp[0,100]</p>

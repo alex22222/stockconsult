@@ -24,5 +24,83 @@
     "entry_price": 5.86,
     "expected_exit_date": "2026-06-06",
     "source": "focus_pool"
+  },
+  {
+    "id": "601288_2026-06-03",
+    "symbol": "601288",
+    "name": "农业银行",
+    "date": "2026-06-03",
+    "predicted_return_5d": 2.4017,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 6.32,
+    "expected_exit_date": "2026-06-08",
+    "source": "focus_pool"
+  },
+  {
+    "id": "601857_2026-06-03",
+    "symbol": "601857",
+    "name": "中国石油",
+    "date": "2026-06-03",
+    "predicted_return_5d": 1.0805,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 10.87,
+    "expected_exit_date": "2026-06-08",
+    "source": "focus_pool"
+  },
+  {
+    "id": "601288_2026-06-04",
+    "symbol": "601288",
+    "name": "农业银行",
+    "date": "2026-06-04",
+    "predicted_return_5d": 2.4017,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 6.32,
+    "expected_exit_date": "2026-06-09",
+    "source": "focus_pool"
+  },
+  {
+    "id": "601857_2026-06-04",
+    "symbol": "601857",
+    "name": "中国石油",
+    "date": "2026-06-04",
+    "predicted_return_5d": 1.0805,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 10.87,
+    "expected_exit_date": "2026-06-09",
+    "source": "focus_pool"
+  },
+  {
+    "id": "601288_2026-06-05",
+    "symbol": "601288",
+    "name": "农业银行",
+    "date": "2026-06-05",
+    "predicted_return_5d": 2.381,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 6.32,
+    "expected_exit_date": "2026-06-10",
+    "source": "focus_pool"
+  },
+  {
+    "id": "601857_2026-06-05",
+    "symbol": "601857",
+    "name": "中国石油",
+    "date": "2026-06-05",
+    "predicted_return_5d": 1.0747,
+    "signal": "buy",
+    "threshold": 0.5,
+    "status": "pending",
+    "entry_price": 10.87,
+    "expected_exit_date": "2026-06-10",
+    "source": "focus_pool"
   }
 ]

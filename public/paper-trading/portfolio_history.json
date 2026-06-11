@@ -8,5 +8,75 @@
     "return_pct": -0.1822,
     "daily_return_pct": -0.18,
     "daily_pnl": 117.0
+  },
+  {
+    "date": "2026-06-03",
+    "cash": 869.78,
+    "market_value": 9112.0,
+    "total_assets": 9981.78,
+    "nav": 0.9982,
+    "return_pct": -0.1822,
+    "daily_return_pct": 0.0,
+    "daily_pnl": 117.0
+  },
+  {
+    "date": "2026-06-04",
+    "cash": 869.78,
+    "market_value": 9112.0,
+    "total_assets": 9981.78,
+    "nav": 0.9982,
+    "return_pct": -0.1822,
+    "daily_return_pct": 0.0,
+    "daily_pnl": 117.0
+  },
+  {
+    "date": "2026-06-05",
+    "cash": 10021.44,
+    "market_value": 0.0,
+    "total_assets": 10021.44,
+    "nav": 1.0021,
+    "return_pct": 0.2144,
+    "daily_return_pct": 0.3907,
+    "daily_pnl": 0.0
+  },
+  {
+    "date": "2026-06-06",
+    "cash": 1308.05,
+    "market_value": 8696.0,
+    "total_assets": 10004.05,
+    "nav": 1.0004,
+    "return_pct": 0.0405,
+    "daily_return_pct": -0.1696,
+    "daily_pnl": 26.0
+  },
+  {
+    "date": "2026-06-07",
+    "cash": 1308.05,
+    "market_value": 8696.0,
+    "total_assets": 10004.05,
+    "nav": 1.0004,
+    "return_pct": 0.0405,
+    "daily_return_pct": 0.0,
+    "daily_pnl": 26.0
+  },
+  {
+    "date": "2026-06-10",
+    "cash": 1308.05,
+    "market_value": 8696.0,
+    "total_assets": 10004.05,
+    "nav": 1.0004,
+    "return_pct": 0.0405,
+    "daily_return_pct": 0.0,
+    "daily_pnl": 26.0
+  },
+  {
+    "date": "2026-06-11",
+    "cash": 1308.05,
+    "market_value": 8696.0,
+    "total_assets": 10004.05,
+    "nav": 1.0004,
+    "return_pct": 0.0405,
+    "daily_return_pct": 0.0,
+    "daily_pnl": 26.0
   }
 ]

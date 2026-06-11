@@ -32,7 +32,7 @@ MIN_TRAIN_SIZE = 80
 
 
 def audit_walkforward_safety(stock_df: pd.DataFrame, feats: pd.DataFrame, X_all: pd.DataFrame,
-                              y_all: np.ndarray, PREDICT_HORIZON: int):
+                              y_all: np.ndarray, PREDICT_HORIZON: int, train_end: int = None, predict_idx: int = None):
     """
     Walk-Forward 安全审计：验证无未来数据泄露。
     
@@ -41,6 +41,7 @@ def audit_walkforward_safety(stock_df: pd.DataFrame, feats: pd.DataFrame, X_all:
     2. 标签长度 == 特征长度（对齐）
     3. 训练窗口外无数据被使用
     4. 特征只包含历史信息的声明（由 build_compact_features 保证）
+    5. 【新增】训练标签可得性：训练集中最新标签的结束日期 <= 预测日期
     
     若任一检查失败，抛出 AssertionError 立即阻断。
     """
@@ -63,6 +64,19 @@ def audit_walkforward_safety(stock_df: pd.DataFrame, feats: pd.DataFrame, X_all:
         low = col.lower()
         hits = [w for w in forbidden if w in low]
         assert len(hits) == 0, f"特征列名 '{col}' 包含暗示未来信息的词汇 {hits}"
+    
+    # 【新增】标签可得性检查：训练集中最新样本的标签结束日期不得晚于预测日期
+    if train_end is not None and predict_idx is not None:
+        # train_end 是训练集的结束索引（不包含）
+        # 训练集中最新样本的索引是 train_end - 1
+        # 该样本的标签是 future_return[train_end - 1]，对应 (train_end - 1) + PREDICT_HORIZON 天的价格
+        # 预测日期是 predict_idx
+        latest_train_label_end = (train_end - 1) + PREDICT_HORIZON
+        assert latest_train_label_end <= predict_idx, (
+            f"标签可得性泄露：训练集中最新标签结束于第 {latest_train_label_end} 天，"
+            f"但预测日期是第 {predict_idx} 天。"
+            f"在真实时间的第 {predict_idx} 天，第 {latest_train_label_end} 天的价格尚不可知。"
+        )
     
     print("  ✅ Walk-Forward 安全审计通过：无未来数据泄露迹象")
 
@@ -139,11 +153,20 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
     for i in range(start_idx, end_idx):
         # 每 RETRAIN_DAYS 天重新训练
         if (i - start_idx) % RETRAIN_DAYS == 0 or last_model is None:
-            train_X = X_all.iloc[:i]
-            train_y = y_all[:i]
+            # 【修复】标签可得性：训练集只能使用预测时点 i 之前已经完全发生的标签
+            # y_all[j] 对应第 j 天买入持有 PREDICT_HORIZON 天后的收益
+            # 在真实时间的第 i 天，只有 j + PREDICT_HORIZON <= i 的标签已经完全发生
+            # 因此训练集结束索引应为 i - PREDICT_HORIZON
+            train_end = i - PREDICT_HORIZON
             
-            if len(train_X) < MIN_TRAIN_SIZE:
+            if train_end < MIN_TRAIN_SIZE:
                 continue
+            
+            train_X = X_all.iloc[:train_end]
+            train_y = y_all[:train_end]
+            
+            # 【新增】标签可得性审计
+            audit_walkforward_safety(stock_df, feats, X_all, y_all, PREDICT_HORIZON, train_end=train_end, predict_idx=i)
             
             k = min(15, train_X.shape[1])
             selector = SelectKBest(score_func=mutual_info_regression, k=k)

@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft, Wallet, Clock, Calendar,
-  BarChart3, Target, AlertCircle, Loader2,
+  ArrowLeft, Wallet, Calendar,
+  BarChart3, Target, Loader2,
   RefreshCw, Activity, PiggyBank, TrendingUp,
-  ClipboardList, Play, RotateCcw, Landmark,
-  Package, ArrowUpRight, ArrowDownRight
+  ClipboardList, Landmark,
+  Package, Cloud, Server
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
+
+// SCF API 配置
+const SCF_API_URL = 'https://stockconsult-d9g7b6ae5b8170e00.service.tcloudbase.com/stock-predictor';
 
 interface Signal {
   id: string;
@@ -46,7 +49,7 @@ interface FocusPoolItem {
   name: string;
   predicted_return_5d: number;
   signal: string;
-  confidence: number;
+  signal_strength: number;
   reason: string;
   sector?: string;
 }
@@ -80,6 +83,21 @@ interface Position {
   lowest_price?: number;
 }
 
+interface StockQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  prevClose: number;
+  open: number;
+  high: number;
+  low: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  amount: number;
+  status: string;
+}
+
 interface Portfolio {
   initial_capital: number;
   current_cash: number;
@@ -91,6 +109,7 @@ interface Portfolio {
   nav: number;
   positions: Position[];
   updated_at: string;
+  _liveUpdated?: boolean;
 }
 
 interface PortfolioHistoryItem {
@@ -161,6 +180,35 @@ interface Report {
   portfolio_history: PortfolioHistoryItem[];
 }
 
+function DataFreshnessBadge({ updatedAt }: { updatedAt: string | undefined }) {
+  if (!updatedAt) return null;
+  const updated = new Date(updatedAt);
+  const now = new Date();
+  const diffMs = now.getTime() - updated.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const isToday = updated.toDateString() === now.toDateString();
+
+  if (isToday && diffHours < 2) {
+    return (
+      <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full font-medium">
+        数据新鲜 · {updated.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    );
+  }
+  if (isToday && diffHours < 24) {
+    return (
+      <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full font-medium">
+        数据 {Math.round(diffHours)}小时前 · {updated.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] px-2 py-0.5 bg-red-50 text-red-600 rounded-full font-medium">
+      ⚠ 数据非当天 · {updated.toLocaleDateString('zh-CN')} {updated.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+    </span>
+  );
+}
+
 function StatCard({ label, value, unit, icon: Icon, color, subtext }: {
   label: string; value: string | number; unit: string;
   icon: typeof Wallet; color: string; subtext?: string;
@@ -183,66 +231,23 @@ function StatCard({ label, value, unit, icon: Icon, color, subtext }: {
 
 function SignalRow({ signal }: { signal: Signal }) {
   const isBuy = signal.signal === 'buy';
-  const isSettled = signal.status === 'settled';
-
+  const isPending = signal.status === 'pending';
   return (
-    <div className={`border rounded-lg overflow-hidden ${
-      isBuy ? 'border-red-100 dark:border-red-800/30' : 'border-gray-100 dark:border-gray-800'
-    }`}>
-      <div className="w-full px-3 py-2.5 flex items-center gap-3 text-left">
-        <div className={`w-2 h-2 rounded-full shrink-0 ${
-          isBuy ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'
-        }`} />
-        <div className="w-20 shrink-0">
-          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{signal.name}</div>
-          <div className="text-[10px] text-gray-400 font-mono">{signal.symbol}</div>
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-1.5 py-0.5 rounded ${isBuy ? 'bg-rose-50 text-rose-600' : 'bg-gray-100 text-gray-500'}`}>
+          {isBuy ? '买入' : '持有'}
+        </span>
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{signal.name}</span>
+        <span className="text-xs text-gray-400">{signal.symbol}</span>
+      </div>
+      <div className="text-right">
+        <div className={`text-sm font-bold ${signal.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+          {signal.predicted_return_5d > 0 ? '+' : ''}{signal.predicted_return_5d.toFixed(2)}%
         </div>
-        <div className="w-24 shrink-0">
-          <div className="text-xs text-gray-500 dark:text-gray-400">{signal.date}</div>
-          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-            {signal.entry_price ? `¥${signal.entry_price.toFixed(2)}` : '—'}
-          </div>
+        <div className="text-[10px] text-gray-400">
+          {isPending ? `预计 ${signal.expected_exit_date}` : `实际 ${signal.actual_return?.toFixed(2)}%`}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-              isBuy
-                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-            }`}>
-              {isBuy ? '买入' : '观望'}
-            </span>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">
-              预测 {(signal.predicted_return_5d >= 0 ? '+' : '') + signal.predicted_return_5d.toFixed(2)}% / 阈值 {signal.threshold}%
-            </span>
-          </div>
-          {isBuy && (
-            <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-              预计平仓 {signal.expected_exit_date}
-            </div>
-          )}
-        </div>
-        {isSettled && signal.actual_return !== undefined && (
-          <div className={`flex items-center gap-1.5 shrink-0 ${
-            signal.direction_correct ? 'text-red-600' : 'text-green-600'
-          }`}>
-            <span className="text-xs font-bold">
-              {signal.actual_return > 0 ? '+' : ''}{signal.actual_return.toFixed(2)}%
-            </span>
-            <span className={`text-[10px] px-1 py-0.5 rounded ${
-              signal.direction_correct
-                ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
-                : 'bg-green-50 dark:bg-green-900/20 text-green-600'
-            }`}>
-              {signal.direction_correct ? '✓' : '✗'}
-            </span>
-          </div>
-        )}
-        {!isSettled && isBuy && (
-          <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded shrink-0">
-            持仓中
-          </span>
-        )}
       </div>
     </div>
   );
@@ -250,39 +255,48 @@ function SignalRow({ signal }: { signal: Signal }) {
 
 function TradeRow({ trade }: { trade: Trade }) {
   const isWin = trade.net_return > 0;
-  const typeLabels: Record<string, { label: string; color: string }> = {
-    stop_loss: { label: '止损', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-    take_profit: { label: '止盈', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-    trailing_stop: { label: '跟踪', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-    expiration: { label: '到期', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
-  };
-  const typeInfo = trade.type ? typeLabels[trade.type] : null;
-
   return (
-    <div className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        <div className={`w-2 h-2 rounded-full shrink-0 ${isWin ? 'bg-red-500' : 'bg-green-500'}`} />
-        <div className="w-16 shrink-0 text-xs font-medium text-gray-700 dark:text-gray-300">{trade.name}</div>
-        <div className="w-20 shrink-0 text-[11px] text-gray-500 dark:text-gray-400">
-          {trade.entry_date} → {trade.exit_date}
-        </div>
-        <div className="flex-1 text-[11px] text-gray-400 dark:text-gray-500">
-          ¥{trade.entry_price.toFixed(2)} → ¥{trade.exit_price.toFixed(2)}
-        </div>
-        {typeInfo && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${typeInfo.color}`}>
-            {typeInfo.label}
-          </span>
-        )}
-        <div className={`text-sm font-bold shrink-0 ${isWin ? 'text-red-600' : 'text-green-600'}`}>
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-1.5 py-0.5 rounded ${isWin ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+          {isWin ? '盈利' : '亏损'}
+        </span>
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{trade.name}</span>
+        <span className="text-xs text-gray-400">{trade.symbol}</span>
+      </div>
+      <div className="text-right">
+        <div className={`text-sm font-bold ${isWin ? 'text-emerald-500' : 'text-rose-500'}`}>
           {isWin ? '+' : ''}{trade.net_return.toFixed(2)}%
         </div>
-      </div>
-      {trade.exit_reason && (
-        <div className="px-3 pb-2 text-[10px] text-gray-400 dark:text-gray-500">
-          <span className="font-medium">平仓原因:</span> {trade.exit_reason}
+        <div className="text-[10px] text-gray-400">
+          {trade.holding_days}天 · {trade.entry_date} → {trade.exit_date}
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function PositionRow({ position }: { position: Position }) {
+  const isHolding = position.status === 'holding';
+  const pnlColor = position.unrealized_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+  const dailyColor = position.daily_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-1.5 py-0.5 rounded ${isHolding ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+          {isHolding ? '持仓' : '已平仓'}
+        </span>
+        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{position.name}</span>
+        <span className="text-xs text-gray-400">{position.symbol}</span>
+      </div>
+      <div className="text-right">
+        <div className={`text-sm font-bold ${pnlColor}`}>
+          {position.unrealized_pnl >= 0 ? '+' : ''}{position.unrealized_pnl.toFixed(0)}元
+        </div>
+        <div className={`text-[10px] ${dailyColor}`}>
+          今日 {position.daily_pnl >= 0 ? '+' : ''}{position.daily_pnl.toFixed(0)}元 ({position.daily_pnl_pct >= 0 ? '+' : ''}{position.daily_pnl_pct.toFixed(2)}%)
+        </div>
+      </div>
     </div>
   );
 }
@@ -298,40 +312,158 @@ export function PaperTradingPage() {
   const [walkforwardReport, setWalkforwardReport] = useState<WalkforwardReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'positions' | 'overview' | 'signals' | 'trades' | 'ops'>('positions');
+  const [dataSource, setDataSource] = useState<'local' | 'scf'>('local');
+  const [, setScfLoading] = useState(false);
+
+  // 用实时行情更新 portfolio 中的持仓价格
+  const updatePortfolioWithLiveQuotes = useCallback(async (pf: Portfolio | null) => {
+    if (!pf || !pf.positions || pf.positions.length === 0) return pf;
+    const holdingSymbols = pf.positions
+      .filter(p => p.status === 'holding')
+      .map(p => p.symbol)
+      .join(',');
+    if (!holdingSymbols) return pf;
+
+    const API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+    if (!API_URL) return pf;
+
+    try {
+      const res = await fetch(`${API_URL}/stock-quotes?symbols=${holdingSymbols}`);
+      const data = await res.json();
+      if (!data.success || !data.quotes) return pf;
+
+      const quoteMap = new Map((data.quotes as StockQuote[]).map(q => [q.symbol, q]));
+      const updatedPositions = pf.positions.map(p => {
+        if (p.status !== 'holding') return p;
+        const q = quoteMap.get(p.symbol);
+        if (!q || q.price <= 0) return p;
+        const latestPrice = q.price;
+        const prevClose = q.prevClose || p.prev_close;
+        const marketValue = p.shares * latestPrice;
+        const unrealizedPnl = marketValue - p.cost_basis;
+        const dailyPnl = p.shares * (latestPrice - prevClose);
+        const dailyPnlPct = prevClose > 0 ? (latestPrice - prevClose) / prevClose * 100 : 0;
+        return {
+          ...p,
+          latest_price: latestPrice,
+          prev_close: prevClose,
+          market_value: marketValue,
+          unrealized_pnl: unrealizedPnl,
+          daily_pnl: dailyPnl,
+          daily_pnl_pct: dailyPnlPct,
+        };
+      });
+
+      const totalMarketValue = updatedPositions
+        .filter(p => p.status === 'holding')
+        .reduce((sum, p) => sum + p.market_value, 0);
+      const totalDailyPnl = updatedPositions
+        .filter(p => p.status === 'holding')
+        .reduce((sum, p) => sum + p.daily_pnl, 0);
+      const totalAssets = pf.current_cash + totalMarketValue;
+      const totalReturnPct = (totalAssets - pf.initial_capital) / pf.initial_capital * 100;
+      const nav = totalAssets / pf.initial_capital;
+
+      return {
+        ...pf,
+        positions: updatedPositions,
+        total_market_value: totalMarketValue,
+        total_assets: totalAssets,
+        daily_pnl: totalDailyPnl,
+        daily_pnl_pct: pf.initial_capital > 0 ? totalDailyPnl / pf.initial_capital * 100 : 0,
+        total_return_pct: totalReturnPct,
+        nav,
+        _liveUpdated: true,
+      };
+    } catch (e) {
+      console.warn('[PaperTrading] live quotes failed:', e);
+      return pf;
+    }
+  }, []);
+
+  // 从 SCF 云函数获取 focus_pool
+  const fetchSCFFocusPool = useCallback(async () => {
+    try {
+      setScfLoading(true);
+      const res = await fetch(`${SCF_API_URL}/predict-all?t=${Date.now()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        throw new Error(`SCF API error: ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.success && data.report && data.report.focus_pool) {
+        const scfFocusPool = data.report.focus_pool.map((item: any, index: number) => ({
+          rank: index + 1,
+          symbol: item.symbol,
+          name: item.name,
+          predicted_return_5d: item.predicted_return_5d,
+          signal: item.signal,
+          signal_strength: item.signal_strength || item.confidence || 0.7,
+          reason: item.reason || `${item.name}(${item.symbol}) ${item.signal}信号 预期${item.predicted_return_5d > 0 ? '+' : ''}${item.predicted_return_5d.toFixed(2)}%`,
+        }));
+        setFocusPool(scfFocusPool);
+        setFocusDate(data.report.date || new Date().toISOString().split('T')[0]);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[PaperTrading] SCF fetch failed:', e);
+      return false;
+    } finally {
+      setScfLoading(false);
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // 防缓存：每次请求加时间戳
+      const ts = Date.now();
       const [sRes, tRes, rRes, pRes, fRes, wRes] = await Promise.all([
-        fetch('/paper-trading/signals.json').then(r => r.json()).catch(() => []),
-        fetch('/paper-trading/trades.json').then(r => r.json()).catch(() => []),
-        fetch('/paper-trading/report.json').then(r => r.json()).catch(() => null),
-        fetch('/paper-trading/portfolio.json').then(r => r.json()).catch(() => null),
-        fetch('/paper-trading/rebuild_focus_pool.json').then(r => r.json()).catch(() => null),
-        fetch('/paper-trading/rebuild_walkforward_report.json').then(r => r.json()).catch(() => null),
+        fetch(`/paper-trading/signals.json?t=${ts}`).then(r => r.json()).catch(() => []),
+        fetch(`/paper-trading/trades.json?t=${ts}`).then(r => r.json()).catch(() => []),
+        fetch(`/paper-trading/report.json?t=${ts}`).then(r => r.json()).catch(() => null),
+        fetch(`/paper-trading/portfolio.json?t=${ts}`).then(r => r.json()).catch(() => null),
+        fetch(`/paper-trading/rebuild_focus_pool.json?t=${ts}`).then(r => r.json()).catch(() => null),
+        fetch(`/paper-trading/rebuild_walkforward_report.json?t=${ts}`).then(r => r.json()).catch(() => null),
       ]);
       setSignals(sRes);
       setTrades(tRes);
       setReport(rRes);
-      setPortfolio(pRes);
+      const updatedPf = await updatePortfolioWithLiveQuotes(pRes);
+      setPortfolio(updatedPf);
       setWalkforwardReport(wRes);
       if (fRes && fRes.focus) {
         setFocusPool(fRes.focus);
         setFocusDate(fRes.date || '');
+      }
+
+      // 如果数据源是 SCF，尝试从 SCF 获取 focus_pool
+      if (dataSource === 'scf') {
+        await fetchSCFFocusPool();
       }
     } catch (e) {
       console.warn('[PaperTrading] load failed:', e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [updatePortfolioWithLiveQuotes, dataSource, fetchSCFFocusPool]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  // 定时刷新：每60秒自动刷新一次数据（交易时段）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadData]);
+
   const holdings = portfolio?.positions?.filter(p => p.status === 'holding') ?? [];
-  const totalUnrealized = holdings.reduce((sum, p) => sum + p.unrealized_pnl, 0);
   const totalDailyPnl = holdings.reduce((sum, p) => sum + p.daily_pnl, 0);
   const totalMarketValue = portfolio?.total_market_value ?? report?.total_market_value ?? holdings.reduce((sum, p) => sum + p.market_value, 0);
   const totalAssets = portfolio?.total_assets ?? report?.total_assets ?? 0;
@@ -357,17 +489,47 @@ export function PaperTradingPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">模拟盘</h1>
-            <p className="text-xs text-gray-400 hidden sm:block">Ridge+GBR 回归策略实盘跟踪</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-gray-400 hidden sm:block">Ridge+GBR 回归策略实验跟踪</p>
+              <DataFreshnessBadge updatedAt={portfolio?.updated_at ?? report?.generated_at} />
+            </div>
           </div>
         </div>
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="ml-auto flex items-center gap-1.5 px-4 py-2 text-sm bg-emerald-50 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-xl transition-all hover:shadow-md disabled:opacity-50 active:scale-95"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          刷新
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {/* 数据源切换 */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            <button
+              onClick={() => setDataSource('local')}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-all ${
+                dataSource === 'local'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Server className="w-3 h-3" />
+              本地
+            </button>
+            <button
+              onClick={() => setDataSource('scf')}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-all ${
+                dataSource === 'scf'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Cloud className="w-3 h-3" />
+              SCF
+            </button>
+          </div>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-emerald-50 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-xl transition-all hover:shadow-md disabled:opacity-50 active:scale-95"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            刷新
+          </button>
+        </div>
       </div>
 
       {/* Tab切换 */}
@@ -413,423 +575,129 @@ export function PaperTradingPage() {
               unit="元"
               icon={Package}
               color="bg-blue-500"
-              subtext={`${holdings.length}只持仓`}
+              subtext={`现金 ¥${currentCash.toFixed(0)}`}
             />
             <StatCard
-              label="当日盈亏"
+              label="今日盈亏"
               value={dailyPnl}
               unit="元"
-              icon={dailyPnl >= 0 ? ArrowUpRight : ArrowDownRight}
-              color={dailyPnl >= 0 ? 'bg-red-500' : 'bg-green-500'}
+              icon={TrendingUp}
+              color={dailyPnl >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}
               subtext={`${dailyPnl >= 0 ? '+' : ''}${dailyPnlPct.toFixed(2)}%`}
             />
             <StatCard
-              label="可用资金"
-              value={currentCash}
-              unit="元"
-              icon={Wallet}
-              color="bg-amber-500"
+              label="累计收益"
+              value={totalReturnPct}
+              unit="%"
+              icon={Target}
+              color={totalReturnPct >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}
+              subtext={`NAV ${nav.toFixed(4)}`}
             />
           </div>
 
-          {/* 当前实验信号 */}
-          {focusPool.length > 0 && (
-            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">当前实验信号</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{focusDate} 更新 · 实验性质，不构成投资建议</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {focusPool.map((f) => (
-                  <div key={f.symbol} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-indigo-100 dark:border-indigo-800/30 rounded-lg px-3 py-1.5">
-                    <span className={`text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold ${
-                      f.rank === 1
-                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
-                      {f.rank}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{f.name}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{f.symbol}</span>
-                    {f.sector && (
-                      <span className="text-[9px] px-1 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded">
-                        {f.sector}
-                      </span>
-                    )}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      f.signal === '买入'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>
-                      {f.signal}
-                    </span>
-                    <span className="text-xs text-red-600 dark:text-red-400 font-bold">+{f.predicted_return_5d.toFixed(2)}%</span>
-                  </div>
-                ))}
-              </div>
+          {/* 持仓列表 */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">当前持仓</h3>
+              <span className="text-xs text-gray-400">{holdings.length} 只</span>
             </div>
-          )}
-
-          {/* 持仓表格 - 券商风格 */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">持仓明细</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs">
-                <span className="text-gray-400 dark:text-gray-500">
-                  浮动盈亏 <span className={totalUnrealized >= 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                    {totalUnrealized >= 0 ? '+' : ''}{totalUnrealized.toFixed(2)}
-                  </span>
-                </span>
-                <span className="text-gray-400 dark:text-gray-500">
-                  当日盈亏 <span className={dailyPnl >= 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                    {dailyPnl >= 0 ? '+' : ''}{dailyPnl.toFixed(2)}
-                  </span>
-                </span>
-              </div>
-            </div>
-
             {holdings.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
-                当前无持仓，等待实验信号买入触发
-              </div>
+              <div className="text-center py-8 text-gray-400 text-sm">暂无持仓</div>
             ) : (
-              <div className="overflow-x-auto">
-                {/* 表头 */}
-                <div className="grid grid-cols-[minmax(100px,1fr)_60px_80px_80px_80px_80px_90px_80px] gap-0 px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 dark:text-gray-500 text-center">
-                  <div className="text-left">股票名称</div>
-                  <div>数量</div>
-                  <div>成本价</div>
-                  <div>现价</div>
-                  <div>市值</div>
-                  <div>盈亏</div>
-                  <div>盈亏比</div>
-                  <div>当日盈亏</div>
-                </div>
-                {/* 表体 */}
-                {holdings.map((pos) => {
-                  const pnlPct = pos.cost_basis > 0 ? (pos.unrealized_pnl / pos.cost_basis) * 100 : 0;
-                  return (
-                    <div key={pos.symbol} className="grid grid-cols-[minmax(100px,1fr)_60px_80px_80px_80px_80px_90px_80px] gap-0 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-0 items-center text-center hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                      {/* 股票名称 + 板块 + 止盈止损规则 */}
-                      <div className="text-left">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{pos.name}</span>
-                          {pos.sector && (
-                            <span className="text-[9px] px-1 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded">
-                              {pos.sector}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-gray-400 font-mono">{pos.symbol}</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {pos.exit_rules && (
-                            <>
-                              <span className="text-[9px] px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
-                                止盈 {pos.exit_rules.take_profit_pct >= 0 ? '+' : ''}{pos.exit_rules.take_profit_pct.toFixed(2)}%
-                              </span>
-                              <span className="text-[9px] px-1.5 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded">
-                                止损 {pos.exit_rules.stop_loss_pct.toFixed(0)}%
-                              </span>
-                              <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded">
-                                跟踪 {pos.exit_rules.trailing_stop_pct.toFixed(0)}%
-                              </span>
-                              <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
-                                {pos.exit_rules.max_holding_days}天
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {/* 数量 */}
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{pos.shares}</div>
-                      {/* 成本价 */}
-                      <div className="text-xs text-gray-600 dark:text-gray-400">¥{pos.entry_price.toFixed(2)}</div>
-                      {/* 现价 */}
-                      <div className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                        ¥{pos.latest_price.toFixed(2)}
-                        <span className={`text-[10px] ml-1 ${pos.daily_pnl_pct >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                          {pos.daily_pnl_pct >= 0 ? '+' : ''}{pos.daily_pnl_pct.toFixed(2)}%
-                        </span>
-                      </div>
-                      {/* 市值 */}
-                      <div className="text-sm font-bold text-gray-900 dark:text-gray-100">¥{pos.market_value.toFixed(0)}</div>
-                      {/* 盈亏 */}
-                      <div className={`text-sm font-bold ${pos.unrealized_pnl >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {pos.unrealized_pnl >= 0 ? '+' : ''}{pos.unrealized_pnl.toFixed(2)}
-                      </div>
-                      {/* 盈亏比 */}
-                      <div className={`text-xs font-bold ${pnlPct >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
-                      </div>
-                      {/* 当日盈亏 */}
-                      <div className={`text-xs font-bold ${pos.daily_pnl >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {pos.daily_pnl >= 0 ? '+' : ''}{pos.daily_pnl.toFixed(2)}
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* 汇总行 */}
-                {holdings.length > 0 && (
-                  <div className="grid grid-cols-[minmax(100px,1fr)_60px_80px_80px_80px_80px_90px_80px] gap-0 px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 items-center text-center font-bold">
-                    <div className="text-left text-sm text-gray-700 dark:text-gray-300">合计</div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300">—</div>
-                    <div className="text-xs text-gray-500">—</div>
-                    <div className="text-xs text-gray-500">—</div>
-                    <div className="text-sm text-gray-900 dark:text-gray-100">¥{totalMarketValue.toFixed(0)}</div>
-                    <div className={`text-sm ${totalUnrealized >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {totalUnrealized >= 0 ? '+' : ''}{totalUnrealized.toFixed(2)}
-                    </div>
-                    <div className={`text-xs ${totalUnrealized >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {totalMarketValue > 0 ? (totalUnrealized / (totalMarketValue - totalUnrealized) * 100 >= 0 ? '+' : '') + (totalMarketValue > totalUnrealized ? (totalUnrealized / (totalMarketValue - totalUnrealized) * 100).toFixed(2) : '0.00') : '0.00'}%
-                    </div>
-                    <div className={`text-xs ${dailyPnl >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {dailyPnl >= 0 ? '+' : ''}{dailyPnl.toFixed(2)}
-                    </div>
-                  </div>
-                )}
+              <div className="space-y-1">
+                {holdings.map(p => (
+                  <PositionRow key={p.symbol} position={p} />
+                ))}
               </div>
             )}
           </div>
 
-          {/* 交易计划详情 */}
-          {holdings.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">交易计划详情</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">每笔买入时自动制定，严格执行</span>
+          {/* Focus Pool */}
+          {focusPool.length > 0 && (
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  今日实验信号池
+                  {dataSource === 'scf' && (
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                      SCF云函数
+                    </span>
+                  )}
+                </h3>
+                <span className="text-xs text-gray-400">{focusDate}</span>
               </div>
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {holdings.map((pos) => (
-                  <div key={pos.symbol} className="px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{pos.name}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">{pos.symbol}</span>
+              <div className="space-y-2">
+                {focusPool.map((f) => (
+                  <div key={f.symbol} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-400 w-4">{f.rank}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${f.signal === 'buy' ? 'bg-rose-50 text-rose-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {f.signal === 'buy' ? '买入' : '持有'}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{f.name}</span>
+                      <span className="text-xs text-gray-400">{f.symbol}</span>
                     </div>
-                    {pos.exit_rules ? (
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap gap-2">
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <span className="w-2 h-2 rounded-full bg-red-400" />
-                            <span className="text-gray-500">目标止盈:</span>
-                            <span className="font-bold text-red-600">+{pos.exit_rules.take_profit_pct.toFixed(2)}%</span>
-                            <span className="text-gray-400">(收盘价≥¥{(pos.entry_price * (1 + pos.exit_rules.take_profit_pct / 100)).toFixed(2)}触发)</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <span className="w-2 h-2 rounded-full bg-green-400" />
-                            <span className="text-gray-500">硬止损:</span>
-                            <span className="font-bold text-green-600">{pos.exit_rules.stop_loss_pct.toFixed(0)}%</span>
-                            <span className="text-gray-400">(最低价≤¥{(pos.entry_price * (1 + pos.exit_rules.stop_loss_pct / 100)).toFixed(2)}触发)</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <span className="w-2 h-2 rounded-full bg-blue-400" />
-                            <span className="text-gray-500">跟踪止盈:</span>
-                            <span className="font-bold text-blue-600">回撤{Math.abs(pos.exit_rules.trailing_stop_pct).toFixed(0)}%</span>
-                            <span className="text-gray-400">(从最高价回撤触发)</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px]">
-                            <span className="w-2 h-2 rounded-full bg-gray-400" />
-                            <span className="text-gray-500">时间止损:</span>
-                            <span className="font-bold text-gray-600">{pos.exit_rules.max_holding_days}天</span>
-                            <span className="text-gray-400">(预计{pos.expected_exit_date}到期)</span>
-                          </div>
-                        </div>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
-                          <span className="font-medium">规则逻辑:</span> {pos.exit_rules.reasoning}
-                        </div>
+                    <div className="text-right">
+                      <div className={`text-sm font-bold ${f.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {f.predicted_return_5d > 0 ? '+' : ''}{f.predicted_return_5d.toFixed(2)}%
                       </div>
-                    ) : (
-                      <div className="text-[11px] text-gray-400">暂无止盈止损规则记录</div>
-                    )}
+                      <div className="text-[10px] text-gray-400">预测强度 {(f.signal_strength * 100).toFixed(0)}%</div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* 底部资金汇总 */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">资金状况</span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4 py-4">
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">¥{totalAssets.toFixed(2)}</div>
-                <div className="text-[10px] text-gray-400">总资产</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">¥{totalMarketValue.toFixed(2)}</div>
-                <div className="text-[10px] text-gray-400">总市值</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">¥{currentCash.toFixed(2)}</div>
-                <div className="text-[10px] text-gray-400">可用资金</div>
-              </div>
-              <div className="text-center">
-                <div className={`text-lg font-bold ${totalReturnPct >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {totalReturnPct >= 0 ? '+' : ''}{totalReturnPct.toFixed(2)}%
-                </div>
-                <div className="text-[10px] text-gray-400">累计收益</div>
-              </div>
-            </div>
-            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500">
-              <span>净值: <span className="font-mono font-bold text-gray-700 dark:text-gray-300">{nav.toFixed(4)}</span></span>
-              <span>更新于 {portfolio?.updated_at ?? report?.generated_at ?? '—'}</span>
-            </div>
-          </div>
         </div>
       )}
 
       {/* ===== 概览 Tab ===== */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
-          {/* 资金统计卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard
-              label="初始资金"
-              value={portfolio?.initial_capital ?? report?.initial_capital ?? 10000}
-              unit="元"
-              icon={Wallet}
-              color="bg-gray-500"
-            />
-            <StatCard
-              label="总资产"
-              value={totalAssets}
-              unit="元"
-              icon={PiggyBank}
-              color="bg-emerald-500"
-            />
-            <StatCard
-              label="累计收益"
-              value={totalReturnPct}
-              unit="%"
-              icon={TrendingUp}
-              color={totalReturnPct >= 0 ? 'bg-red-500' : 'bg-green-500'}
-            />
-            <StatCard
-              label="可用现金"
-              value={currentCash}
-              unit="元"
-              icon={Activity}
-              color="bg-amber-500"
-            />
-          </div>
-
-          {/* 净值曲线 */}
-          {report?.portfolio_history && report.portfolio_history.length > 0 && (
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-500" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">净值曲线</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">初始净值 1.0000</span>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">策略表现</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-2xl font-bold text-emerald-500">{totalReturnPct.toFixed(2)}%</div>
+                <div className="text-xs text-gray-400 mt-1">累计收益率</div>
               </div>
-              <div className="px-4 py-4">
-                <div className="flex items-end gap-1 h-24">
-                  {report.portfolio_history.map((h) => {
-                    const height = Math.max(5, Math.min(100, (h.nav / 1.0) * 50));
-                    const isPositive = h.daily_return_pct >= 0;
-                    const sign = h.daily_return_pct >= 0 ? '+' : '';
-                    const titleText = `${h.date} 净值${h.nav.toFixed(4)} 日收益${sign}${h.daily_return_pct.toFixed(2)}%`;
-                    return (
-                      <div key={h.date} className="flex-1 flex flex-col items-center gap-1">
-                        <div
-                          className={`w-full rounded-t ${isPositive ? 'bg-red-400' : 'bg-green-400'}`}
-                          style={{ height: `${height}%` }}
-                          title={titleText}
-                        />
-                        <span className="text-[9px] text-gray-400 dark:text-gray-500">{h.date.slice(5)}</span>
-                      </div>
-                    );
-                  })}
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-2xl font-bold text-blue-500">{nav.toFixed(4)}</div>
+                <div className="text-xs text-gray-400 mt-1">单位净值</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{trades.length}</div>
+                <div className="text-xs text-gray-400 mt-1">总交易次数</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {trades.length > 0 ? (trades.filter(t => t.net_return > 0).length / trades.length * 100).toFixed(1) : 0}%
                 </div>
+                <div className="text-xs text-gray-400 mt-1">胜率</div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* 按股票统计 */}
-          {report?.by_symbol && Object.keys(report.by_symbol).length > 0 && (
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">按股票统计</span>
-              </div>
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                {Object.entries(report.by_symbol).map(([sym, s]) => (
-                  <div key={sym} className="px-4 py-3 flex items-center gap-4">
-                    <div className="w-20 text-sm font-medium text-gray-900 dark:text-gray-100">{s.name}</div>
-                    <div className="flex-1 grid grid-cols-4 gap-2 text-center">
-                      <div>
-                        <div className="text-xs font-bold text-gray-700 dark:text-gray-300">{s.trades}次</div>
-                        <div className="text-[10px] text-gray-400">交易</div>
+          {walkforwardReport && (
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Walkforward 分析</h3>
+              <div className="space-y-2">
+                {Object.entries(walkforwardReport.stocks).map(([symbol, stock]) => (
+                  <div key={symbol} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{stock.name}</span>
+                      <span className="text-xs text-gray-400">{symbol}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                        方向准确率 {stock.direction_accuracy.toFixed(1)}%
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-gray-700 dark:text-gray-300">{s.win_rate}%</div>
-                        <div className="text-[10px] text-gray-400">胜率</div>
-                      </div>
-                      <div>
-                        <div className={`text-xs font-bold ${s.avg_return >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {s.avg_return >= 0 ? '+' : ''}{s.avg_return.toFixed(2)}%
-                        </div>
-                        <div className="text-[10px] text-gray-400">均收益</div>
-                      </div>
-                      <div>
-                        <div className={`text-xs font-bold ${s.total_return >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {s.total_return >= 0 ? '+' : ''}{s.total_return.toFixed(2)}%
-                        </div>
-                        <div className="text-[10px] text-gray-400">累计</div>
+                      <div className="text-[10px] text-gray-400">
+                        策略收益 {stock.strategy_return_pct.toFixed(2)}% · 买入持有 {stock.buyhold_return_pct.toFixed(2)}%
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* 模型历史表现参考（来自验证实验室 walk-forward 回测） */}
-          {walkforwardReport?.stocks && (
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-purple-500" />
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">模型历史表现参考</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">来源：验证实验室 walk-forward 回测</span>
-              </div>
-              <div className="px-4 py-3">
-                {(() => {
-                  const stocks = Object.values(walkforwardReport.stocks);
-                  const avgAcc = stocks.reduce((s, x) => s + x.direction_accuracy, 0) / stocks.length;
-                  const avgCorr = stocks.reduce((s, x) => s + x.correlation, 0) / stocks.length;
-                  const reverseBetter = stocks.filter(x => x.reverse_better).length;
-                  const stratWins = stocks.filter(x => x.strategy_return_pct > x.buyhold_return_pct).length;
-                  return (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{(avgAcc * 100).toFixed(1)}%</div>
-                        <div className="text-[10px] text-gray-400">平均方向准确率</div>
-                      </div>
-                      <div className="text-center">
-                        <div className={`text-lg font-bold ${avgCorr >= 0 ? 'text-red-600' : 'text-green-600'}`}>{avgCorr >= 0 ? '+' : ''}{avgCorr.toFixed(4)}</div>
-                        <div className="text-[10px] text-gray-400">预测-真实相关</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{stratWins}/{stocks.length}</div>
-                        <div className="text-[10px] text-gray-400">策略跑赢买入持有</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-amber-600">{reverseBetter}/{stocks.length}</div>
-                        <div className="text-[10px] text-gray-400">反向信号更优</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded px-3 py-2">
-                  <p className="font-medium text-amber-600">⚠️ 注意：walk-forward 回测存在未来函数问题（训练时多留未来数据），结果仅供参考，不能作为策略有效性的证据。</p>
-                  <p>当前模型方向准确率接近随机水平（约 50%），多只股票的反向信号表现优于正向信号。模拟盘的真实前向跟踪更有意义，但样本尚不足。</p>
-                </div>
               </div>
             </div>
           )}
@@ -838,39 +706,36 @@ export function PaperTradingPage() {
 
       {/* ===== 信号记录 Tab ===== */}
       {activeTab === 'signals' && (
-        <div className="space-y-2">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">信号记录</h3>
+            <span className="text-xs text-gray-400">{signals.length} 条</span>
+          </div>
           {signals.length === 0 ? (
-            <div className="text-center py-16 text-sm text-gray-400 dark:text-gray-500">
-              <Calendar className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-              暂无信号记录
-            </div>
+            <div className="text-center py-8 text-gray-400 text-sm">暂无信号</div>
           ) : (
-            signals.slice().reverse().map((sig) => (
-              <SignalRow key={sig.id} signal={sig} />
-            ))
+            <div className="space-y-1">
+              {signals.map(s => (
+                <SignalRow key={s.id} signal={s} />
+              ))}
+            </div>
           )}
         </div>
       )}
 
       {/* ===== 交易记录 Tab ===== */}
       {activeTab === 'trades' && (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">交易记录</h3>
+            <span className="text-xs text-gray-400">{trades.length} 笔</span>
+          </div>
           {trades.length === 0 ? (
-            <div className="px-4 py-16 text-center text-sm text-gray-400 dark:text-gray-500">
-              <BarChart3 className="w-10 h-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-              暂无交易记录
-            </div>
+            <div className="text-center py-8 text-gray-400 text-sm">暂无交易</div>
           ) : (
-            <div>
-              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500">
-                <div className="w-4" />
-                <div className="w-16">股票</div>
-                <div className="w-20">日期</div>
-                <div className="flex-1">价格</div>
-                <div className="w-16 text-right">收益</div>
-              </div>
-              {trades.slice().reverse().map((trade) => (
-                <TradeRow key={trade.id} trade={trade} />
+            <div className="space-y-1">
+              {trades.map(t => (
+                <TradeRow key={t.id} trade={t} />
               ))}
             </div>
           )}
@@ -880,110 +745,45 @@ export function PaperTradingPage() {
       {/* ===== 每日运维 Tab ===== */}
       {activeTab === 'ops' && (
         <div className="space-y-4">
-          {/* 每日必做 */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                <Play className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">每日运维</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-sm text-gray-600 dark:text-gray-400">数据更新</span>
+                <span className="text-xs text-gray-400">每日 16:07 自动执行</span>
               </div>
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">每日必做（收盘后）</span>
-            </div>
-            <div className="px-4 py-3 space-y-3">
-              {[
-                { step: 1, title: '运行每日预测管道', cmd: 'bash scripts/daily_pipeline.sh', desc: '获取非价格特征 → 训练模型 → 生成预测 → 验证历史' },
-                { step: 2, title: '更新模拟盘数据', cmd: 'python3 cloudfunctions/stock-predictor/paper_trading_rebuild.py full', desc: '从预测历史生成信号 → 结算到期持仓 → 生成报告 → 同步到前端' },
-                { step: 3, title: '重新构建部署', cmd: 'npm run build && bash scripts/deploy.sh', desc: '前端重新打包，确保 public 目录数据被包含' },
-                { step: 4, title: '刷新页面验证', cmd: '刷新浏览器', desc: '确认模拟盘页面显示最新信号和持仓' },
-              ].map((item) => (
-                <div key={item.step} className="flex gap-3">
-                  <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                    {item.step}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.title}</div>
-                    <div className="mt-1 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5">
-                      <code className="text-xs font-mono text-gray-600 dark:text-gray-400">{item.cmd}</code>
-                    </div>
-                    <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{item.desc}</div>
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-sm text-gray-600 dark:text-gray-400">SCF 定时预测</span>
+                <span className="text-xs text-gray-400">每日 15:30 自动执行</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-sm text-gray-600 dark:text-gray-400">前端部署</span>
+                <span className="text-xs text-gray-400">数据更新后自动部署</span>
+              </div>
             </div>
           </div>
 
-          {/* 策略参数 */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                <RotateCcw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">策略参数</span>
-            </div>
-            <div className="px-4 py-3 space-y-2.5">
-              {[
-                { label: '模型', value: 'Ridge(0.6) + GBR(0.4) 回归集成' },
-                { label: '股票池', value: '10只A股市值股（茅台/工行/中石油/农行/中行/中国人寿/招行/神华/长电/平安）' },
-                { label: '买入条件', value: '预测5日收益 > 0.5%' },
-                { label: '持有周期', value: '5个交易日' },
-                { label: '交易成本', value: '0.4% 来回' },
-                { label: '硬止损', value: '3%' },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 dark:text-gray-400 w-20 shrink-0">{item.label}</span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.value}</span>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">数据源状态</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Server className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">本地实验模型 (Ridge+GBR)</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 异常处理 */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full">运行中</span>
               </div>
-              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">异常处理清单</span>
-            </div>
-            <div className="px-4 py-3 space-y-2">
-              {[
-                { level: '低', text: '某天 akshare 连不上 → 跳过当天，第二天补跑' },
-                { level: '中', text: '模型连续5天方向准确率 < 50% → 检查数据是否更新' },
-                { level: '中', text: '某只股票连续3次亏损 → 检查特征是否有异常' },
-                { level: '高', text: '3个月累计收益为负 → 暂停交易，评估策略有效性' },
-                { level: '高', text: '单只股票回撤 > 50% → 立即停止该股票交易' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5 ${
-                    item.level === '低' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
-                    item.level === '中' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400' :
-                    'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                  }`}>
-                    {item.level}
-                  </span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.text}</span>
+              <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">SCF 轻量规则评分器 (技术指标)</span>
                 </div>
-              ))}
+                <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full">运行中</span>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* 底部说明 */}
-      <div className="mt-8 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">模拟盘规则与免责声明</h3>
-        <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <p>1. 每天收盘后运行 Ridge+GBR 回归模型，预测未来5日收益率。</p>
-          <p>2. 预测5日收益 &gt; 0.5% → 买入信号，持有5个交易日后强制平仓。</p>
-          <p>3. 预测5日收益 ≤ 0.5% → 观望，空仓等待。</p>
-          <p>4. 交易成本按 0.4%/次计入（佣金+印花税+滑点）。</p>
-          <p>5. 运行中若触发 3% 硬止损，当日收盘后强制平仓。</p>
-          <p>6. 数据每天自动更新，本页面手动刷新查看最新结果。</p>
-        </div>
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-[11px] text-amber-600 dark:text-amber-400">
-          <p className="font-medium">⚠️ 重要提示：本模拟盘处于研究实验阶段，当前 walk-forward 验证显示模型方向准确率约 50%，尚未证明存在稳定 alpha。</p>
-          <p>模拟盘仅供观察模型在真实市场环境中的表现，不构成任何投资建议。在模型积累至少 100 条验证记录并证明统计显著性之前，请勿用于真实资金交易。</p>
-        </div>
-      </div>
     </div>
   );
 }

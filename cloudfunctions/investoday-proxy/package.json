@@ -5,7 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "@cloudbase/node-sdk": "^2.0.0",
-    "cos-nodejs-sdk-v5": "^2.15.4"
+    "cos-nodejs-sdk-v5": "^2.15.4",
+    "iconv-lite": "^0.7.2"
   },
   "cloudfunction-config": {
     "timeout": 15,

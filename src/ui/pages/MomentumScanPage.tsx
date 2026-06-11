@@ -7,12 +7,105 @@ import {
 import type { MomentumPick, MomentumScanResult } from '../../core/types/momentum';
 import { scanMomentumPicks } from '../../core/data/momentum-scanner';
 
+type EntryPlan = NonNullable<MomentumPick['entryPlan']>;
+
+function inferEntryPlan(pick: MomentumPick): EntryPlan {
+  if (pick.entryPlan) return pick.entryPlan;
+
+  const technical = pick.dimensions.find((d) => d.name === '技术突破');
+  const volatility = pick.dimensions.find((d) => d.name === '波动释放');
+  const details = [...(technical?.details || []), ...(volatility?.details || [])].join(' ');
+  const rsiMatch = details.match(/RSI\(6\)\s*位于\s*(\d+(\.\d+)?)/);
+  const rsi = rsiMatch ? Number(rsiMatch[1]) : 50;
+  const hasBreakout = details.includes('突破近') || details.includes('突破布林带上轨') || details.includes('突破近期高点');
+  const overheated = pick.changePercent >= 7 || rsi >= 78;
+
+  if (hasBreakout && overheated) {
+    return {
+      type: 'pullback',
+      label: '回踩低吸',
+      trigger: '回踩突破位附近不破且缩量企稳',
+      invalidation: '跌回突破位下方',
+      note: '已突破但短线偏热，优先等回踩，不把通过扫描理解为直接追高。',
+    };
+  }
+
+  if (hasBreakout) {
+    return {
+      type: 'breakout',
+      label: '上破追击',
+      trigger: '放量站稳近期高点后确认',
+      invalidation: '跌回突破位下方',
+      note: '偏突破确认买点，适合小仓位试错并严格止损。',
+    };
+  }
+
+  if ((technical?.score || 0) >= 65) {
+    return {
+      type: 'breakout',
+      label: '等上破确认',
+      trigger: '有效突破近期高点且成交量继续放大',
+      invalidation: '跌破短期支撑',
+      note: '还没真正突破，优先等上破，不是下跌途中接刀。',
+    };
+  }
+
+  return {
+    type: 'wait',
+    label: '等待确认',
+    trigger: '放量突破后再观察',
+    invalidation: '继续缩量走弱',
+    note: '当前只是通过扫描，不等于出现可执行买点。',
+  };
+}
+
+function EntryPlanBadge({ plan }: { plan: EntryPlan }) {
+  const cls = plan.type === 'breakout'
+    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+    : plan.type === 'pullback'
+    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${cls}`}>
+      <Target className="w-3 h-3" />
+      {plan.label}
+    </span>
+  );
+}
+
+function EntryPlanPanel({ plan }: { plan: EntryPlan }) {
+  const accent = plan.type === 'breakout'
+    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/10 dark:text-red-300'
+    : plan.type === 'pullback'
+    ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/10 dark:text-blue-300'
+    : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-800 dark:bg-gray-800/50 dark:text-gray-300';
+
+  return (
+    <div className={`mt-3 rounded-lg border p-3 ${accent}`}>
+      <div className="flex items-center gap-2">
+        <EntryPlanBadge plan={plan} />
+        <span className="text-xs font-medium">买点判断</span>
+      </div>
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] leading-relaxed">
+        <div>
+          <span className="font-semibold">触发：</span>{plan.trigger}
+        </div>
+        <div>
+          <span className="font-semibold">失效：</span>{plan.invalidation}
+        </div>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed opacity-90">{plan.note}</p>
+    </div>
+  );
+}
+
 function LevelBadge({ level, score }: { level: MomentumPick['level']; score: number }) {
   if (level === 'extreme') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
         <Flame className="w-3 h-3" />
-        极度爆破 {score}
+        强机会 {score}
       </span>
     );
   }
@@ -20,7 +113,7 @@ function LevelBadge({ level, score }: { level: MomentumPick['level']; score: num
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
         <Zap className="w-3 h-3" />
-        高爆破 {score}
+        高动能 {score}
       </span>
     );
   }
@@ -28,7 +121,7 @@ function LevelBadge({ level, score }: { level: MomentumPick['level']; score: num
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
         <TrendingUp className="w-3 h-3" />
-        中度爆破 {score}
+        中性偏强 {score}
       </span>
     );
   }
@@ -79,6 +172,7 @@ function StockCard({ pick, expanded, onToggle }: {
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const entryPlan = inferEntryPlan(pick);
   const dimIcons: Record<string, React.ElementType> = {
     '量价脉冲': BarChart3,
     '技术突破': Target,
@@ -88,7 +182,7 @@ function StockCard({ pick, expanded, onToggle }: {
   };
 
   return (
-    <div className={`rounded-xl border transition-all duration-200 ${
+    <div className={`rounded-lg border transition-all duration-200 ${
       pick.level === 'extreme'
         ? 'border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10'
         : pick.level === 'high'
@@ -98,7 +192,7 @@ function StockCard({ pick, expanded, onToggle }: {
       {/* 头部 */}
       <button
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors rounded-xl"
+        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors rounded-lg"
       >
         <div className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
           pick.rank <= 3
@@ -118,6 +212,7 @@ function StockCard({ pick, expanded, onToggle }: {
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <LevelBadge level={pick.level} score={pick.score} />
+            <EntryPlanBadge plan={entryPlan} />
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
               ¥{pick.price.toFixed(2)}
             </span>
@@ -149,6 +244,8 @@ function StockCard({ pick, expanded, onToggle }: {
             <ArrowUpRight className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{pick.summary}</p>
           </div>
+
+          <EntryPlanPanel plan={entryPlan} />
 
           {/* 五大维度 */}
           <div className="mt-4 space-y-2.5">
@@ -199,7 +296,7 @@ function StockCard({ pick, expanded, onToggle }: {
             <div className="flex-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 p-3 flex items-start gap-2">
               <Clock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <div>
-                <div className="text-xs font-medium text-blue-700 dark:text-blue-400">建议持仓周期</div>
+                <div className="text-xs font-medium text-blue-700 dark:text-blue-400">观察周期</div>
                 <div className="text-sm text-blue-800 dark:text-blue-300 mt-0.5">{pick.holdingPeriod}</div>
               </div>
             </div>
@@ -225,14 +322,14 @@ function TheorySection() {
   const [showTheory, setShowTheory] = useState(false);
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <button
         onClick={() => setShowTheory(!showTheory)}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
       >
         <div className="flex items-center gap-2">
           <BarChart4 className="w-4 h-4 text-blue-500" />
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">「爆破力扫描」选股理论</span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">机会扫描逻辑</span>
         </div>
         {showTheory ? (
           <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -245,8 +342,8 @@ function TheorySection() {
         <div className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
           <p>
             <strong className="text-gray-800 dark:text-gray-200">核心思想：</strong>
-            短期爆发力不是猜涨跌，而是识别「资金正在集中涌入 + 技术形态刚突破 + 消息面有催化」的三重共振时刻。
-            模型从全市场 A 股中扫描，每日更新，上限展示前 10 名。
+            机会扫描不是直接给买入指令，而是把「资金正在集中涌入 + 技术形态接近/完成突破 + 波动开始释放」整理成可执行观察清单。
+            每条记录会给出买点判断、触发条件和失效条件。
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -271,18 +368,18 @@ function TheorySection() {
           <div className="flex flex-wrap gap-2">
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">评分等级：</span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-              <Flame className="w-3 h-3" /> 85-100 极度爆破
+              <Flame className="w-3 h-3" /> 85-100 强机会
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-              <Zap className="w-3 h-3" /> 70-84 高爆破
+              <Zap className="w-3 h-3" /> 70-84 高动能
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-              <TrendingUp className="w-3 h-3" /> 55-69 中度爆破
+              <TrendingUp className="w-3 h-3" /> 55-69 中性偏强
             </span>
           </div>
 
           <p className="text-[11px] text-gray-400 dark:text-gray-500">
-            ⚠️ 免责声明：本模型仅为技术研究演示，不构成任何投资建议。股市有风险，入市需谨慎。
+            免责声明：本模型仅为技术研究演示，不构成任何投资建议。股市有风险，入市需谨慎。
           </p>
         </div>
       )}
@@ -317,9 +414,9 @@ export function MomentumScanPage() {
       } else {
         setDataSource('api');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Scan failed:', e);
-      setScanError(e.message || '扫描失败');
+      setScanError(e instanceof Error ? e.message : '扫描失败');
     } finally {
       setLoading(false);
       setProgress({ done: 0, total: 0 });
@@ -338,27 +435,43 @@ export function MomentumScanPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-5 space-y-4">
         {/* 页面标题 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <Zap className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">爆破力扫描</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">A 股短期爆发力选股模型 · 每日更新 · Top 10</p>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">机会扫描</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">A 股短线动能清单 · 买点类型前置 · Top 10</p>
             </div>
           </div>
           <button
             onClick={runScan}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-gray-950 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? '扫描中...' : '重新扫描'}
           </button>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-900">
+              <div className="text-[10px] text-gray-400">核心输出</div>
+              <div className="mt-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200">上破 / 回踩 / 等待</div>
+            </div>
+            <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-900">
+              <div className="text-[10px] text-gray-400">风控字段</div>
+              <div className="mt-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200">触发价 + 失效条件</div>
+            </div>
+            <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-900">
+              <div className="text-[10px] text-gray-400">定位</div>
+              <div className="mt-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200">筛选器，不是指令</div>
+            </div>
+          </div>
         </div>
 
         {/* 理论说明 */}
@@ -366,7 +479,7 @@ export function MomentumScanPage() {
 
         {/* 扫描状态 / 结果 */}
         {loading && !result && (
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 flex flex-col items-center justify-center">
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 flex flex-col items-center justify-center">
             <div className="relative w-12 h-12 mb-4">
               <div className="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-800" />
               <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
@@ -393,7 +506,7 @@ export function MomentumScanPage() {
 
         {/* 错误提示 */}
       {scanError && !result && (
-        <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 px-4 py-3 flex items-start gap-2">
+        <div className="rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 px-4 py-3 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-medium text-red-700 dark:text-red-400">扫描失败</div>
@@ -405,7 +518,7 @@ export function MomentumScanPage() {
       {result && (
           <>
             {/* 市场氛围 + 数据来源 */}
-            <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3">
               <span className="text-xs text-gray-500 dark:text-gray-400">市场氛围</span>
               <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
                 result.marketSentiment === 'bullish'
@@ -442,8 +555,9 @@ export function MomentumScanPage() {
             </div>
 
             {/* 股票列表 */}
-            <div className="text-xs text-gray-400 dark:text-gray-500 px-1">
-              共 {result.picks.length} 只 · 点击卡片展开详情
+            <div className="flex items-center justify-between px-1 text-xs text-gray-400 dark:text-gray-500">
+              <span>共 {result.picks.length} 只 · 点击记录查看触发/失效条件</span>
+              <span className="hidden sm:inline">红色偏突破，蓝色偏回踩，灰色等待确认</span>
             </div>
             <div className="space-y-3">
               {result.picks.map((pick) => (

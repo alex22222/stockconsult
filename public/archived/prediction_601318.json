@@ -1,0 +1,79 @@
+{
+  "symbol": "601318",
+  "name": "中国平安",
+  "updatedAt": "2026-05-16 02:43:55",
+  "latest": {
+    "predictDate": "2026-05-16",
+    "localModel": {
+      "prediction": "涨",
+      "upProbability": 55.0,
+      "downProbability": 45.0,
+      "confidence": 60.0
+    },
+    "cloudModel": {
+      "prediction": "跌",
+      "upProbability": 42,
+      "downProbability": 58,
+      "confidence": 16,
+      "factorScores": {
+        "trend": 35,
+        "momentum": 25,
+        "volume": 50,
+        "technical": 54,
+        "usMarket": 49
+      },
+      "usMarketDetail": {
+        "nasdaq": 0.71,
+        "dow": 0.74,
+        "sp500": 0.79,
+        "chinaDragon": -2.67
+      }
+    },
+    "verified": false,
+    "actualResult": null,
+    "actualChangePercent": null,
+    "localCorrect": null,
+    "cloudCorrect": null
+  },
+  "stats": {
+    "total": 1,
+    "verified": 0,
+    "localAccuracy": null,
+    "cloudAccuracy": null
+  },
+  "history": [
+    {
+      "predictDate": "2026-05-16",
+      "localModel": {
+        "prediction": "涨",
+        "upProbability": 55.0,
+        "downProbability": 45.0,
+        "confidence": 60.0
+      },
+      "cloudModel": {
+        "prediction": "跌",
+        "upProbability": 42,
+        "downProbability": 58,
+        "confidence": 16,
+        "factorScores": {
+          "trend": 35,
+          "momentum": 25,
+          "volume": 50,
+          "technical": 54,
+          "usMarket": 49
+        },
+        "usMarketDetail": {
+          "nasdaq": 0.71,
+          "dow": 0.74,
+          "sp500": 0.79,
+          "chinaDragon": -2.67
+        }
+      },
+      "verified": false,
+      "actualResult": null,
+      "actualChangePercent": null,
+      "localCorrect": null,
+      "cloudCorrect": null
+    }
+  ]
+}

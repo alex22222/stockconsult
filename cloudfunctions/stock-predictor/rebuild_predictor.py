@@ -351,7 +351,7 @@ def predict_next_return(symbol: str, model_bundle: Dict) -> Dict:
         "individual_predictions": individual,
         "is_anomaly": is_anomaly,
         "anomaly_direction": anomaly_direction,
-        "confidence": round(abs(ensemble) / 5, 4),  # 简单置信度: |预测|/5
+        "signal_strength": round(abs(ensemble) / 5, 4),  # 信号强度: |预测|/5 (非校准置信度)
         "feature_count": len(model_bundle["feature_cols"]),
         "selected_features": model_bundle["feature_cols"],
     }

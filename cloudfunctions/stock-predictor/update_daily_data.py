@@ -212,6 +212,34 @@ STOCK_CONFIGS = [
     {'csv': '002896_daily.csv', 'baostock_code': 'sz.002896',
      'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
      'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002896'},
+    # === 模拟盘股票池（10只大市值股）===
+    {'csv': '600519_daily.csv', 'baostock_code': 'sh.600519',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600519'},
+    {'csv': '601398_daily.csv', 'baostock_code': 'sh.601398',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601398'},
+    {'csv': '601857_daily.csv', 'baostock_code': 'sh.601857',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601857'},
+    {'csv': '601288_daily.csv', 'baostock_code': 'sh.601288',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601288'},
+    {'csv': '601988_daily.csv', 'baostock_code': 'sh.601988',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601988'},
+    {'csv': '601628_daily.csv', 'baostock_code': 'sh.601628',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601628'},
+    {'csv': '600036_daily.csv', 'baostock_code': 'sh.600036',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600036'},
+    {'csv': '601088_daily.csv', 'baostock_code': 'sh.601088',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601088'},
+    {'csv': '600900_daily.csv', 'baostock_code': 'sh.600900',
+     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
+     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600900'},
 ]
 
 INDEX_CONFIGS = [
@@ -240,7 +268,7 @@ def update_all() -> bool:
 
     stock_cfgs = [c for c in CONFIGS if c.get('akshare_func') == fetch_from_akshare_stock]
     for cfg in CONFIGS:
-        if total_attempts >= 10:
+        if total_attempts >= 50:
             logger.error(f"累计尝试已达 {total_attempts} 次上限，终止更新")
             break
         _, attempts, success = update_single_file(cfg, total_attempts)

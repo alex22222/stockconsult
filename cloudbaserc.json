@@ -53,9 +53,11 @@
             },
             {
               "name": "stock-predictor",
-              "timeout": 120,
-              "envVariables": {},
-              "handler": "index.main",
+              "timeout": 300,
+              "envVariables": {
+                "INVESTODAY_API_KEY": "${env.INVESTODAY_API_KEY}"
+              },
+              "handler": "scf_index.main_handler",
               "runtime": "Python3.9",
               "memorySize": 1024,
               "triggers": [
@@ -63,6 +65,11 @@
                   "name": "http",
                   "type": "http",
                   "path": "/stock-predictor"
+                },
+                {
+                  "name": "daily-pipeline",
+                  "type": "timer",
+                  "config": "0 30 15 * * * *"
                 }
               ]
             }

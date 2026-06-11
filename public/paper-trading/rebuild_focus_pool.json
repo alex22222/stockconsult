@@ -1,6 +1,6 @@
 {
-  "date": "2026-06-01",
-  "recorded_at": "2026-06-02T21:19:30.165593",
+  "date": "2026-06-05",
+  "recorded_at": "2026-06-05T16:45:37.052035",
   "pool_size": 2,
   "focus": [
     {
@@ -9,17 +9,19 @@
       "name": "农业银行",
       "predicted_return_5d": 2.381,
       "signal": "买入",
-      "confidence": 0.48,
-      "reason": "预测5日收益 +2.38%，模型置信度0.48"
+      "confidence": 0.4762,
+      "reason": "预测5日收益 +2.38%，模型置信度0.48",
+      "sector": "银行"
     },
     {
       "rank": 2,
-      "symbol": "601988",
-      "name": "中国银行",
-      "predicted_return_5d": 1.4826,
+      "symbol": "601857",
+      "name": "中国石油",
+      "predicted_return_5d": 1.0747,
       "signal": "买入",
-      "confidence": 0.3,
-      "reason": "预测5日收益 +1.48%，模型置信度0.30"
+      "confidence": 0.2149,
+      "reason": "预测5日收益 +1.07%，模型置信度0.21",
+      "sector": "石油石化"
     }
   ]
 }

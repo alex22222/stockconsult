@@ -1,2 +1,5 @@
-# 轻量版 stock-predictor — 纯 Python 标准库实现
-# 无第三方依赖，通过 urllib 调用 investoday MCP API
+# 云函数依赖 — 在线安装
+# 注意：SCF Python3.9 环境支持在线 pip install
+# 如果安装超时，请在 SCF 控制台使用 Layer 功能
+
+urllib3

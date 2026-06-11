@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-06-02 22:25:38",
+  "generated_at": "2026-06-11 23:25:31",
   "initial_capital": 10000.0,
-  "current_cash": 869.78,
-  "total_assets": 9981.78,
-  "nav": 0.9982,
-  "total_return_pct": -0.1822,
+  "current_cash": 1308.05,
+  "total_assets": 10004.05,
+  "nav": 1.0004,
+  "total_return_pct": 0.0405,
   "focus_pool": [
     {
       "rank": 1,
@@ -12,36 +12,36 @@
       "name": "农业银行",
       "predicted_return_5d": 2.381,
       "signal": "买入",
-      "confidence": 0.48,
-      "reason": "预测5日收益 +2.38%，模型置信度0.48"
+      "confidence": 0.4762,
+      "reason": "预测5日收益 +2.38%，模型置信度0.48",
+      "sector": "银行"
     },
     {
       "rank": 2,
-      "symbol": "601988",
-      "name": "中国银行",
-      "predicted_return_5d": 1.4826,
+      "symbol": "601857",
+      "name": "中国石油",
+      "predicted_return_5d": 1.0747,
       "signal": "买入",
-      "confidence": 0.3,
-      "reason": "预测5日收益 +1.48%，模型置信度0.30"
+      "confidence": 0.2149,
+      "reason": "预测5日收益 +1.07%，模型置信度0.21",
+      "sector": "石油石化"
     }
   ],
-  "focus_date": "2026-06-01",
+  "focus_date": "2026-06-05",
   "holding_positions": [
     {
       "symbol": "601288",
       "name": "农业银行",
-      "entry_date": "2026-06-02",
-      "entry_price": 6.32,
-      "latest_price": 6.32,
+      "sector": "银行",
+      "entry_date": "2026-06-06",
+      "entry_price": 6.36,
+      "latest_price": 6.36,
       "shares": 700,
-      "market_value": 4424.0,
-      "cost_basis": 4432.85,
-      "unrealized_pnl": -8.85,
+      "market_value": 4452.0,
+      "cost_basis": 4460.9,
+      "unrealized_pnl": -8.9,
       "status": "holding",
-      "expected_exit_date": "2026-06-07",
-      "prev_close": 6.21,
-      "daily_pnl": 77.0,
-      "daily_pnl_pct": 1.77,
+      "expected_exit_date": "2026-06-11",
       "exit_rules": {
         "take_profit_pct": 1.67,
         "stop_loss_pct": -3.0,
@@ -49,25 +49,86 @@
         "max_holding_days": 5,
         "reasoning": "预测5日收益+2.38%，目标止盈取70%=1.67%（封顶5.0%保底1.0%），硬止损-3%，跟踪止盈回撤-2%，时间止损5个交易日"
       },
-      "highest_price": 6.32,
-      "lowest_price": 6.32,
-      "sector": "银行"
+      "highest_price": 6.36,
+      "lowest_price": 6.36,
+      "prev_close": 6.3,
+      "daily_pnl": 42.0,
+      "daily_pnl_pct": 0.95
+    },
+    {
+      "symbol": "601857",
+      "name": "中国石油",
+      "sector": "石油石化",
+      "entry_date": "2026-06-06",
+      "entry_price": 10.61,
+      "latest_price": 10.61,
+      "shares": 400,
+      "market_value": 4244.0,
+      "cost_basis": 4252.49,
+      "unrealized_pnl": -8.49,
+      "status": "holding",
+      "expected_exit_date": "2026-06-11",
+      "exit_rules": {
+        "take_profit_pct": 1.0,
+        "stop_loss_pct": -3.0,
+        "trailing_stop_pct": -2.0,
+        "max_holding_days": 5,
+        "reasoning": "预测5日收益+1.07%，目标止盈取70%=1.00%（封顶5.0%保底1.0%），硬止损-3%，跟踪止盈回撤-2%，时间止损5个交易日"
+      },
+      "highest_price": 10.61,
+      "lowest_price": 10.61,
+      "prev_close": 10.65,
+      "daily_pnl": -16.0,
+      "daily_pnl_pct": -0.38
+    }
+  ],
+  "closed_positions": [
+    {
+      "symbol": "601288",
+      "name": "农业银行",
+      "entry_date": "2026-06-02",
+      "entry_price": 6.32,
+      "latest_price": 6.36,
+      "shares": 700,
+      "market_value": 4452.0,
+      "cost_basis": 4432.85,
+      "unrealized_pnl": 19.15,
+      "status": "closed",
+      "expected_exit_date": "2026-06-07",
+      "prev_close": 6.3,
+      "daily_pnl": 42.0,
+      "daily_pnl_pct": 0.95,
+      "exit_rules": {
+        "take_profit_pct": 1.67,
+        "stop_loss_pct": -3.0,
+        "trailing_stop_pct": -2.0,
+        "max_holding_days": 5,
+        "reasoning": "预测5日收益+2.38%，目标止盈取70%=1.67%（封顶5.0%保底1.0%），硬止损-3%，跟踪止盈回撤-2%，时间止损5个交易日"
+      },
+      "highest_price": 6.43,
+      "lowest_price": 6.28,
+      "sector": "银行",
+      "exit_date": "2026-06-04",
+      "exit_price": 6.3,
+      "realized_pnl": -31.67,
+      "exit_type": "trailing_stop",
+      "exit_reason": "跟踪止盈触发：收盘价¥6.30 ≤ 回撤线¥6.30 (最高¥6.43 回撤2%)"
     },
     {
       "symbol": "601988",
       "name": "中国银行",
       "entry_date": "2026-06-02",
       "entry_price": 5.86,
-      "latest_price": 5.86,
+      "latest_price": 6.05,
       "shares": 800,
-      "market_value": 4688.0,
+      "market_value": 4840.0,
       "cost_basis": 4697.38,
-      "unrealized_pnl": -9.38,
-      "status": "holding",
+      "unrealized_pnl": 142.62,
+      "status": "closed",
       "expected_exit_date": "2026-06-07",
-      "prev_close": 5.81,
-      "daily_pnl": 40.0,
-      "daily_pnl_pct": 0.86,
+      "prev_close": 5.9,
+      "daily_pnl": 120.0,
+      "daily_pnl_pct": 2.54,
       "exit_rules": {
         "take_profit_pct": 1.04,
         "stop_loss_pct": -3.0,
@@ -75,18 +136,39 @@
         "max_holding_days": 5,
         "reasoning": "预测5日收益+1.48%，目标止盈取70%=1.04%（封顶5.0%保底1.0%），硬止损-3%，跟踪止盈回撤-2%，时间止损5个交易日"
       },
-      "highest_price": 5.86,
+      "highest_price": 6.05,
       "lowest_price": 5.86,
-      "sector": "银行"
+      "sector": "银行",
+      "exit_date": "2026-06-03",
+      "exit_price": 5.95,
+      "realized_pnl": 53.1,
+      "exit_type": "take_profit",
+      "exit_reason": "目标止盈触发：收盘价¥5.95 ≥ 止盈线¥5.92 (+1.04%)"
     }
   ],
-  "closed_positions": [],
-  "total_trades": 0,
-  "winning_trades": 0,
-  "losing_trades": 0,
-  "win_rate": 0,
-  "total_pnl": 0,
-  "by_symbol": {},
+  "total_trades": 2,
+  "winning_trades": 1,
+  "losing_trades": 1,
+  "win_rate": 50.0,
+  "total_pnl": 21.43,
+  "by_symbol": {
+    "601288": {
+      "name": "农业银行",
+      "trades": 1,
+      "total_pnl": -31.67,
+      "win_rate": 0.0,
+      "avg_return": -31.67,
+      "total_return": -31.67
+    },
+    "601988": {
+      "name": "中国银行",
+      "trades": 1,
+      "total_pnl": 53.1,
+      "win_rate": 100.0,
+      "avg_return": 53.1,
+      "total_return": 53.1
+    }
+  },
   "portfolio_history": [
     {
       "date": "2026-06-02",
@@ -97,6 +179,76 @@
       "return_pct": -0.1822,
       "daily_return_pct": -0.18,
       "daily_pnl": 117.0
+    },
+    {
+      "date": "2026-06-03",
+      "cash": 869.78,
+      "market_value": 9112.0,
+      "total_assets": 9981.78,
+      "nav": 0.9982,
+      "return_pct": -0.1822,
+      "daily_return_pct": 0.0,
+      "daily_pnl": 117.0
+    },
+    {
+      "date": "2026-06-04",
+      "cash": 869.78,
+      "market_value": 9112.0,
+      "total_assets": 9981.78,
+      "nav": 0.9982,
+      "return_pct": -0.1822,
+      "daily_return_pct": 0.0,
+      "daily_pnl": 117.0
+    },
+    {
+      "date": "2026-06-05",
+      "cash": 10021.44,
+      "market_value": 0.0,
+      "total_assets": 10021.44,
+      "nav": 1.0021,
+      "return_pct": 0.2144,
+      "daily_return_pct": 0.3907,
+      "daily_pnl": 0.0
+    },
+    {
+      "date": "2026-06-06",
+      "cash": 1308.05,
+      "market_value": 8696.0,
+      "total_assets": 10004.05,
+      "nav": 1.0004,
+      "return_pct": 0.0405,
+      "daily_return_pct": -0.1696,
+      "daily_pnl": 26.0
+    },
+    {
+      "date": "2026-06-07",
+      "cash": 1308.05,
+      "market_value": 8696.0,
+      "total_assets": 10004.05,
+      "nav": 1.0004,
+      "return_pct": 0.0405,
+      "daily_return_pct": 0.0,
+      "daily_pnl": 26.0
+    },
+    {
+      "date": "2026-06-10",
+      "cash": 1308.05,
+      "market_value": 8696.0,
+      "total_assets": 10004.05,
+      "nav": 1.0004,
+      "return_pct": 0.0405,
+      "daily_return_pct": 0.0,
+      "daily_pnl": 26.0
+    },
+    {
+      "date": "2026-06-11",
+      "cash": 1308.05,
+      "market_value": 8696.0,
+      "total_assets": 10004.05,
+      "nav": 1.0004,
+      "return_pct": 0.0405,
+      "daily_return_pct": 0.0,
+      "daily_pnl": 26.0
     }
   ]
 }

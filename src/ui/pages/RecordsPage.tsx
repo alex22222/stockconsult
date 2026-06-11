@@ -486,7 +486,7 @@ export function RecordsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
-                            <span>置信度 {record.confidence}%</span>
+                            <span>信号强度 {record.confidence}%</span>
                             {record.verified && (
                               <span>实际{record.actualResult === '涨' ? '涨' : record.actualResult === '跌' ? '跌' : '平'} {record.actualChangePercent != null ? `${record.actualChangePercent}%` : '--'}</span>
                             )}
@@ -734,7 +734,7 @@ export function RecordsPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">置信度</span>
+                      <span className="text-xs text-gray-400">信号强度</span>
                       <span className="text-sm font-medium text-gray-700">{rec.confidence}%</span>
                     </div>
                     {rec.verified ? (

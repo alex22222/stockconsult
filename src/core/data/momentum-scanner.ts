@@ -183,13 +183,13 @@ function scoreVolumePrice(rows: QuoteRow[]): { name: string; score: number; deta
   else if (latestVolRatio >= 1.5) volScore = 70;
   else if (latestVolRatio >= 1.2) volScore = 55;
 
-  let retScore = 40;
-  if (8 <= ret3d && ret3d <= 18) retScore = 90;
-  else if (5 <= ret3d && ret3d < 8) retScore = 80;
-  else if (2 <= ret3d && ret3d < 5) retScore = 65;
-  else if (0 <= ret3d && ret3d < 2) retScore = 50;
-  else if (ret3d < 0) retScore = 35;
-  else retScore = 60; // >18 透支
+  const retScore =
+    8 <= ret3d && ret3d <= 18 ? 90 :
+    5 <= ret3d && ret3d < 8 ? 80 :
+    2 <= ret3d && ret3d < 5 ? 65 :
+    0 <= ret3d && ret3d < 2 ? 50 :
+    ret3d < 0 ? 35 :
+    60; // >18 透支
 
   const score = Math.round(volScore * 0.6 + retScore * 0.4);
 
@@ -226,12 +226,12 @@ function scoreTechnical(rows: QuoteRow[]): { name: string; score: number; detail
   if (breakout60) breakoutScore = 95;
   else if (breakout20) breakoutScore = 80;
 
-  let rsiScore = 50;
-  if (latestRSI >= 55 && latestRSI <= 75) rsiScore = 90;
-  else if (latestRSI >= 50 && latestRSI < 55) rsiScore = 75;
-  else if (latestRSI >= 40 && latestRSI < 50) rsiScore = 55;
-  else if (latestRSI > 75) rsiScore = 65;
-  else rsiScore = 40;
+  const rsiScore =
+    latestRSI >= 55 && latestRSI <= 75 ? 90 :
+    latestRSI >= 50 && latestRSI < 55 ? 75 :
+    latestRSI >= 40 && latestRSI < 50 ? 55 :
+    latestRSI > 75 ? 65 :
+    40;
 
   let macdScore = 45;
   if (macdBull && macdExpanding) macdScore = 90;
@@ -248,7 +248,7 @@ function scoreTechnical(rows: QuoteRow[]): { name: string; score: number; detail
   else if (macdBull) details.push('MACD 金叉维持，但红柱未明显扩大');
   else details.push('MACD 尚未形成明确多头信号');
 
-  return { name: '波动释放', score, details };
+  return { name: '技术突破', score, details };
 }
 
 function scoreCapital(rows: QuoteRow[]): { name: string; score: number; details: string[] } {
@@ -331,7 +331,87 @@ function scoreVolatility(rows: QuoteRow[]): { name: string; score: number; detai
   if (breakoutBB) details.push('收盘价突破布林带上轨，波动向上释放');
   details.push(`ATR(14) 为20日均值的 ${atrRatio.toFixed(1)} 倍`);
 
-  return { name: '技术突破', score, details };
+  return { name: '波动释放', score, details };
+}
+
+function buildEntryPlan(
+  rows: QuoteRow[],
+  totalScore: number,
+  dimensions: Array<{ name: string; score: number; details: string[] }>
+): MomentumPick['entryPlan'] {
+  const closes = rows.map((r) => r.close);
+  const highs = rows.map((r) => r.high);
+  const volumes = rows.map((r) => r.volume);
+  const latest = rows[rows.length - 1];
+  const latestClose = latest.close;
+  const prevClose = rows[rows.length - 2]?.close || latestClose;
+  const dailyChange = prevClose ? (latestClose / prevClose - 1) * 100 : 0;
+
+  const high20 = Math.max(...highs.slice(-20));
+  const high60 = Math.max(...highs.slice(-60));
+  const vol20 = sma(volumes, 20);
+  const volRatio = volumes[volumes.length - 1] / (vol20[vol20.length - 1] || 1);
+  const rsi = calcRSI(closes, 6);
+  const latestRSI = rsi[rsi.length - 1];
+  const ret3d = closes.length >= 4 ? (latestClose / closes[closes.length - 4] - 1) * 100 : 0;
+
+  const breakout20 = latestClose >= high20 * 0.995;
+  const breakout60 = latestClose >= high60 * 0.995;
+  const breakoutLevel = breakout60 ? high60 : high20;
+  const technical = dimensions.find((d) => d.name === '技术突破')?.score ?? 50;
+  const capital = dimensions.find((d) => d.name === '资金涌入')?.score ?? 50;
+  const isOverheated = latestRSI > 78 || ret3d > 12 || dailyChange > 7;
+  const hasBreakout = breakout20 || breakout60;
+  const nearBreakout = latestClose >= high20 * 0.97;
+  const stopPrice = Math.min(latestClose * 0.95, breakoutLevel * 0.97);
+
+  if (totalScore < 55 || technical < 55) {
+    return {
+      type: 'wait',
+      label: '等待确认',
+      trigger: `放量站上 ${high20.toFixed(2)} 后再观察`,
+      invalidation: `收盘跌破 ${stopPrice.toFixed(2)}`,
+      note: '当前只是通过扫描，不等于出现可执行买点。',
+    };
+  }
+
+  if (hasBreakout && isOverheated) {
+    return {
+      type: 'pullback',
+      label: '回踩低吸',
+      trigger: `回踩 ${breakoutLevel.toFixed(2)} 附近不破且缩量企稳`,
+      invalidation: `收盘跌破 ${stopPrice.toFixed(2)}`,
+      note: '已上破但短线偏热，不建议把“通过扫描”理解为直接追高。',
+    };
+  }
+
+  if (hasBreakout && volRatio >= 1.2 && capital >= 60) {
+    return {
+      type: 'breakout',
+      label: '上破追击',
+      trigger: `放量站稳 ${breakoutLevel.toFixed(2)}，且分时不快速跌回`,
+      invalidation: `收盘跌破 ${stopPrice.toFixed(2)}`,
+      note: '偏突破确认买点，适合小仓位试错并严格止损。',
+    };
+  }
+
+  if (nearBreakout && technical >= 65) {
+    return {
+      type: 'breakout',
+      label: '等上破确认',
+      trigger: `有效突破 ${high20.toFixed(2)} 且成交量继续放大`,
+      invalidation: `收盘跌破 ${stopPrice.toFixed(2)}`,
+      note: '还没真正突破，优先等上破，不是下跌途中接刀。',
+    };
+  }
+
+  return {
+    type: 'pullback',
+    label: '回踩低吸',
+    trigger: `回踩 ${Math.min(latestClose * 0.98, high20).toFixed(2)} 附近企稳`,
+    invalidation: `收盘跌破 ${stopPrice.toFixed(2)}`,
+    note: '动能够看，但买点不清晰，等价格给出更好的风险收益比。',
+  };
 }
 
 function buildPick(
@@ -363,6 +443,14 @@ function buildPick(
     '波动释放': `${stock.name} 波动率出现变化，${d5.details[0].split('，')[0]}，方向选择中。`,
   };
 
+  const dimensions = [
+    { name: '量价脉冲', score: d1.score, weight: 0.30, details: d1.details },
+    { name: '技术突破', score: d2.score, weight: 0.25, details: d2.details },
+    { name: '资金涌入', score: d3.score, weight: 0.20, details: d3.details },
+    { name: '情绪催化', score: d4.score, weight: 0.15, details: d4.details },
+    { name: '波动释放', score: d5.score, weight: 0.10, details: d5.details },
+  ];
+
   const riskWarnings: string[] = [];
   if (total > 80) {
     riskWarnings.push('短期涨幅较大，需警惕获利回吐压力');
@@ -387,14 +475,9 @@ function buildPick(
     changePercent,
     score: total,
     level,
-    dimensions: [
-      { name: '量价脉冲', score: d1.score, weight: 0.30, details: d1.details },
-      { name: '技术突破', score: d2.score, weight: 0.25, details: d2.details },
-      { name: '资金涌入', score: d3.score, weight: 0.20, details: d3.details },
-      { name: '情绪催化', score: d4.score, weight: 0.15, details: d4.details },
-      { name: '波动释放', score: d5.score, weight: 0.10, details: d5.details },
-    ],
+    dimensions,
     summary: summaryMap[bestDim.name] || `${stock.name} 综合爆破力指数 ${total} 分，值得关注。`,
+    entryPlan: buildEntryPlan(rows, total, dimensions),
     holdingPeriod: total >= 80 ? '1-3 个交易日' : total >= 65 ? '3-5 个交易日' : '5 个交易日以内',
     riskWarning: riskWarnings,
     updatedAt: latest.date,
@@ -519,6 +602,21 @@ function generateMockPicks(): MomentumScanResult {
       { name: '情绪催化', score: d(score), weight: 0.15, details: ['消息面中性'] },
       { name: '波动释放', score: d(score), weight: 0.10, details: ['波动率中性'] },
     ];
+    const entryPlan: MomentumPick['entryPlan'] = score > 75
+      ? {
+          type: 'breakout',
+          label: '上破追击',
+          trigger: '放量突破前高后确认',
+          invalidation: '跌回突破位下方',
+          note: '演示数据仅展示字段形态，不构成真实买点。',
+        }
+      : {
+          type: 'wait',
+          label: '等待确认',
+          trigger: '突破近期高点后再观察',
+          invalidation: '跌破短期支撑',
+          note: '演示数据仅展示字段形态，不构成真实买点。',
+        };
 
     picks.push({
       rank: i + 1,
@@ -529,6 +627,7 @@ function generateMockPicks(): MomentumScanResult {
       level,
       dimensions: dims,
       summary: `${name} 短期动能${score > 70 ? '充沛' : '一般'}，综合爆破力 ${score} 分。`,
+      entryPlan,
       holdingPeriod: score >= 80 ? '1-3 个交易日' : score >= 65 ? '3-5 个交易日' : '5 个交易日以内',
       riskWarning: score > 70
         ? ['短期涨幅较大，需警惕获利回吐压力', '建议设置止损位']

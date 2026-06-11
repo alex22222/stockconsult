@@ -2,7 +2,8 @@
 """
 CloudBase SCF 入口 - 股票涨跌预测（轻量版）
 纯 Python 标准库实现，无 pandas/sklearn 依赖
-通过 investoday MCP API 获取数据，本地计算技术指标
+主数据源: investoday MCP API（有额度限制）
+备用数据源: 腾讯财经（免费，无需认证）
 """
 
 import json
@@ -33,7 +34,189 @@ CORS_HEADERS = {
 }
 
 
-# ==================== MCP 数据获取 ====================
+# ==================== 工具函数 ====================
+
+def _http_get(url, timeout=15, headers=None):
+    """通用 HTTP GET"""
+    req = urllib.request.Request(
+        url,
+        headers=headers or {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode('utf-8')
+    except Exception as e:
+        logger.warning(f"HTTP GET failed: {url[:60]}... error: {e}")
+        return None
+
+
+def _to_sina_code(symbol):
+    """转换为新浪财经代码格式"""
+    code = symbol.replace('sh', '').replace('sz', '').replace('hk', '')
+    if code.startswith('6') or code.startswith('5'):
+        return f'sh{code}'
+    return f'sz{code}'
+
+
+def _to_tencent_code(symbol):
+    """转换为腾讯财经代码格式"""
+    code = symbol.replace('sh', '').replace('sz', '').replace('hk', '')
+    if code.startswith('6') or code.startswith('5'):
+        return f'sh{code}'
+    return f'sz{code}'
+
+
+# ==================== 备用数据源: 腾讯财经 ====================
+
+def fetch_history_tencent(stock_code, days=120):
+    """
+    通过腾讯财经获取历史 K 线数据（前复权）
+    接口: http://web.ifzq.gtimg.cn/appstock/app/fqkline/get
+    无需认证，免费，返回 JSON
+    """
+    tcode = _to_tencent_code(stock_code)
+    end = datetime.now()
+    begin = end - timedelta(days=days + 60)  # 多取一些确保有足够交易日
+
+    url = (
+        f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        f"?param={tcode},day,{begin.strftime('%Y-%m-%d')},{end.strftime('%Y-%m-%d')},640,qfq"
+    )
+
+    raw = _http_get(url, timeout=20)
+    if not raw:
+        return []
+
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        logger.warning(f"Tencent JSON parse failed: {e}")
+        return []
+
+    # 解析腾讯返回格式
+    stock_key = tcode
+    day_data = data.get('data', {}).get(stock_key, {}).get('day', [])
+    if not day_data:
+        # 尝试其他 key 格式
+        for k, v in data.get('data', {}).items():
+            if isinstance(v, dict) and 'day' in v:
+                day_data = v['day']
+                break
+
+    if not day_data:
+        logger.warning(f"Tencent: no day data for {stock_code}")
+        return []
+
+    # 转换为统一格式
+    klines = []
+    for row in day_data:
+        if len(row) < 6:
+            continue
+        # 腾讯格式: [日期, 开盘, 收盘, 最低, 最高, 成交量]
+        klines.append({
+            'tradeDate': row[0],
+            'openPrice': float(row[1]),
+            'closePrice': float(row[2]),
+            'lowPrice': float(row[3]),
+            'highPrice': float(row[4]),
+            'volume': float(row[5]),
+        })
+
+    # 按日期排序
+    klines.sort(key=lambda x: x['tradeDate'])
+    logger.info(f"Tencent: fetched {len(klines)} klines for {stock_code}")
+    return klines
+
+
+def fetch_realtime_quote_tencent(stock_code):
+    """
+    通过腾讯财经获取实时行情
+    接口: http://qt.gtimg.cn/q=sh600519
+    """
+    tcode = _to_tencent_code(stock_code)
+    url = f"http://qt.gtimg.cn/q={tcode}"
+
+    raw = _http_get(url, timeout=10)
+    if not raw:
+        return None
+
+    # 腾讯返回格式: v_sh600519="1~贵州茅台~600519~...";
+    try:
+        match = raw.split('"')[1]  # 提取引号内容
+        parts = match.split('~')
+        if len(parts) < 45:
+            return None
+
+        # 字段索引参考腾讯格式
+        return {
+            'name': parts[1],
+            'code': parts[2],
+            'price': float(parts[3]),
+            'prevClose': float(parts[4]),
+            'open': float(parts[5]),
+            'high': float(parts[33]),
+            'low': float(parts[34]),
+            'volume': float(parts[36]),
+            'changePercent': float(parts[32]),
+        }
+    except Exception as e:
+        logger.warning(f"Tencent realtime parse failed: {e}")
+        return None
+
+
+# ==================== 备用数据源: 新浪财经 ====================
+
+def fetch_history_sina(stock_code, days=120):
+    """
+    通过新浪财经获取历史 K 线数据
+    接口: https://quotes.sina.cn/cn/api/quotes.php?symbol=sh600519&source=sina
+    注意: 新浪财经历史数据接口不稳定，优先使用腾讯
+    """
+    scode = _to_sina_code(stock_code)
+    # 新浪财经历史数据需要通过其他方式获取，这里作为最后的备用
+    # 实际使用腾讯财经作为主要备用
+    logger.info(f"Sina history fallback for {stock_code} (using tencent)")
+    return fetch_history_tencent(stock_code, days)
+
+
+def fetch_realtime_quote_sina(stock_code):
+    """
+    通过新浪财经获取实时行情
+    接口: https://hq.sinajs.cn/list=sh600519
+    已在 investoday-proxy 中验证可用
+    """
+    scode = _to_sina_code(stock_code)
+    url = f"https://hq.sinajs.cn/list={scode}"
+
+    raw = _http_get(url, timeout=10, headers={
+        'Referer': 'https://finance.sina.com.cn',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    })
+    if not raw:
+        return None
+
+    try:
+        match = raw.split('"')[1]
+        parts = match.split(',')
+        if len(parts) < 5:
+            return None
+
+        # A股格式: 名称,今日开盘,昨日收盘,最新价,最高价,最低价,...
+        return {
+            'name': parts[0],
+            'price': float(parts[3]) if parts[3] else float(parts[2]),
+            'prevClose': float(parts[2]),
+            'open': float(parts[1]),
+            'high': float(parts[4]),
+            'low': float(parts[5]),
+            'volume': float(parts[8]) if len(parts) > 8 else 0,
+        }
+    except Exception as e:
+        logger.warning(f"Sina realtime parse failed: {e}")
+        return None
+
+
+# ==================== 主数据源: Investoday MCP ====================
 
 def mcp_call(tool_name, arguments, timeout=15):
     """调用 investoday MCP API"""
@@ -81,10 +264,10 @@ def mcp_call(tool_name, arguments, timeout=15):
         return {"raw": content}
 
 
-def fetch_history(stock_code, days=120):
-    """获取历史 K 线数据"""
+def fetch_history_investoday(stock_code, days=120):
+    """通过 investoday 获取历史 K 线"""
     end = datetime.now()
-    begin = end - timedelta(days=days + 30)  # 多取一些确保有足够交易日
+    begin = end - timedelta(days=days + 30)
 
     result = mcp_call('list_stock_adjusted_quotes', {
         'stockCode': stock_code,
@@ -95,7 +278,6 @@ def fetch_history(stock_code, days=120):
     if not result or not result.get('data'):
         return []
 
-    # 按日期排序
     klines = sorted(result['data'], key=lambda x: x.get('tradeDate', x.get('QUOTETIME', '')))
     return klines
 
@@ -108,8 +290,8 @@ def fetch_stock_info(stock_code):
     return None
 
 
-def fetch_realtime_quote(stock_code):
-    """获取实时行情"""
+def fetch_realtime_quote_investoday(stock_code):
+    """通过 investoday 获取实时行情"""
     result = mcp_call('get_stock_quote_realtime', {'stockCode': stock_code})
     if result and result.get('code') == 'Success' and result.get('data'):
         return result['data']
@@ -121,6 +303,57 @@ def fetch_stock_score(stock_code):
     result = mcp_call('get_stock_score', {'stockCode': stock_code})
     if result and result.get('data'):
         return result['data']
+    return None
+
+
+# ==================== 自动降级数据获取 ====================
+
+def fetch_history(stock_code, days=120):
+    """
+    获取历史 K 线数据（自动降级）
+    优先级: investoday → 腾讯财经 → 空列表
+    """
+    # 1. 尝试 investoday（主数据源）
+    klines = fetch_history_investoday(stock_code, days)
+    if klines and len(klines) >= 30:
+        logger.info(f"Using investoday data for {stock_code}: {len(klines)} klines")
+        return klines
+
+    # 2. 降级到腾讯财经（备用数据源）
+    logger.warning(f"Investoday failed for {stock_code}, falling back to tencent")
+    klines = fetch_history_tencent(stock_code, days)
+    if klines and len(klines) >= 30:
+        logger.info(f"Using tencent data for {stock_code}: {len(klines)} klines")
+        return klines
+
+    # 3. 都失败了
+    logger.error(f"All data sources failed for {stock_code}")
+    return []
+
+
+def fetch_realtime_quote(stock_code):
+    """
+    获取实时行情（自动降级）
+    优先级: investoday → 腾讯财经 → 新浪财经
+    """
+    # 1. investoday
+    quote = fetch_realtime_quote_investoday(stock_code)
+    if quote:
+        return quote
+
+    # 2. 腾讯财经
+    logger.warning(f"Investoday realtime failed for {stock_code}, trying tencent")
+    quote = fetch_realtime_quote_tencent(stock_code)
+    if quote:
+        return quote
+
+    # 3. 新浪财经
+    logger.warning(f"Tencent realtime failed for {stock_code}, trying sina")
+    quote = fetch_realtime_quote_sina(stock_code)
+    if quote:
+        return quote
+
+    logger.error(f"All realtime sources failed for {stock_code}")
     return None
 
 
@@ -262,7 +495,7 @@ def predict_stock(symbol, stock_name=''):
             trend_score = 35  # 短期下穿
         else:
             trend_score = 50
-    models['gradient_boosting'] = {
+    models['trend_model'] = {
         'score': trend_score,
         'weight': 0.35,
         'name': '趋势模型'
@@ -278,7 +511,7 @@ def predict_stock(symbol, stock_name=''):
         momentum_score = min(momentum_score, 80)  # 超买压制
     elif rsi < 30:
         momentum_score = max(momentum_score, 20)  # 超卖托底
-    models['random_forest'] = {
+    models['momentum_model'] = {
         'score': momentum_score,
         'weight': 0.25,
         'name': '动量模型'
@@ -294,7 +527,7 @@ def predict_stock(symbol, stock_name=''):
         volume_score = 55 if today_change > 0 else 45  # 涨缩量 / 跌缩量
     else:
         volume_score = 55 if today_change > 0 else 45
-    models['extra_trees'] = {
+    models['volume_model'] = {
         'score': volume_score,
         'weight': 0.20,
         'name': '量能模型'
@@ -327,7 +560,7 @@ def predict_stock(symbol, stock_name=''):
         tech_score -= 5
 
     tech_score = max(0, min(100, tech_score))
-    models['logistic_regression'] = {
+    models['technical_model'] = {
         'score': tech_score,
         'weight': 0.20,
         'name': '技术模型'
@@ -404,6 +637,73 @@ def predict_stock(symbol, stock_name=''):
     }
 
 
+# ==================== 每日流水线 ====================
+
+STOCKS = {
+    "600519": "贵州茅台", "601398": "工商银行", "601857": "中国石油",
+    "601288": "农业银行", "601988": "中国银行", "601628": "中国人寿",
+    "600036": "招商银行", "601088": "中国神华", "600900": "长江电力",
+    "601318": "中国平安",
+}
+
+SYMBOL_SECTOR = {
+    "600519": "食品饮料", "601398": "银行", "601857": "石油石化",
+    "601288": "银行", "601988": "银行", "601628": "非银金融",
+    "600036": "银行", "601088": "煤炭", "600900": "电力",
+    "601318": "非银金融",
+}
+
+
+def run_daily_pipeline():
+    """执行每日流水线：预测所有股票"""
+    logger.info("=" * 60)
+    logger.info(f"每日流水线开始: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 60)
+
+    results = []
+    focus_pool = []
+
+    for symbol, name in STOCKS.items():
+        logger.info(f"\n预测 {name}({symbol})...")
+        result = predict_stock(symbol, name)
+        if result.get('success'):
+            results.append(result)
+            pred_return = (result['upProbability'] - 50) / 5  # 转换为预期收益率
+            signal = '买入' if result['prediction'] == '涨' else '观望'
+            focus_pool.append({
+                'symbol': symbol,
+                'name': name,
+                'predicted_return_5d': round(pred_return, 2),
+                'signal': signal,
+                'confidence': round(result['confidence'] / 100, 2),
+                'reason': f"综合评分{result['upProbability']}%，RSI={result['indicators']['rsi']}",
+                'sector': SYMBOL_SECTOR.get(symbol, '其他'),
+            })
+            logger.info(f"  预测: {result['prediction']} "
+                       f"(涨概率{result['upProbability']}%, 置信度{result['confidence']}%)")
+        else:
+            logger.warning(f"  预测失败: {result.get('error')}")
+
+    # 排序：按预期收益降序
+    focus_pool.sort(key=lambda x: x['predicted_return_5d'], reverse=True)
+
+    report = {
+        'date': datetime.now().strftime('%Y-%m-%d'),
+        'focus_pool': focus_pool,
+        'predictions': results,
+        'generated_at': datetime.now().isoformat(),
+    }
+
+    logger.info(f"\n{'=' * 60}")
+    logger.info(f"流水线完成: {len(results)}/{len(STOCKS)} 只股票预测成功")
+    logger.info(f"精选池 Top 3:")
+    for i, f in enumerate(focus_pool[:3], 1):
+        logger.info(f"  {i}. {f['name']}({f['symbol']}): {f['signal']} 预期{f['predicted_return_5d']:+.2f}%")
+    logger.info(f"{'=' * 60}")
+
+    return report
+
+
 # ==================== SCF 入口 ====================
 
 def main(event, context):
@@ -418,7 +718,7 @@ def main(event, context):
         return {
             'statusCode': 200,
             'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
-            'body': json.dumps({'healthy': True, 'version': 'lightweight-v1'}),
+            'body': json.dumps({'healthy': True, 'version': 'lightweight-v2'}),
         }
 
     # 解析参数
@@ -433,20 +733,39 @@ def main(event, context):
     symbol = query.get('symbol') or query.get('code') or body.get('symbol') or body.get('code')
     stock_name = query.get('name') or body.get('name', '')
 
-    if not symbol:
-        return {
-            'statusCode': 400,
-            'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
-            'body': json.dumps({'success': False, 'error': 'Missing symbol parameter'}),
-        }
+    # 判断触发类型：定时触发器没有 path 和 symbol
+    trigger_type = event.get('TriggerName', '') or event.get('Type', '')
+    is_timer = 'timer' in trigger_type.lower() or not path or not symbol
 
     try:
-        result = predict_stock(symbol, stock_name)
-        return {
-            'statusCode': 200,
-            'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
-            'body': json.dumps(result, ensure_ascii=False, default=str),
-        }
+        if is_timer:
+            # 定时触发：运行完整流水线
+            report = run_daily_pipeline()
+            return {
+                'statusCode': 200,
+                'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
+                'body': json.dumps({
+                    'success': True,
+                    'message': 'Daily pipeline completed',
+                    'stocks_predicted': len(report['predictions']),
+                    'date': report['date'],
+                    'report': report,
+                }, ensure_ascii=False, default=str),
+            }
+        else:
+            # HTTP 请求：单股预测
+            if not symbol:
+                return {
+                    'statusCode': 400,
+                    'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': False, 'error': 'Missing symbol parameter'}),
+                }
+            result = predict_stock(symbol, stock_name)
+            return {
+                'statusCode': 200,
+                'headers': {**CORS_HEADERS, 'Content-Type': 'application/json'},
+                'body': json.dumps(result, ensure_ascii=False, default=str),
+            }
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         logger.error(traceback.format_exc())

@@ -58,7 +58,7 @@ export function InsightTag({ insight, compact = false }: InsightTagProps) {
         )}
       </div>
       <div className="text-[10px] text-gray-400 whitespace-nowrap">
-        置信度{Math.round((insight.confidence || 0) * 100)}%
+        信号强度{Math.round((insight.confidence || 0) * 100)}%
       </div>
     </div>
   );

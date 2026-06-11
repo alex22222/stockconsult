@@ -322,6 +322,74 @@ def score_volatility(df: pd.DataFrame) -> tuple:
     return score, details
 
 
+def build_entry_plan(df: pd.DataFrame, total: int, dimensions: list) -> dict:
+    close = df["收盘"]
+    high = df["最高"]
+    volume = df["成交量"]
+    latest_close = float(close.iloc[-1])
+    latest_change = float(df["涨跌幅"].iloc[-1])
+
+    high_20 = float(high.rolling(20).max().iloc[-1])
+    high_60 = float(high.rolling(60).max().iloc[-1])
+    latest_vol_ratio = float(volume.iloc[-1] / (volume.rolling(20).mean().iloc[-1] + 1e-10))
+    latest_rsi = float(calc_rsi(close, 6).iloc[-1])
+    ret_3d = float((close.iloc[-1] / close.iloc[-4] - 1) * 100) if len(close) >= 4 else 0.0
+
+    breakout_20 = latest_close >= high_20 * 0.995
+    breakout_60 = latest_close >= high_60 * 0.995
+    breakout_level = high_60 if breakout_60 else high_20
+    technical = next((d["score"] for d in dimensions if d["name"] == "技术突破"), 50)
+    capital = next((d["score"] for d in dimensions if d["name"] == "资金涌入"), 50)
+    is_overheated = latest_rsi > 78 or ret_3d > 12 or latest_change > 7
+    has_breakout = breakout_20 or breakout_60
+    near_breakout = latest_close >= high_20 * 0.97
+    stop_price = min(latest_close * 0.95, breakout_level * 0.97)
+
+    if total < 55 or technical < 55:
+        return {
+            "type": "wait",
+            "label": "等待确认",
+            "trigger": f"放量站上 {high_20:.2f} 后再观察",
+            "invalidation": f"收盘跌破 {stop_price:.2f}",
+            "note": "当前只是通过扫描，不等于出现可执行买点。",
+        }
+
+    if has_breakout and is_overheated:
+        return {
+            "type": "pullback",
+            "label": "回踩低吸",
+            "trigger": f"回踩 {breakout_level:.2f} 附近不破且缩量企稳",
+            "invalidation": f"收盘跌破 {stop_price:.2f}",
+            "note": "已上破但短线偏热，不建议把“通过扫描”理解为直接追高。",
+        }
+
+    if has_breakout and latest_vol_ratio >= 1.2 and capital >= 60:
+        return {
+            "type": "breakout",
+            "label": "上破追击",
+            "trigger": f"放量站稳 {breakout_level:.2f}，且分时不快速跌回",
+            "invalidation": f"收盘跌破 {stop_price:.2f}",
+            "note": "偏突破确认买点，适合小仓位试错并严格止损。",
+        }
+
+    if near_breakout and technical >= 65:
+        return {
+            "type": "breakout",
+            "label": "等上破确认",
+            "trigger": f"有效突破 {high_20:.2f} 且成交量继续放大",
+            "invalidation": f"收盘跌破 {stop_price:.2f}",
+            "note": "还没真正突破，优先等上破，不是下跌途中接刀。",
+        }
+
+    return {
+        "type": "pullback",
+        "label": "回踩低吸",
+        "trigger": f"回踩 {min(latest_close * 0.98, high_20):.2f} 附近企稳",
+        "invalidation": f"收盘跌破 {stop_price:.2f}",
+        "note": "动能够看，但买点不清晰，等价格给出更好的风险收益比。",
+    }
+
+
 def analyze_stock(symbol: str, info: dict) -> dict:
     df = load_stock(symbol)
     if len(df) < 60:
@@ -387,6 +455,7 @@ def analyze_stock(symbol: str, info: dict) -> dict:
         "level": level,
         "dimensions": dimensions,
         "summary": summary,
+        "entryPlan": build_entry_plan(df, total, dimensions),
         "holdingPeriod": "1-3 个交易日" if total >= 80 else "3-5 个交易日" if total >= 65 else "5 个交易日以内",
         "riskWarning": risk_warnings,
         "updatedAt": df["日期"].iloc[-1].strftime("%Y-%m-%d"),

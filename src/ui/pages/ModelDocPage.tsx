@@ -349,7 +349,7 @@ export function ModelDocPage() {
             <div className="px-5 py-3 bg-amber-50 dark:bg-amber-900/20 border-t border-gray-100 dark:border-gray-700">
               <p className="text-[11px] text-amber-700 dark:text-amber-400">
                 ⚠️ 核心发现：方向准确率 45-55% 接近随机水平。{reverseBetterCount} 只股票反向策略更好。
-                策略收益全面跑输买入持有。当前价格特征集可能不包含有效 alpha。
+                策略收益全面跑输买入持有。当前价格特征集可能不包含有效 alpha（实验性质）。
               </p>
             </div>
           </div>
@@ -410,7 +410,7 @@ export function ModelDocPage() {
               },
               {
                 phase: 'Phase 2', title: '建立风控体系', status: '待启动',
-                desc: '分级仓位管理（置信度 > 0.6 → 60%仓位）、市场状态识别（牛/熊/震荡）、涨停跌停过滤。',
+                desc: '分级仓位管理（信号强度 > 0.6 → 60%仓位）、市场状态识别（牛/熊/震荡）、涨停跌停过滤。',
                 color: 'gray',
               },
               {

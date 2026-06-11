@@ -261,11 +261,25 @@ def allocate_and_buy(portfolio, focus_items):
     return portfolio
 
 
-def settle_positions():
-    """结算持仓：按优先级检查止盈止损规则，严格执行"""
+def settle_positions(today: str = None):
+    """结算持仓：按优先级检查止盈止损规则，严格执行
+    
+    Args:
+        today: 指定结算截止日期（默认今天）。用于防止脚本补跑时回放历史多日。
+    """
     portfolio = load_json("portfolio.json")
     trades = load_json("trades.json")
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = today or datetime.now().strftime("%Y-%m-%d")
+    
+    # 判断是否是补跑（有历史未结算持仓）
+    has_holding = any(p["status"] == "holding" for p in portfolio["positions"])
+    backfilled = False
+    if has_holding:
+        # 检查是否有持仓的买入日期早于今天（说明是补跑）
+        for pos in portfolio["positions"]:
+            if pos["status"] == "holding" and pos.get("entry_date", "") < today:
+                backfilled = True
+                break
 
     settled_count = 0
     for pos in portfolio["positions"]:
@@ -294,6 +308,11 @@ def settle_positions():
             continue  # 买入后无后续数据，不结算
 
         post_entry = df.iloc[entry_idx + 1:]
+        
+        # 【修复】只处理到 today 的数据，防止补跑时回放历史
+        post_entry = post_entry[post_entry["日期"] <= pd.to_datetime(today)]
+        if post_entry.empty:
+            continue  # 今天无数据，不结算
 
         # 逐日检查止盈止损（优先级：硬止损 > 目标止盈 > 跟踪止盈 > 时间止损）
         exit_triggered = False
@@ -386,16 +405,20 @@ def settle_positions():
                 "type": exit_type,
                 "exit_reason": exit_reason,
                 "exit_rules": rules,
+                "backfilled": backfilled,  # 【新增】标记是否为补跑结算
             })
 
             emoji = {"stop_loss": "🛑", "take_profit": "🎯", "trailing_stop": "📉", "expiration": "✅"}
-            print(f"  {emoji.get(exit_type, '✅')} {pos['name']}({sym}) {exit_type}平仓 @ {exit_date} ¥{exit_price:.2f} 盈亏={pnl:+.2f}")
+            backfill_tag = " [补跑]" if backfilled else ""
+            print(f"  {emoji.get(exit_type, '✅')} {pos['name']}({sym}) {exit_type}平仓 @ {exit_date} ¥{exit_price:.2f} 盈亏={pnl:+.2f}{backfill_tag}")
             print(f"     📋 {exit_reason}")
             settled_count += 1
 
     save_json("portfolio.json", portfolio)
     save_json("trades.json", trades)
     print(f"\n💾 已结算 {settled_count} 笔持仓")
+    if backfilled:
+        print(f"   ⚠️ 本次为补跑结算，{settled_count} 笔交易标记为 backfilled=true")
     return trades
 
 

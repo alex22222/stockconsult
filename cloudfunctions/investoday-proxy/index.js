@@ -18,6 +18,7 @@
  */
 
 const https = require('https');
+const Iconv = require('iconv-lite');
 const cloudbase = require('@cloudbase/node-sdk');
 
 // CloudBase 数据库初始化
@@ -121,6 +122,11 @@ exports.main = async (event, context) => {
   // 市场指数行情
   if (event.path === '/market-indices' || event.path === '/investoday-proxy/market-indices') {
     return handleMarketIndices(event);
+  }
+
+  // 个股实时行情（批量）
+  if (event.path === '/stock-quotes' || event.path === '/investoday-proxy/stock-quotes') {
+    return handleStockQuotes(event);
   }
 
   // 我的收藏
@@ -854,9 +860,14 @@ async function handleMarketIndices(event) {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       }, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(data));
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          // 新浪财经返回 GBK/GB2312 编码，需要转码
+          const text = Iconv.decode(buf, 'gb2312');
+          resolve(text);
+        });
       });
       req.on('error', reject);
       req.on('timeout', () => { req.destroy(); reject(new Error('Sina timeout')); });
@@ -918,6 +929,108 @@ async function handleMarketIndices(event) {
       statusCode: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ success: false, indices: [], error: error.message }),
+    };
+  }
+}
+
+
+/**
+ * 批量获取个股实时行情（新浪财经接口）
+ * Query: ?symbols=600519,601398,601857
+ * 返回: { success: true, quotes: [{ symbol, name, price, prevClose, change, changePercent, open, high, low, volume, updatedAt }] }
+ */
+async function handleStockQuotes(event) {
+  try {
+    const query = event.queryString || event.queryStringParameters || {};
+    const symbolsParam = query.symbols || '';
+    if (!symbolsParam) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing symbols parameter' }),
+      };
+    }
+
+    const symbols = symbolsParam.split(',').map(s => s.trim()).filter(Boolean);
+    // A股上海前缀 sh，深圳前缀 sz
+    const sinaCodes = symbols.map(s => {
+      const code = s.replace(/\D/g, '');
+      // 6开头是上证，0/3开头是深证，但我们的股票池全是6开头
+      return code.startsWith('6') || code.startsWith('5') ? `sh${code}` : `sz${code}`;
+    });
+
+    const url = `https://hq.sinajs.cn/list=${sinaCodes.join(',')}`;
+    const rawText = await new Promise((resolve, reject) => {
+      const req = https.get(url, {
+        timeout: 8000,
+        headers: {
+          'Referer': 'https://finance.sina.com.cn',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      }, (res) => {
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          // 新浪财经返回 GBK/GB2312 编码，需要转码
+          const text = Iconv.decode(buf, 'gb2312');
+          resolve(text);
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Sina timeout')); });
+    });
+
+    const quotes = [];
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      const sinaCode = sinaCodes[i];
+      const match = rawText.match(new RegExp(`var hq_str_${sinaCode}="([^"]*)";`));
+      if (!match || !match[1]) {
+        quotes.push({ symbol, price: 0, prevClose: 0, change: 0, changePercent: 0, status: 'unavailable' });
+        continue;
+      }
+      const parts = match[1].split(',');
+      // A股个股格式: 名称,今日开盘,昨日收盘,最新价,最高价,最低价,买入价,卖出价,成交量,成交额,...
+      const name = parts[0] || '';
+      const open = parseFloat(parts[1]) || 0;
+      const prevClose = parseFloat(parts[2]) || 0;
+      const price = parseFloat(parts[3]) || prevClose;
+      const high = parseFloat(parts[4]) || 0;
+      const low = parseFloat(parts[5]) || 0;
+      const volume = parseInt(parts[8]) || 0;
+      const amount = parseFloat(parts[9]) || 0;
+
+      const change = price - prevClose;
+      const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+      quotes.push({
+        symbol,
+        name,
+        price: Number(price.toFixed(2)),
+        prevClose: Number(prevClose.toFixed(2)),
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        change: Number(change.toFixed(2)),
+        changePercent: Number(changePercent.toFixed(2)),
+        volume,
+        amount: Number(amount.toFixed(2)),
+        status: price > 0 ? 'ok' : 'unavailable',
+      });
+    }
+
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, quotes, updatedAt: new Date().toISOString() }),
+    };
+  } catch (error) {
+    console.error('[StockQuotes Error]', error);
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, quotes: [], error: error.message }),
     };
   }
 }
