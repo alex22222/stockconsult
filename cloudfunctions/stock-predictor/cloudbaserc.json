@@ -3,7 +3,7 @@
   "functions": [
     {
       "name": "stock-predictor",
-      "handler": "index.main",
+      "handler": "scf_index.main_handler",
       "runtime": "Python3.9",
       "timeout": 120,
       "memorySize": 1024,

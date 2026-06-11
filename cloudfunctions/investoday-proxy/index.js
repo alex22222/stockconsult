@@ -36,8 +36,8 @@ const VERSION = '2026-05-12-v2';
 const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
 const BASE_URL = 'data-api.investoday.net';
 
-// COS 配置
-const COS_BUCKET = '7765-weight-tracker-1ghr085dd7d6cff2-1328081868';
+// COS 配置 (stockconsult 环境)
+const COS_BUCKET = '7374-stockconsult-d9g7b6ae5b8170e00-1328081868';
 const COS_REGION = 'ap-shanghai';
 
 function getCOSClient() {
@@ -189,6 +189,11 @@ exports.main = async (event, context) => {
   // 调试：列出 COS bucket
   if (event.path === '/debug-buckets' || event.path === '/investoday-proxy/debug-buckets') {
     return handleDebugBuckets(event);
+  }
+
+  // 数据文件代理（从 COS 读取 rebuild/paper-trading 等数据）
+  if (event.path === '/data' || event.path === '/investoday-proxy/data') {
+    return handleGetData(event);
   }
 
   if (!API_KEY) {
@@ -2073,6 +2078,65 @@ async function handleInitDb(event) {
     };
   } catch (error) {
     console.error('[InitDb Error]', error);
+    return {
+      statusCode: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }),
+    };
+  }
+}
+
+
+/**
+ * 从 COS 读取数据文件（rebuild / paper-trading / reports / momentum）
+ * 供前端动态拉取，替代静态托管嵌入
+ */
+async function handleGetData(event) {
+  try {
+    const query = event.queryString || event.queryStringParameters || {};
+    const key = query.key || query.path || '';
+    if (!key) {
+      return {
+        statusCode: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Missing key parameter' }),
+      };
+    }
+
+    // 安全校验：只允许读取指定前缀
+    const allowedPrefixes = ['market/', 'rebuild/', 'paper-trading/', 'reports/', 'momentum/'];
+    if (!allowedPrefixes.some(p => key.startsWith(p))) {
+      return {
+        statusCode: 403,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Access denied' }),
+      };
+    }
+
+    const cos = getCOSClient();
+    const result = await new Promise((resolve, reject) => {
+      cos.getObject({
+        Bucket: COS_BUCKET,
+        Region: COS_REGION,
+        Key: key,
+      }, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+
+    const contentType = key.endsWith('.json') ? 'application/json' : 'text/csv';
+    return {
+      statusCode: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache',
+      },
+      body: result.Body.toString('utf-8'),
+    };
+  } catch (error) {
+    console.error('[GetData Error]', error);
     return {
       statusCode: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

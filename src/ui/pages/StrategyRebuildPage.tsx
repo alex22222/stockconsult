@@ -7,6 +7,13 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 
+// COS 直读配置（bucket 需设为公有读）
+const COS_BUCKET = '7374-stockconsult-d9g7b6ae5b8170e00-1328081868';
+const COS_REGION = 'ap-shanghai';
+function dataUrl(key: string) {
+  return `https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${key}`;
+}
+
 
 /* =================== 类型定义 =================== */
 interface PredictionRecord {
@@ -163,13 +170,13 @@ export function StrategyRebuildPage() {
       try {
         const today = new Date().toISOString().split('T')[0];
         const [histRes, sumRes, focusRes, btRes, evalRes, wfRes, ptRes] = await Promise.all([
-          fetch('/paper-trading/rebuild_prediction_history.json'),
-          fetch(`/paper-trading/rebuild_daily_summary_${today}.json`),
-          fetch('/paper-trading/rebuild_focus_pool.json'),
-          fetch('/paper-trading/rebuild_backtest.json'),
-          fetch('/paper-trading/rebuild_evaluation_report.json'),
-          fetch('/paper-trading/rebuild_walkforward_report.json'),
-          fetch('/paper-trading/report.json'),
+          fetch(dataUrl('paper-trading/rebuild_prediction_history.json')),
+          fetch(dataUrl(`paper-trading/rebuild_daily_summary_${today}.json`)),
+          fetch(dataUrl('paper-trading/rebuild_focus_pool.json')),
+          fetch(dataUrl('paper-trading/rebuild_backtest.json')),
+          fetch(dataUrl('paper-trading/rebuild_evaluation_report.json')),
+          fetch(dataUrl('paper-trading/rebuild_walkforward_report.json')),
+          fetch(dataUrl('paper-trading/report.json')),
         ]);
 
         if (histRes.ok) {

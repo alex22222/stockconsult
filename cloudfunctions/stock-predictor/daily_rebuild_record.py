@@ -426,3 +426,14 @@ if __name__ == "__main__":
         symbols = args.symbols.split(",") if args.symbols else list(STOCKS.keys())
         daily_record(symbols)
         verify_predictions()
+    
+    # 同步到 COS
+    print("\n" + "="*50)
+    print("[COS] 同步预测数据到云端...")
+    print("="*50)
+    import subprocess
+    upload_script = os.path.join(os.path.dirname(__file__), "upload_to_cos.py")
+    result = subprocess.run([sys.executable, upload_script, "rebuild"], capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        print(f"[COS] 同步失败: {result.stderr}")

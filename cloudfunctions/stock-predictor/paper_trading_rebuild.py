@@ -642,22 +642,54 @@ def generate_report():
     return report
 
 
-def sync_to_public():
-    """同步到前端 public 目录"""
-    import shutil
-    src_dir = PT_DIR
-    dst_dir = os.path.join(os.path.dirname(__file__), "..", "..", "public", "paper-trading")
-    os.makedirs(dst_dir, exist_ok=True)
-    for fname in ["signals.json", "trades.json", "report.json", "portfolio.json", "portfolio_history.json"]:
-        src = os.path.join(src_dir, fname)
-        dst = os.path.join(dst_dir, fname)
-        if os.path.exists(src):
-            shutil.copy2(src, dst)
-    focus_src = os.path.join(REBUILD_DIR, "focus_pool.json")
-    focus_dst = os.path.join(dst_dir, "rebuild_focus_pool.json")
-    if os.path.exists(focus_src):
-        shutil.copy2(focus_src, focus_dst)
-    print(f"\n🔄 已同步到 {dst_dir}")
+def generate_report():
+    """生成模拟盘报告"""
+    import json
+    import os
+    from datetime import datetime
+    
+    PT_DIR = os.path.join(os.path.dirname(__file__), "data", "paper_trading")
+    REBUILD_DIR = os.path.join(os.path.dirname(__file__), "data", "rebuild")
+    
+    # 加载数据
+    with open(os.path.join(PT_DIR, "portfolio.json"), "r", encoding="utf-8") as f:
+        portfolio = json.load(f)
+    with open(os.path.join(PT_DIR, "trades.json"), "r", encoding="utf-8") as f:
+        trades = json.load(f)
+    with open(os.path.join(PT_DIR, "signals.json"), "r", encoding="utf-8") as f:
+        signals = json.load(f)
+    
+    # 计算指标
+    total_return = portfolio.get("total_return", 0)
+    total_trades = len(trades)
+    winning_trades = [t for t in trades if t.get("return", 0) > 0]
+    losing_trades = [t for t in trades if t.get("return", 0) <= 0]
+    win_rate = (len(winning_trades) / total_trades * 100) if total_trades > 0 else 0
+    
+    # 生成报告
+    report = {
+        "generated_at": datetime.now().isoformat(),
+        "portfolio": portfolio,
+        "summary": {
+            "total_trades": total_trades,
+            "winning_trades": len(winning_trades),
+            "losing_trades": len(losing_trades),
+            "win_rate": round(win_rate, 2),
+            "total_return": round(total_return, 4),
+        },
+        "recent_signals": signals[-10:] if signals else [],
+    }
+    
+    # 保存报告
+    report_path = os.path.join(PT_DIR, "report.json")
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n📊 模拟盘报告")
+    print(f"  总收益: {total_return:.2f}%")
+    print(f"  交易: {total_trades}笔 | 胜: {len(winning_trades)} | 负: {len(losing_trades)} | 胜率: {win_rate:.1f}%")
+    print(f"  持仓: {len(portfolio.get('holdings', []))}只 | 现金: ¥{portfolio['current_cash']:.2f}")
+    return report
 
 
 if __name__ == "__main__":
@@ -677,7 +709,16 @@ if __name__ == "__main__":
         settle_positions()
         update_portfolio()
         generate_report()
-        sync_to_public()
+        # 同步到 COS
+        print("\n" + "="*50)
+        print("[COS] 同步模拟盘数据到云端...")
+        print("="*50)
+        import subprocess
+        upload_script = os.path.join(os.path.dirname(__file__), "upload_to_cos.py")
+        result = subprocess.run([sys.executable, upload_script, "paper_trading"], capture_output=True, text=True)
+        print(result.stdout)
+        if result.returncode != 0:
+            print(f"[COS] 同步失败: {result.stderr}")
     else:
         print(f"未知命令: {cmd}")
         print("用法: generate | settle | update | report | full")

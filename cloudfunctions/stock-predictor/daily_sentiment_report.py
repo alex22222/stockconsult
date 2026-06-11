@@ -489,3 +489,14 @@ if __name__ == "__main__":
     if args.send and not args.no_send:
         print("\n📤 正在发送到飞书...")
         send_to_feishu(report)
+    
+    # 同步到 COS
+    print("\n" + "="*50)
+    print("[COS] 同步舆情报告到云端...")
+    print("="*50)
+    import subprocess
+    upload_script = os.path.join(os.path.dirname(__file__), "upload_to_cos.py")
+    result = subprocess.run([sys.executable, upload_script, "reports"], capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        print(f"[COS] 同步失败: {result.stderr}")
