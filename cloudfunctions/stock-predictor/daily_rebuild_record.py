@@ -245,7 +245,7 @@ def daily_record(symbols: list):
         action = "📈" if pred["anomaly_direction"] == "UP" else "📉" if pred["anomaly_direction"] == "DOWN" else "➖"
         horizon_label = "次日" if PREDICT_HORIZON == 1 else f"{PREDICT_HORIZON}日"
         pred_key = f"predicted_return_{PREDICT_HORIZON}d"
-        print(f"     {action} 预测{horizon_label}收益率: {pred[pred_key]:+.2f}% | 异常检测: {pred['anomaly_direction']} | 置信度: {pred['confidence']:.2f}")
+        print(f"     {action} 预测{horizon_label}收益率: {pred[pred_key]:+.2f}% | 异常检测: {pred['anomaly_direction']} | 信号强度: {pred['signal_strength']:.2f}")
         
         records.append(pred)
     
@@ -285,8 +285,8 @@ def daily_record(symbols: list):
             "name": r["name"],
             "predicted_return_5d": round(r.get("predicted_return_5d", 0), 4),
             "signal": "买入",
-            "confidence": round(r.get("confidence", 0), 4),
-            "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%，模型置信度{r.get('confidence', 0):.2f}",
+            "signal_strength": round(r.get("signal_strength", 0), 4),
+            "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%，信号强度{r.get('signal_strength', 0):.2f}",
             "sector": sector,
         })
         selected_sectors.add(sector)
@@ -308,8 +308,8 @@ def daily_record(symbols: list):
                 "name": r["name"],
                 "predicted_return_5d": round(r.get("predicted_return_5d", 0), 4),
                 "signal": "观望",
-                "confidence": round(r.get("confidence", 0), 4),
-                "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%（未达买入阈值），模型置信度{r.get('confidence', 0):.2f}",
+                "signal_strength": round(r.get("signal_strength", 0), 4),
+                "reason": f"预测5日收益 +{r.get('predicted_return_5d', 0):.2f}%（未达买入阈值），信号强度{r.get('signal_strength', 0):.2f}",
                 "sector": sector,
             })
             selected_sectors.add(sector)

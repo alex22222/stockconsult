@@ -99,7 +99,8 @@ def fetch_from_baostock(code: str, start: str, end: str, fields: str, max_retrie
             df['close'] = df['close'].astype(float)
             df['volume'] = df['volume'].astype(float)
             df['amount'] = df['amount'].astype(float)
-            df['turn'] = df['turn'].astype(float)
+            if 'turn' in df.columns:
+                df['turn'] = df['turn'].astype(float)
             df['pctChg'] = df['pctChg'].astype(float)
             df['amplitude'] = (df['high'] - df['low']) / df['preclose'] * 100
             df['change'] = df['close'] - df['preclose']
