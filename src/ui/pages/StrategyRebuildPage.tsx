@@ -14,6 +14,31 @@ function dataUrl(key: string) {
   return `https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${key}`;
 }
 
+function getShanghaiDateString() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+async function fetchFirstJson<T>(keys: string[]): Promise<T | null> {
+  for (const key of keys) {
+    try {
+      const res = await fetch(dataUrl(key));
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn(`[StrategyRebuild] fetch failed: ${key}`, e);
+    }
+  }
+  return null;
+}
+
+function signalStrength(item: { confidence?: number; signal_strength?: number }) {
+  return item.confidence ?? item.signal_strength ?? 0;
+}
+
 
 /* =================== 类型定义 =================== */
 interface PredictionRecord {
@@ -23,6 +48,7 @@ interface PredictionRecord {
   predicted_return_5d: number;
   anomaly_direction: string;
   confidence: number;
+  signal_strength?: number;
   nonprice_features: {
     score?: number;
     emotionScore?: number;
@@ -49,6 +75,7 @@ interface FocusPoolItem {
   predicted_return_5d: number;
   signal: string;
   confidence: number;
+  signal_strength?: number;
   reason: string;
   sector?: string;
 }
@@ -163,45 +190,68 @@ export function StrategyRebuildPage() {
   const [paperTradingReport, setPaperTradingReport] = useState<{ nav: number; total_return_pct: number; total_trades: number; holding_positions: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
-  const togglePaperTradingPage = useAppStore((s) => s.togglePaperTradingPage);
+  const navigateTo = useAppStore((s) => s.navigateTo);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const [histRes, sumRes, focusRes, btRes, evalRes, wfRes, ptRes] = await Promise.all([
-          fetch(dataUrl('paper-trading/rebuild_prediction_history.json')),
-          fetch(dataUrl(`paper-trading/rebuild_daily_summary_${today}.json`)),
-          fetch(dataUrl('paper-trading/rebuild_focus_pool.json')),
-          fetch(dataUrl('paper-trading/rebuild_backtest.json')),
-          fetch(dataUrl('paper-trading/rebuild_evaluation_report.json')),
-          fetch(dataUrl('paper-trading/rebuild_walkforward_report.json')),
-          fetch(dataUrl('paper-trading/report.json')),
+        const today = getShanghaiDateString();
+        const [hist, summary, focus, bt, evalReportData, wf, pt] = await Promise.all([
+          fetchFirstJson<PredictionRecord[]>([
+            'rebuild/prediction_history.json',
+            'paper-trading/rebuild_prediction_history.json',
+          ]),
+          fetchFirstJson<DailySummary & { focus_pool?: FocusPoolItem[] }>([
+            `rebuild/daily_summary_${today}.json`,
+            `paper-trading/rebuild_daily_summary_${today}.json`,
+          ]),
+          fetchFirstJson<FocusPool>([
+            'rebuild/focus_pool.json',
+            'paper-trading/rebuild_focus_pool.json',
+          ]),
+          fetchFirstJson<{ stocks?: Record<string, BacktestResult> }>([
+            'rebuild/backtest.json',
+            'paper-trading/rebuild_backtest.json',
+          ]),
+          fetchFirstJson<EvalReport>([
+            'rebuild/evaluation_report.json',
+            'paper-trading/rebuild_evaluation_report.json',
+          ]),
+          fetchFirstJson<{ stocks?: Record<string, WalkforwardStock> }>([
+            'rebuild/walkforward_report.json',
+            'paper-trading/rebuild_walkforward_report.json',
+          ]),
+          fetchFirstJson<{ nav?: number; total_return_pct?: number; total_trades?: number; holding_positions?: unknown[] }>([
+            'paper-trading/report.json',
+          ]),
         ]);
 
-        if (histRes.ok) {
-          const hist = await histRes.json();
+        if (hist) {
           setHistory(Array.isArray(hist) ? hist.reverse() : []);
         }
-        if (sumRes.ok) {
-          setTodaySummary(await sumRes.json());
+        if (summary) {
+          setTodaySummary(summary);
+          if (!focus && summary.focus_pool && summary.focus_pool.length > 0) {
+            setFocusPool({
+              date: summary.date,
+              pool_size: summary.focus_pool.length,
+              focus: summary.focus_pool,
+            });
+          }
         }
-        if (focusRes.ok) {
-          setFocusPool(await focusRes.json());
+        if (focus) {
+          setFocusPool(focus);
         }
-        if (btRes.ok) {
-          const bt = await btRes.json();
+        if (bt) {
           setBacktest(bt.stocks || {});
         }
-        if (evalRes.ok) {
-          setEvalReport(await evalRes.json());
+        if (evalReportData) {
+          setEvalReport(evalReportData);
         }
-        if (wfRes.ok) {
-          const wf = await wfRes.json();
+        if (wf) {
           setWfReport(wf.stocks || {});
         }
-        if (ptRes.ok) {
-          const pt = await ptRes.json();
+        if (pt) {
           setPaperTradingReport({
             nav: pt.nav ?? 1,
             total_return_pct: pt.total_return_pct ?? 0,
@@ -355,7 +405,7 @@ export function StrategyRebuildPage() {
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             预测收益 <span className="font-bold text-red-600 dark:text-red-400">+{f.predicted_return_5d.toFixed(2)}%</span>
                             {' · '}
-                            信号强度 {f.confidence.toFixed(2)}
+                            信号强度 {signalStrength(f).toFixed(2)}
                           </div>
                           <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 truncate">{f.reason}</div>
                         </div>
@@ -641,7 +691,7 @@ export function StrategyRebuildPage() {
                     模拟盘实验跟踪
                   </h2>
                   <button
-                    onClick={() => togglePaperTradingPage(true)}
+                    onClick={() => navigateTo('paperTrading')}
                     className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium"
                   >
                     查看详情 <ArrowRight className="w-3 h-3" />
@@ -888,7 +938,7 @@ export function StrategyRebuildPage() {
                             </span>
                           </td>
                           <td className="px-4 py-2.5 text-center"><AnomalyBadge direction={p.anomaly_direction} /></td>
-                          <td className="px-4 py-2.5 text-right text-gray-600">{((p.confidence ?? 0) * 100).toFixed(1)}%</td>
+                          <td className="px-4 py-2.5 text-right text-gray-600">{(signalStrength(p) * 100).toFixed(1)}%</td>
                           <td className="px-4 py-2.5"><ScoreBar value={p.nonprice_features?.emotionScore || 0} color="bg-pink-500" /></td>
                           <td className="px-4 py-2.5"><ScoreBar value={p.nonprice_features?.financeScore || 0} color="bg-emerald-500" /></td>
                           <td className="px-4 py-2.5 text-right text-gray-500">{p.model_metrics?.r2 !== undefined ? p.model_metrics.r2.toFixed(3) : '--'}</td>
