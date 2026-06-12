@@ -32,23 +32,11 @@ from rebuild_predictor import (
     REBUILD_DIR, DATA_DIR, PREDICT_HORIZON,
 )
 from akshare_nonprice_provider import get_all_nonprice_features_ak
+from strategy_config import get_rebuild_stocks, get_sector
 
 # API 配置 (本地直接调用 investoday API)
 API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
 API_BASE = "https://data-api.investoday.net"
-
-STOCKS = {
-    "600519": "贵州茅台",
-    "601398": "工商银行",
-    "601857": "中国石油",
-    "601288": "农业银行",
-    "601988": "中国银行",
-    "601628": "中国人寿",
-    "600036": "招商银行",
-    "601088": "中国神华",
-    "600900": "长江电力",
-    "601318": "中国平安",
-}
 
 
 def _call_api(tool_name: str, arguments: dict) -> dict:
@@ -174,6 +162,7 @@ def fetch_performance_metrics(symbol: str) -> dict:
 def daily_record(symbols: list):
     """每日执行主流程"""
     today = datetime.now().strftime("%Y-%m-%d")
+    stocks = get_rebuild_stocks()
     print("=" * 80)
     print(f"  策略重建 — 每日执行记录 | {today}")
     print("=" * 80)
@@ -181,7 +170,7 @@ def daily_record(symbols: list):
     records = []
     
     for sym in symbols:
-        name = STOCKS.get(sym, sym)
+        name = stocks.get(sym, sym)
         print(f"\n📊 {name} ({sym})")
         
         # Step 1: 获取非价格特征（API失败时降级使用旧数据）
@@ -249,23 +238,6 @@ def daily_record(symbols: list):
         
         records.append(pred)
     
-    # 板块映射（10只市值股）
-    SYMBOL_SECTOR = {
-        "600519": "食品饮料",
-        "601398": "银行",
-        "601857": "石油石化",
-        "601288": "银行",
-        "601988": "银行",
-        "601628": "非银金融",
-        "600036": "银行",
-        "601088": "煤炭",
-        "600900": "电力",
-        "601318": "非银金融",
-    }
-
-    def _sector(symbol):
-        return SYMBOL_SECTOR.get(symbol, "其他")
-
     # 生成精选池（Top 2 BUY 信号，同板块最多选1只）
     buy_records = [r for r in records if (r.get("predicted_return_5d") or 0) > 0.5]
     buy_records.sort(key=lambda r: r.get("predicted_return_5d", 0), reverse=True)
@@ -275,7 +247,7 @@ def daily_record(symbols: list):
     selected_sectors = set()
     skipped = []
     for r in buy_records:
-        sector = _sector(r["symbol"])
+        sector = get_sector(r["symbol"])
         if sector in selected_sectors:
             skipped.append(r)
             continue
@@ -298,7 +270,7 @@ def daily_record(symbols: list):
         hold_records = [r for r in records if 0 < (r.get("predicted_return_5d") or 0) <= 0.5]
         hold_records.sort(key=lambda r: r.get("predicted_return_5d", 0), reverse=True)
         for r in hold_records:
-            sector = _sector(r["symbol"])
+            sector = get_sector(r["symbol"])
             if sector in selected_sectors:
                 skipped.append(r)
                 continue
@@ -317,7 +289,7 @@ def daily_record(symbols: list):
                 break
 
     if skipped:
-        print(f"   ⏭ 板块分散跳过: {[r['name'] + '(' + _sector(r['symbol']) + ')' for r in skipped[:3]]}")
+        print(f"   ⏭ 板块分散跳过: {[r['name'] + '(' + get_sector(r['symbol']) + ')' for r in skipped[:3]]}")
     
     focus_pool_path = os.path.join(REBUILD_DIR, "focus_pool.json")
     with open(focus_pool_path, "w", encoding="utf-8") as f:
@@ -414,7 +386,7 @@ def verify_predictions():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="策略重建每日执行记录")
-    parser.add_argument("--symbols", type=str, default=",".join(STOCKS.keys()), help="股票代码，逗号分隔")
+    parser.add_argument("--symbols", type=str, default=None, help="股票代码，逗号分隔；默认使用动态股票池")
     parser.add_argument("--all", action="store_true", help="处理所有股票")
     parser.add_argument("--verify", action="store_true", help="只验证历史预测")
     
@@ -423,7 +395,8 @@ if __name__ == "__main__":
     if args.verify:
         verify_predictions()
     else:
-        symbols = args.symbols.split(",") if args.symbols else list(STOCKS.keys())
+        stocks = get_rebuild_stocks()
+        symbols = args.symbols.split(",") if args.symbols else list(stocks.keys())
         daily_record(symbols)
         verify_predictions()
     

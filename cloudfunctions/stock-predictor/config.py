@@ -2,6 +2,7 @@
 """股票涨跌预测引擎 - 精简配置 (SCF 云函数版)"""
 
 import os
+from strategy_config import get_demo_stock
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -19,11 +20,7 @@ DATA_CONFIG = {
     "tushare_token": "",
 }
 
-DEMO_STOCK = {
-    "code": "600519",
-    "name": "贵州茅台",
-    "market": "sh",
-}
+DEMO_STOCK = get_demo_stock()
 
 FACTOR_CATEGORIES = {
     "market_environment": {"weight": 0.13, "factors": ["index_trend", "market_volatility", "breadth_indicator"]},

@@ -6,13 +6,7 @@ import {
   LayoutDashboard, PiggyBank, ArrowRight
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
-
-// COS 直读配置（bucket 需设为公有读）
-const COS_BUCKET = '7374-stockconsult-d9g7b6ae5b8170e00-1328081868';
-const COS_REGION = 'ap-shanghai';
-function dataUrl(key: string) {
-  return `https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${key}`;
-}
+import { fetchFirstCosJson } from '../../core/data/cos-data-client';
 
 function getShanghaiDateString() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -21,18 +15,6 @@ function getShanghaiDateString() {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
-}
-
-async function fetchFirstJson<T>(keys: string[]): Promise<T | null> {
-  for (const key of keys) {
-    try {
-      const res = await fetch(dataUrl(key));
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn(`[StrategyRebuild] fetch failed: ${key}`, e);
-    }
-  }
-  return null;
 }
 
 function signalStrength(item: { confidence?: number; signal_strength?: number }) {
@@ -197,33 +179,33 @@ export function StrategyRebuildPage() {
       try {
         const today = getShanghaiDateString();
         const [hist, summary, focus, bt, evalReportData, wf, pt] = await Promise.all([
-          fetchFirstJson<PredictionRecord[]>([
+          fetchFirstCosJson<PredictionRecord[]>([
             'rebuild/prediction_history.json',
             'paper-trading/rebuild_prediction_history.json',
-          ]),
-          fetchFirstJson<DailySummary & { focus_pool?: FocusPoolItem[] }>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<DailySummary & { focus_pool?: FocusPoolItem[] }>([
             `rebuild/daily_summary_${today}.json`,
             `paper-trading/rebuild_daily_summary_${today}.json`,
-          ]),
-          fetchFirstJson<FocusPool>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<FocusPool>([
             'rebuild/focus_pool.json',
             'paper-trading/rebuild_focus_pool.json',
-          ]),
-          fetchFirstJson<{ stocks?: Record<string, BacktestResult> }>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<{ stocks?: Record<string, BacktestResult> }>([
             'rebuild/backtest.json',
             'paper-trading/rebuild_backtest.json',
-          ]),
-          fetchFirstJson<EvalReport>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<EvalReport>([
             'rebuild/evaluation_report.json',
             'paper-trading/rebuild_evaluation_report.json',
-          ]),
-          fetchFirstJson<{ stocks?: Record<string, WalkforwardStock> }>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<{ stocks?: Record<string, WalkforwardStock> }>([
             'rebuild/walkforward_report.json',
             'paper-trading/rebuild_walkforward_report.json',
-          ]),
-          fetchFirstJson<{ nav?: number; total_return_pct?: number; total_trades?: number; holding_positions?: unknown[] }>([
+          ], { logPrefix: 'StrategyRebuild' }),
+          fetchFirstCosJson<{ nav?: number; total_return_pct?: number; total_trades?: number; holding_positions?: unknown[] }>([
             'paper-trading/report.json',
-          ]),
+          ], { logPrefix: 'StrategyRebuild' }),
         ]);
 
         if (hist) {

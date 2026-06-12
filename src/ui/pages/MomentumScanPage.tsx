@@ -405,15 +405,7 @@ export function MomentumScanPage() {
       });
       setResult(data);
       setExpandedId(1);
-      // 判断数据来源：如果 picks 中的股票全是当前10只市值股，说明是本地数据
-      const currentCodes = new Set(['600519','601398','601857','601288','601988','601628','600036','601088','600900','601318']);
-      const allCurrent = data.picks.length > 0 && data.picks.every(p => currentCodes.has(p.stock.code));
-      const hasOldStocks = data.picks.some(p => ['002617','002896','300622'].includes(p.stock.code));
-      if (hasOldStocks || allCurrent) {
-        setDataSource('local');
-      } else {
-        setDataSource('api');
-      }
+      setDataSource(data.source || 'api');
     } catch (e: unknown) {
       console.error('Scan failed:', e);
       setScanError(e instanceof Error ? e.message : '扫描失败');

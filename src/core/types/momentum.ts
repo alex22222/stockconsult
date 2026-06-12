@@ -42,4 +42,5 @@ export interface MomentumScanResult {
   scanTime: string;
   marketSentiment: 'bullish' | 'neutral' | 'bearish';
   totalScanned: number;
+  source?: 'api' | 'local' | 'mock';
 }

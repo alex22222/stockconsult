@@ -15,6 +15,7 @@ from datetime import datetime
 
 from rebuild_predictor import build_full_features, PREDICT_HORIZON
 from local_data_provider import LocalDataProvider
+from strategy_config import get_rebuild_stocks
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
@@ -79,20 +80,6 @@ def audit_walkforward_safety(stock_df: pd.DataFrame, feats: pd.DataFrame, X_all:
         )
     
     print("  ✅ Walk-Forward 安全审计通过：无未来数据泄露迹象")
-
-
-STOCKS = {
-    "600519": "贵州茅台",
-    "601398": "工商银行",
-    "601857": "中国石油",
-    "601288": "农业银行",
-    "601988": "中国银行",
-    "601628": "中国人寿",
-    "600036": "招商银行",
-    "601088": "中国神华",
-    "600900": "长江电力",
-    "601318": "中国平安",
-}
 
 
 def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
@@ -253,7 +240,7 @@ def walkforward_backtest(symbol: str, days: int = 500) -> Dict:
     
     return {
         "symbol": symbol,
-        "name": STOCKS.get(symbol, symbol),
+        "name": get_rebuild_stocks().get(symbol, symbol),
         "n_predictions": n,
         "direction_accuracy": round(direction_correct / n, 4),
         "direction_correct": int(direction_correct),
@@ -275,8 +262,9 @@ def main():
     print("=" * 80)
     
     all_results = {}
-    for sym in STOCKS.keys():
-        print(f"\n📊 {STOCKS[sym]} ({sym}) ...")
+    stocks = get_rebuild_stocks()
+    for sym, name in stocks.items():
+        print(f"\n📊 {name} ({sym}) ...")
         result = walkforward_backtest(sym)
         if "error" in result:
             print(f"   ❌ {result['error']}")

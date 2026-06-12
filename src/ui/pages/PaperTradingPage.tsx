@@ -7,16 +7,10 @@ import {
   Package, Cloud, Server
 } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
+import { cosDataUrl } from '../../core/data/cos-data-client';
 
 // SCF API 配置
 const SCF_API_URL = 'https://stockconsult-d9g7b6ae5b8170e00.service.tcloudbase.com/stock-predictor';
-
-// COS 直读配置（bucket 需设为公有读）
-const COS_BUCKET = '7374-stockconsult-d9g7b6ae5b8170e00-1328081868';
-const COS_REGION = 'ap-shanghai';
-function dataUrl(key: string) {
-  return `https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${key}`;
-}
 
 interface Signal {
   id: string;
@@ -429,12 +423,12 @@ export function PaperTradingPage() {
       // 防缓存：每次请求加时间戳
       const ts = Date.now();
       const [sRes, tRes, rRes, pRes, fRes, wRes] = await Promise.all([
-        fetch(`${dataUrl('paper-trading/signals.json')}?t=${ts}`).then(r => r.json()).catch(() => []),
-        fetch(`${dataUrl('paper-trading/trades.json')}?t=${ts}`).then(r => r.json()).catch(() => []),
-        fetch(`${dataUrl('paper-trading/report.json')}?t=${ts}`).then(r => r.json()).catch(() => null),
-        fetch(`${dataUrl('paper-trading/portfolio.json')}?t=${ts}`).then(r => r.json()).catch(() => null),
-        fetch(`${dataUrl('paper-trading/rebuild_focus_pool.json')}?t=${ts}`).then(r => r.json()).catch(() => null),
-        fetch(`${dataUrl('paper-trading/rebuild_walkforward_report.json')}?t=${ts}`).then(r => r.json()).catch(() => null),
+        fetch(cosDataUrl('paper-trading/signals.json', ts)).then(r => r.json()).catch(() => []),
+        fetch(cosDataUrl('paper-trading/trades.json', ts)).then(r => r.json()).catch(() => []),
+        fetch(cosDataUrl('paper-trading/report.json', ts)).then(r => r.json()).catch(() => null),
+        fetch(cosDataUrl('paper-trading/portfolio.json', ts)).then(r => r.json()).catch(() => null),
+        fetch(cosDataUrl('paper-trading/rebuild_focus_pool.json', ts)).then(r => r.json()).catch(() => null),
+        fetch(cosDataUrl('paper-trading/rebuild_walkforward_report.json', ts)).then(r => r.json()).catch(() => null),
       ]);
       setSignals(sRes);
       setTrades(tRes);

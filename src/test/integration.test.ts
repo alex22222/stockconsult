@@ -21,7 +21,11 @@ async function runTest() {
   console.log(`✓ 已注册 ${globalSkillRegistry.getAll().length} 个 Skill`);
 
   // 2. 获取 Mock 数据
-  const stockCode = '600519'; // 贵州茅台
+  const candidates = await globalDataService.searchStocks('');
+  const stockCode = candidates[0]?.code;
+  if (!stockCode) {
+    throw new Error('未找到可用于测试的股票');
+  }
   console.log(`\n→ 获取 ${stockCode} 数据...`);
   const bundle = await globalDataService.fetchBundle(stockCode);
   console.log(`✓ 数据获取完成: ${bundle.info.name} (${bundle.info.code})`);

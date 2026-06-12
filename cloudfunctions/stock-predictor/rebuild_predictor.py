@@ -394,8 +394,10 @@ def save_nonprice_features(symbol: str, date_str: str, features: Dict):
 
 
 if __name__ == "__main__":
+    from strategy_config import get_rebuild_stocks
+
     # 测试
-    for sym in ["600519", "601398", "601857", "601288", "601988", "601628", "600036", "601088", "600900", "601318"]:
+    for sym in get_rebuild_stocks().keys():
         print(f"\n训练 {sym} 回归模型...")
         bundle = train_regression_model(sym)
     if "error" in bundle:

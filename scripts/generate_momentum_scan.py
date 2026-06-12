@@ -10,6 +10,7 @@
 import os
 import json
 import math
+import sys
 from pathlib import Path
 import pandas as pd
 
@@ -17,12 +18,19 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "cloudfunctions" / "stock-predi
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "public" / "data"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-STOCKS = {
-    "601318": {"name": "中国平安", "exchange": "SSE"},
-    "002617": {"name": "露笑科技", "exchange": "SZSE"},
-    "300622": {"name": "博士眼镜", "exchange": "SZSE"},
-    "002896": {"name": "中大力德", "exchange": "SZSE"},
-}
+sys.path.insert(0, str(DATA_DIR.parent))
+from strategy_config import get_rebuild_stock_metadata, infer_exchange
+
+
+def load_stocks() -> dict:
+    stocks = {}
+    for symbol, meta in get_rebuild_stock_metadata().items():
+        stocks[symbol] = {
+            "name": meta.get("name") or symbol,
+            "exchange": meta.get("exchange") or infer_exchange(symbol),
+            "industry": meta.get("sector", ""),
+        }
+    return stocks
 
 
 def load_stock(symbol: str) -> pd.DataFrame:
@@ -232,7 +240,7 @@ def score_capital(df: pd.DataFrame) -> tuple:
 
 
 def score_sentiment(df: pd.DataFrame, symbol: str) -> tuple:
-    """情绪催化：0-100（本地无公告数据，基于价格行为推断 + 静态信息）"""
+    """情绪催化：0-100（本地无公告数据，基于价格行为推断）"""
     close = df["收盘"]
     change_pct = df["涨跌幅"]
 
@@ -253,14 +261,6 @@ def score_sentiment(df: pd.DataFrame, symbol: str) -> tuple:
     elif yang_count <= 1:
         score -= 10
 
-    # 个股特定逻辑
-    catalysts = {
-        "601318": ["保险行业估值修复预期", "险资配置权益资产比例提升"],
-        "002617": ["碳化硅衬底业务进展", "第三代半导体产业政策催化"],
-        "300622": ["眼镜零售渠道扩张", "消费复苏带动线下客流"],
-        "002896": ["精密减速器国产替代", "人形机器人产业链热度"],
-    }
-
     details = []
     if yang_count >= 3:
         details.append(f"近5日 {yang_count} 天收阳，市场情绪偏乐观")
@@ -268,9 +268,6 @@ def score_sentiment(df: pd.DataFrame, symbol: str) -> tuple:
         details.append(f"近5日 {yang_count} 天收阳，情绪中性")
     if has_limit_up:
         details.append("近3日出现涨停，短期情绪高涨")
-
-    for cat in catalysts.get(symbol, []):
-        details.append(f"潜在催化：{cat}")
 
     return min(100, max(30, score)), details
 
@@ -447,7 +444,7 @@ def analyze_stock(symbol: str, info: dict) -> dict:
             "code": symbol,
             "name": info["name"],
             "exchange": info["exchange"],
-            "industry": "",  # 可以从其他数据源补充
+            "industry": info.get("industry", ""),
         },
         "price": round(float(latest_close), 2),
         "changePercent": round(float(latest_change), 2),
@@ -467,8 +464,9 @@ def main():
     print("「爆破力扫描」— 基于真实 CSV 数据生成")
     print("=" * 60)
 
+    stocks = load_stocks()
     picks = []
-    for symbol, info in STOCKS.items():
+    for symbol, info in stocks.items():
         print(f"\n分析 {info['name']}({symbol})...", end=" ")
         result = analyze_stock(symbol, info)
         if result:
@@ -485,7 +483,8 @@ def main():
         "picks": picks,
         "scanTime": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
         "marketSentiment": "bullish" if picks and picks[0]["score"] >= 70 else "neutral",
-        "totalScanned": len(STOCKS),
+        "totalScanned": len(stocks),
+        "source": "local",
     }
 
     out_path = OUTPUT_DIR / "momentum_scan.json"

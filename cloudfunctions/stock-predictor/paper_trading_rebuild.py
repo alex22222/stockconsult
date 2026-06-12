@@ -28,6 +28,7 @@ import os
 import json
 import pandas as pd
 from datetime import datetime, timedelta
+from strategy_config import get_sector
 
 REBUILD_DIR = os.path.join(os.path.dirname(__file__), "data", "rebuild")
 PT_DIR = os.path.join(os.path.dirname(__file__), "data", "paper_trading")
@@ -43,31 +44,6 @@ TP_FACTOR = 0.7            # 目标止盈 = 预测收益 × 0.7
 BUY_THRESHOLD = 0.5        # 预测5日收益 > 0.5% 视为买入信号
 MIN_LOT = 100              # A股最小交易单位
 INITIAL_CAPITAL = 10000.0
-
-STOCKS = {
-    "600519": "贵州茅台", "601398": "工商银行", "601857": "中国石油",
-    "601288": "农业银行", "601988": "中国银行", "601628": "中国人寿",
-    "600036": "招商银行", "601088": "中国神华", "600900": "长江电力",
-    "601318": "中国平安",
-}
-
-# 板块映射（用于持仓分散）
-SYMBOL_SECTOR = {
-    "600519": "食品饮料",
-    "601398": "银行",
-    "601857": "石油石化",
-    "601288": "银行",
-    "601988": "银行",
-    "601628": "非银金融",
-    "600036": "银行",
-    "601088": "煤炭",
-    "600900": "电力",
-    "601318": "非银金融",
-}
-
-def get_sector(symbol: str) -> str:
-    return SYMBOL_SECTOR.get(symbol, "其他")
-
 
 def ensure_dir():
     os.makedirs(PT_DIR, exist_ok=True)

@@ -20,6 +20,7 @@ import logging
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
+from strategy_config import get_rebuild_stocks, get_sector
 
 # 日志配置
 logging.basicConfig(
@@ -32,23 +33,6 @@ logger = logging.getLogger(__name__)
 # Investoday API 配置
 INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY', 'cae27125ca0746c4b6ede2d77cd2dd11')
 INVESTODAY_BASE_URL = 'https://data-api.investoday.net/data/mcp/preset'
-
-# 模拟盘股票池（10只大市值股）
-STOCKS = {
-    "600519": "贵州茅台", "601398": "工商银行", "601857": "中国石油",
-    "601288": "农业银行", "601988": "中国银行", "601628": "中国人寿",
-    "600036": "招商银行", "601088": "中国神华", "600900": "长江电力",
-    "601318": "中国平安",
-}
-
-# 板块映射
-SYMBOL_SECTOR = {
-    "600519": "食品饮料", "601398": "银行", "601857": "石油石化",
-    "601288": "银行", "601988": "银行", "601628": "非银金融",
-    "600036": "银行", "601088": "煤炭", "600900": "电力",
-    "601318": "非银金融",
-}
-
 
 def mcp_call(tool_name, arguments, timeout=15):
     """调用 investoday MCP API"""
@@ -262,8 +246,9 @@ def run_daily_pipeline():
 
     results = []
     focus_pool = []
+    stocks = get_rebuild_stocks()
 
-    for symbol, name in STOCKS.items():
+    for symbol, name in stocks.items():
         logger.info(f"\n预测 {name}({symbol})...")
         result = predict_stock(symbol, name)
         if result.get('success'):
@@ -277,7 +262,7 @@ def run_daily_pipeline():
                 'signal': signal,
                 'confidence': round(result['confidence'], 2),
                 'reason': f"综合评分{result['up_probability']*100:.1f}%，RSI={result['indicators']['rsi']}",
-                'sector': SYMBOL_SECTOR.get(symbol, '其他'),
+                'sector': get_sector(symbol),
             })
             logger.info(f"  预测: {'涨' if result['prediction']==1 else '跌'} "
                        f"(涨概率{result['up_probability']*100:.1f}%, 置信度{result['confidence']*100:.1f}%)")
@@ -296,7 +281,7 @@ def run_daily_pipeline():
     }
 
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"流水线完成: {len(results)}/{len(STOCKS)} 只股票预测成功")
+    logger.info(f"流水线完成: {len(results)}/{len(stocks)} 只股票预测成功")
     logger.info(f"精选池 Top 3:")
     for i, f in enumerate(focus_pool[:3], 1):
         logger.info(f"  {i}. {f['name']}({f['symbol']}): {f['signal']} 预期{f['predicted_return_5d']:+.2f}%")
@@ -328,8 +313,16 @@ def main_handler(event, context):
     # HTTP 预测接口
     if event.get('path') in ['/predict', '/stock-predictor/predict']:
         query = event.get('queryString', {}) or event.get('queryStringParameters', {})
-        symbol = query.get('symbol', '601318')
-        name = query.get('name', '')
+        stocks = get_rebuild_stocks()
+        default_symbol = next(iter(stocks), '')
+        symbol = query.get('symbol') or default_symbol
+        name = query.get('name') or stocks.get(symbol, '')
+        if not symbol:
+            return {
+                'statusCode': 400,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'success': False, 'error': 'No stock universe available'})
+            }
         result = predict_stock(symbol, name)
         return {
             'statusCode': 200,

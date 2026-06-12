@@ -14,6 +14,7 @@ import traceback
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
+from strategy_config import get_rebuild_stocks, get_sector
 
 # 配置日志到 stdout（SCF 环境）
 logging.basicConfig(
@@ -131,7 +132,7 @@ def fetch_history_tencent(stock_code, days=120):
 def fetch_realtime_quote_tencent(stock_code):
     """
     通过腾讯财经获取实时行情
-    接口: http://qt.gtimg.cn/q=sh600519
+    接口: http://qt.gtimg.cn/q={market}{code}
     """
     tcode = _to_tencent_code(stock_code)
     url = f"http://qt.gtimg.cn/q={tcode}"
@@ -140,7 +141,7 @@ def fetch_realtime_quote_tencent(stock_code):
     if not raw:
         return None
 
-    # 腾讯返回格式: v_sh600519="1~贵州茅台~600519~...";
+    # 腾讯返回格式: v_{market}{code}="1~名称~代码~...";
     try:
         match = raw.split('"')[1]  # 提取引号内容
         parts = match.split('~')
@@ -169,7 +170,7 @@ def fetch_realtime_quote_tencent(stock_code):
 def fetch_history_sina(stock_code, days=120):
     """
     通过新浪财经获取历史 K 线数据
-    接口: https://quotes.sina.cn/cn/api/quotes.php?symbol=sh600519&source=sina
+    接口: https://quotes.sina.cn/cn/api/quotes.php?symbol={market}{code}&source=sina
     注意: 新浪财经历史数据接口不稳定，优先使用腾讯
     """
     scode = _to_sina_code(stock_code)
@@ -182,7 +183,7 @@ def fetch_history_sina(stock_code, days=120):
 def fetch_realtime_quote_sina(stock_code):
     """
     通过新浪财经获取实时行情
-    接口: https://hq.sinajs.cn/list=sh600519
+    接口: https://hq.sinajs.cn/list={market}{code}
     已在 investoday-proxy 中验证可用
     """
     scode = _to_sina_code(stock_code)
@@ -639,20 +640,6 @@ def predict_stock(symbol, stock_name=''):
 
 # ==================== 每日流水线 ====================
 
-STOCKS = {
-    "600519": "贵州茅台", "601398": "工商银行", "601857": "中国石油",
-    "601288": "农业银行", "601988": "中国银行", "601628": "中国人寿",
-    "600036": "招商银行", "601088": "中国神华", "600900": "长江电力",
-    "601318": "中国平安",
-}
-
-SYMBOL_SECTOR = {
-    "600519": "食品饮料", "601398": "银行", "601857": "石油石化",
-    "601288": "银行", "601988": "银行", "601628": "非银金融",
-    "600036": "银行", "601088": "煤炭", "600900": "电力",
-    "601318": "非银金融",
-}
-
 
 def run_daily_pipeline():
     """执行每日流水线：预测所有股票"""
@@ -662,8 +649,9 @@ def run_daily_pipeline():
 
     results = []
     focus_pool = []
+    stocks = get_rebuild_stocks()
 
-    for symbol, name in STOCKS.items():
+    for symbol, name in stocks.items():
         logger.info(f"\n预测 {name}({symbol})...")
         result = predict_stock(symbol, name)
         if result.get('success'):
@@ -677,7 +665,7 @@ def run_daily_pipeline():
                 'signal': signal,
                 'confidence': round(result['confidence'] / 100, 2),
                 'reason': f"综合评分{result['upProbability']}%，RSI={result['indicators']['rsi']}",
-                'sector': SYMBOL_SECTOR.get(symbol, '其他'),
+                'sector': get_sector(symbol),
             })
             logger.info(f"  预测: {result['prediction']} "
                        f"(涨概率{result['upProbability']}%, 置信度{result['confidence']}%)")
@@ -695,7 +683,7 @@ def run_daily_pipeline():
     }
 
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"流水线完成: {len(results)}/{len(STOCKS)} 只股票预测成功")
+    logger.info(f"流水线完成: {len(results)}/{len(stocks)} 只股票预测成功")
     logger.info(f"精选池 Top 3:")
     for i, f in enumerate(focus_pool[:3], 1):
         logger.info(f"  {i}. {f['name']}({f['symbol']}): {f['signal']} 预期{f['predicted_return_5d']:+.2f}%")

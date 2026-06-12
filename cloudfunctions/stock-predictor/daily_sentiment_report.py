@@ -17,19 +17,13 @@ import ssl
 import urllib.request
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
+from strategy_config import get_sentiment_stocks
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # ============ 配置 ============
 API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
 API_BASE = "https://data-api.investoday.net"
-
-STOCKS = {
-    "601318": "中国平安",
-    "300622": "博士眼镜",
-    "002896": "中大力德",
-    "002617": "露笑科技",
-}
 
 # 飞书配置（开放平台 API 方式）
 FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID", "cli_a97a5a0eb2385bb4")
@@ -143,6 +137,7 @@ def score_grade(score: float) -> str:
 def generate_report() -> dict:
     """生成每日舆情简报"""
     today = datetime.now().strftime("%Y-%m-%d")
+    stocks = get_sentiment_stocks()
     report = {
         "date": today,
         "generated_at": datetime.now().isoformat(),
@@ -154,7 +149,7 @@ def generate_report() -> dict:
     total_score = 0
     total_emotion = 0
     
-    for sym, name in STOCKS.items():
+    for sym, name in stocks.items():
         print(f"  📊 获取 {name} ({sym}) 数据...")
         
         # 获取数据
@@ -224,8 +219,8 @@ def generate_report() -> dict:
             })
     
     # 市场情绪
-    avg_score = total_score / len(STOCKS) if STOCKS else 0
-    avg_emotion = total_emotion / len(STOCKS) if STOCKS else 0
+    avg_score = total_score / len(stocks) if stocks else 0
+    avg_emotion = total_emotion / len(stocks) if stocks else 0
     if avg_emotion < NEGATIVE_THRESHOLD:
         market_label = "🔴 偏空"
     elif avg_emotion > POSITIVE_THRESHOLD:

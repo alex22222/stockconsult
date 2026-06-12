@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/app-store';
-
-// COS 直读配置（bucket 需设为公有读）
-const COS_BUCKET = '7374-stockconsult-d9g7b6ae5b8170e00-1328081868';
-const COS_REGION = 'ap-shanghai';
-function dataUrl(key: string) {
-  return `https://${COS_BUCKET}.cos.${COS_REGION}.myqcloud.com/${key}`;
-}
+import { cosDataUrl } from '../../core/data/cos-data-client';
 
 import {
   ArrowLeft, Database, Layers, GitBranch, BarChart3, ShieldCheck,
@@ -61,7 +55,7 @@ export function ModelDocPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(dataUrl('paper-trading/rebuild_walkforward_report.json'))
+    fetch(cosDataUrl('paper-trading/rebuild_walkforward_report.json'))
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setWfData(d.stocks || {}); })
       .catch(() => {})

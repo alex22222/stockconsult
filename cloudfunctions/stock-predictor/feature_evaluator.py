@@ -16,6 +16,7 @@ from scipy.stats import spearmanr
 from typing import Dict, List
 from local_data_provider import LocalDataProvider
 from feature_engineer import FeatureEngineer
+from strategy_config import get_rebuild_stocks
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -126,18 +127,7 @@ def evaluate_features_across_stocks(symbols: Dict[str, str], days: int = 500, us
 
 
 def main():
-    symbols = {
-        "600519": "贵州茅台",
-        "601398": "工商银行",
-        "601857": "中国石油",
-        "601288": "农业银行",
-        "601988": "中国银行",
-        "601628": "中国人寿",
-        "600036": "招商银行",
-        "601088": "中国神华",
-        "600900": "长江电力",
-        "601318": "中国平安",
-    }
+    symbols = get_rebuild_stocks()
     
     print("=" * 100)
     print("精简特征评估（跨股票 IC + 分层收益）")

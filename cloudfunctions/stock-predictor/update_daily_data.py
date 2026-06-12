@@ -12,6 +12,7 @@ import argparse
 from datetime import datetime, timedelta
 import time
 import logging
+from strategy_config import get_baostock_code, get_rebuild_stocks
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -195,53 +196,23 @@ def update_single_file(config: dict, global_attempt: int) -> tuple:
     return combined, attempts, True
 
 
-# 股票配置：个股代码 + 指数代码（指数是共用的）
-STOCK_CONFIGS = [
-    # 露笑科技
-    {'csv': '002617_daily.csv', 'baostock_code': 'sz.002617',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002617'},
-    # 中国平安
-    {'csv': '601318_daily.csv', 'baostock_code': 'sh.601318',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601318'},
-    # 博士眼镜
-    {'csv': '300622_daily.csv', 'baostock_code': 'sz.300622',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '300622'},
-    # 中大力德
-    {'csv': '002896_daily.csv', 'baostock_code': 'sz.002896',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '002896'},
-    # === 模拟盘股票池（10只大市值股）===
-    {'csv': '600519_daily.csv', 'baostock_code': 'sh.600519',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600519'},
-    {'csv': '601398_daily.csv', 'baostock_code': 'sh.601398',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601398'},
-    {'csv': '601857_daily.csv', 'baostock_code': 'sh.601857',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601857'},
-    {'csv': '601288_daily.csv', 'baostock_code': 'sh.601288',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601288'},
-    {'csv': '601988_daily.csv', 'baostock_code': 'sh.601988',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601988'},
-    {'csv': '601628_daily.csv', 'baostock_code': 'sh.601628',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601628'},
-    {'csv': '600036_daily.csv', 'baostock_code': 'sh.600036',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600036'},
-    {'csv': '601088_daily.csv', 'baostock_code': 'sh.601088',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '601088'},
-    {'csv': '600900_daily.csv', 'baostock_code': 'sh.600900',
-     'fields': 'date,open,high,low,close,preclose,volume,amount,turn,pctChg',
-     'akshare_func': fetch_from_akshare_stock, 'akshare_symbol': '600900'},
-]
+STOCK_FIELDS = 'date,open,high,low,close,preclose,volume,amount,turn,pctChg'
+
+
+def build_stock_configs() -> list:
+    configs = []
+    for symbol in get_rebuild_stocks().keys():
+        configs.append({
+            'csv': f'{symbol}_daily.csv',
+            'baostock_code': get_baostock_code(symbol),
+            'fields': STOCK_FIELDS,
+            'akshare_func': fetch_from_akshare_stock,
+            'akshare_symbol': symbol,
+        })
+    return configs
+
+
+STOCK_CONFIGS = build_stock_configs()
 
 INDEX_CONFIGS = [
     {'csv': 'sh_index_000001.csv', 'baostock_code': 'sh.000001',

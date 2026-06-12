@@ -547,6 +547,7 @@ async function scanViaAPI(onProgress?: (done: number, total: number) => void): P
     scanTime: new Date().toLocaleString('zh-CN'),
     marketSentiment: sentiment,
     totalScanned: hotStocks.length,
+    source: 'api',
   };
 }
 
@@ -559,7 +560,7 @@ async function fetchLocalMomentumPicks(): Promise<MomentumScanResult | null> {
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.picks || !Array.isArray(data.picks)) return null;
-    return data as MomentumScanResult;
+    return { ...data, source: 'local' } as MomentumScanResult;
   } catch (e) {
     console.warn('[MomentumScanner] Local data fetch failed:', e);
     return null;
@@ -644,6 +645,7 @@ function generateMockPicks(): MomentumScanResult {
     scanTime: new Date().toLocaleString('zh-CN'),
     marketSentiment: 'bullish',
     totalScanned: 5200,
+    source: 'mock',
   };
 }
 

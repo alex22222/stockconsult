@@ -14,18 +14,6 @@ import { logReport } from '../../core/data/report-logger';
 
 const CLOUDBASE_API_URL = import.meta.env.VITE_CLOUDBASE_API_URL || '';
 
-// 默认热门股票
-const DEFAULT_HOT_STOCKS: StockInfo[] = [
-  { code: '600519', name: '贵州茅台', exchange: 'SSE', industry: '白酒', marketCap: 0 },
-  { code: '000858', name: '五粮液', exchange: 'SZSE', industry: '白酒', marketCap: 0 },
-  { code: '300750', name: '宁德时代', exchange: 'SZSE', industry: '动力电池', marketCap: 0 },
-  { code: '000333', name: '美的集团', exchange: 'SZSE', industry: '白色家电', marketCap: 0 },
-  { code: '601318', name: '中国平安', exchange: 'SSE', industry: '保险', marketCap: 0 },
-  { code: '600036', name: '招商银行', exchange: 'SSE', industry: '银行', marketCap: 0 },
-  { code: '002594', name: '比亚迪', exchange: 'SZSE', industry: '汽车', marketCap: 0 },
-  { code: '00700', name: '腾讯控股', exchange: 'HKEX', industry: '互联网', marketCap: 0 },
-];
-
 // 初始化注册内置Skills
 function initSkills() {
   if (globalSkillRegistry.getAll().length === 0) {
@@ -132,7 +120,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pipelineResult: null,
   report: null,
   history: [],
-  hotStocks: [...DEFAULT_HOT_STOCKS],
+  hotStocks: [],
   favorites: [],
   activeProvider: initialProvider,
   apiKey: import.meta.env.VITE_INVESTODAY_API_KEY || '',

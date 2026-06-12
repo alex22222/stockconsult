@@ -272,8 +272,10 @@ def get_all_nonprice_features_ak(symbol: str) -> Dict:
 
 
 if __name__ == "__main__":
+    from strategy_config import get_rebuild_stocks
+
     # 测试
-    sym = "601318"
+    sym = next(iter(get_rebuild_stocks()), "")
     feats = get_all_nonprice_features_ak(sym)
     print(f"\n{sym} 非价格特征:")
     for k, v in sorted(feats.items()):
