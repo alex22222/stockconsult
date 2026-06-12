@@ -172,6 +172,7 @@ export function StrategyRebuildPage() {
   const [paperTradingReport, setPaperTradingReport] = useState<{ nav: number; total_return_pct: number; total_trades: number; holding_positions: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [dataFreshness, setDataFreshness] = useState<{ status: 'fresh' | 'stale' | 'unknown'; latestDate: string; lagDays: number }>({ status: 'unknown', latestDate: '', lagDays: 0 });
   const navigateTo = useAppStore((s) => s.navigateTo);
 
   useEffect(() => {
@@ -209,7 +210,16 @@ export function StrategyRebuildPage() {
         ]);
 
         if (hist) {
-          setHistory(Array.isArray(hist) ? hist.reverse() : []);
+          const arr = Array.isArray(hist) ? hist : [];
+          setHistory(arr.reverse());
+          // 闭环：计算数据新鲜度
+          if (arr.length > 0) {
+            const latestDate = arr[arr.length - 1]?.date || '';
+            const today = getShanghaiDateString();
+            const lag = latestDate ? Math.max(0, Math.floor((new Date(today).getTime() - new Date(latestDate).getTime()) / (86400000))) : 0;
+            const status = latestDate === today ? 'fresh' : (lag > 0 ? 'stale' : 'unknown');
+            setDataFreshness({ status, latestDate, lagDays: lag });
+          }
         }
         if (summary) {
           setTodaySummary(summary);
@@ -296,6 +306,22 @@ export function StrategyRebuildPage() {
                 回归目标 + 非价格特征 | 从今天开始积累数据
               </p>
             </div>
+            {/* 闭环：数据新鲜度指示器 */}
+            {dataFreshness.status !== 'unknown' && (
+              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                dataFreshness.status === 'fresh'
+                  ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+                  : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  dataFreshness.status === 'fresh' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'
+                }`} />
+                {dataFreshness.status === 'fresh'
+                  ? `数据最新 ${dataFreshness.latestDate}`
+                  : `数据滞后 ${dataFreshness.lagDays} 天`
+                }
+              </div>
+            )}
           </div>
           <div className="flex bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-1">
             <button

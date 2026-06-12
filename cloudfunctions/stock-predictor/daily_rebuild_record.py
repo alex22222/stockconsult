@@ -331,6 +331,12 @@ def verify_predictions():
     verified_count = 0
     skipped_no_data = 0
     
+    # 闭环：模型准确率反馈
+    model_stats = {
+        "gbr": {"correct": 0, "total": 0, "recent": []},
+        "ridge": {"correct": 0, "total": 0, "recent": []},
+    }
+    
     for record in history:
         if record.get("verified"):
             continue
@@ -374,6 +380,23 @@ def verify_predictions():
         record["verify_date"] = actual_verify_date
         
         verified_count += 1
+        
+        # 闭环：按模型统计准确率
+        individual = record.get("individual_predictions", {})
+        if individual:
+            for model_name in ["gbr", "ridge"]:
+                if model_name in individual:
+                    model_pred = individual[model_name]
+                    model_dir_correct = (model_pred > 0) == (actual_return > 0)
+                    model_stats[model_name]["total"] += 1
+                    if model_dir_correct:
+                        model_stats[model_name]["correct"] += 1
+                    model_stats[model_name]["recent"].append({
+                        "date": predict_date,
+                        "correct": model_dir_correct,
+                        "model_pred": round(model_pred, 4),
+                        "actual": round(actual_return, 4),
+                    })
     
     with open(history_path, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
@@ -382,6 +405,45 @@ def verify_predictions():
         print(f"\n✅ 已验证 {verified_count} 条历史预测")
     if skipped_no_data > 0:
         print(f"   ⏳ {skipped_no_data} 条预测数据不足（需等更多交易日数据）")
+    
+    # 闭环：保存并输出模型准确率报告
+    if verified_count > 0 and any(s["total"] > 0 for s in model_stats.values()):
+        accuracy_report = {
+            "generated_at": datetime.now().isoformat(),
+            "models": {},
+        }
+        for model_name, stats in model_stats.items():
+            if stats["total"] > 0:
+                overall = stats["correct"] / stats["total"]
+                # 最近 5 条、10 条、20 条
+                recent = stats["recent"]
+                recent_5 = sum(1 for r in recent[-5:] if r["correct"]) / len(recent[-5:]) if len(recent) >= 5 else None
+                recent_10 = sum(1 for r in recent[-10:] if r["correct"]) / len(recent[-10:]) if len(recent) >= 10 else None
+                recent_20 = sum(1 for r in recent[-20:] if r["correct"]) / len(recent[-20:]) if len(recent) >= 20 else None
+                
+                accuracy_report["models"][model_name] = {
+                    "overall_accuracy": round(overall, 4),
+                    "total_samples": stats["total"],
+                    "recent_5d_accuracy": round(recent_5, 4) if recent_5 else None,
+                    "recent_10d_accuracy": round(recent_10, 4) if recent_10 else None,
+                    "recent_20d_accuracy": round(recent_20, 4) if recent_20 else None,
+                }
+                
+                print(f"\n📊 {model_name.upper()} 模型准确率:")
+                print(f"   总体: {overall*100:.1f}% ({stats['correct']}/{stats['total']})")
+                if recent_5: print(f"   近5次: {recent_5*100:.1f}%")
+                if recent_10: print(f"   近10次: {recent_10*100:.1f}%")
+                if recent_20: print(f"   近20次: {recent_20*100:.1f}%")
+                
+                # 闭环：如果近期准确率过低，告警
+                if recent_5 and recent_5 < 0.4:
+                    print(f"   ⚠️ {model_name.upper()} 近5次准确率仅 {recent_5*100:.1f}%，建议检查模型")
+        
+        # 保存准确率报告
+        acc_path = os.path.join(REBUILD_DIR, "model_accuracy.json")
+        with open(acc_path, "w", encoding="utf-8") as f:
+            json.dump(accuracy_report, f, ensure_ascii=False, indent=2)
+        print(f"\n📁 模型准确率报告已保存: {acc_path}")
 
 
 if __name__ == "__main__":

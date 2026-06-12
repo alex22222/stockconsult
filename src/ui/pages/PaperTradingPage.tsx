@@ -233,46 +233,98 @@ function StatCard({ label, value, unit, icon: Icon, color, subtext }: {
 function SignalRow({ signal }: { signal: Signal }) {
   const isBuy = signal.signal === 'buy';
   const isPending = signal.status === 'pending';
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-      <div className="flex items-center gap-2">
-        <span className={`text-xs px-1.5 py-0.5 rounded ${isBuy ? 'bg-rose-50 text-rose-600' : 'bg-gray-100 text-gray-500'}`}>
-          {isBuy ? '买入' : '持有'}
-        </span>
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{signal.name}</span>
-        <span className="text-xs text-gray-400">{signal.symbol}</span>
-      </div>
-      <div className="text-right">
-        <div className={`text-sm font-bold ${signal.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-          {signal.predicted_return_5d > 0 ? '+' : ''}{signal.predicted_return_5d.toFixed(2)}%
+    <div
+      className="py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded transition-colors"
+      onClick={() => setExpanded(v => !v)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isBuy ? 'bg-rose-50 text-rose-600' : 'bg-gray-100 text-gray-500'}`}>
+            {isBuy ? '买入' : '持有'}
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{signal.name}</span>
+          <span className="text-xs text-gray-400">{signal.symbol}</span>
         </div>
-        <div className="text-[10px] text-gray-400">
-          {isPending ? `预计 ${signal.expected_exit_date}` : `实际 ${signal.actual_return?.toFixed(2)}%`}
+        <div className="text-right">
+          <div className={`text-sm font-bold ${signal.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+            {signal.predicted_return_5d > 0 ? '+' : ''}{signal.predicted_return_5d.toFixed(2)}%
+          </div>
+          <div className="text-[10px] text-gray-400">
+            {isPending ? `预计 ${signal.expected_exit_date}` : `实际 ${signal.actual_return?.toFixed(2)}%`}
+          </div>
         </div>
       </div>
+      {expanded && (
+        <div className="mt-2 px-2 py-2 bg-gray-50 dark:bg-gray-800/50 rounded text-xs text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1 gap-x-4">
+          <div>信号日期: {signal.date}</div>
+          <div>状态: {isPending ? '待结算' : '已结算'}</div>
+          {signal.entry_price !== null && signal.entry_price !== undefined && (
+            <div>触发价: ¥{signal.entry_price.toFixed(2)}</div>
+          )}
+          <div>阈值: {signal.threshold}%</div>
+          <div>预期退出: {signal.expected_exit_date}</div>
+          {!isPending && signal.actual_return !== undefined && (
+            <div>实际收益: {signal.actual_return >= 0 ? '+' : ''}{signal.actual_return.toFixed(2)}%</div>
+          )}
+          {!isPending && signal.actual_exit_date && (
+            <div>退出日期: {signal.actual_exit_date}</div>
+          )}
+          {!isPending && signal.direction_correct !== undefined && (
+            <div>方向判断: {signal.direction_correct ? '正确' : '错误'}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 function TradeRow({ trade }: { trade: Trade }) {
   const isWin = trade.net_return > 0;
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-      <div className="flex items-center gap-2">
-        <span className={`text-xs px-1.5 py-0.5 rounded ${isWin ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-          {isWin ? '盈利' : '亏损'}
-        </span>
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{trade.name}</span>
-        <span className="text-xs text-gray-400">{trade.symbol}</span>
-      </div>
-      <div className="text-right">
-        <div className={`text-sm font-bold ${isWin ? 'text-emerald-500' : 'text-rose-500'}`}>
-          {isWin ? '+' : ''}{trade.net_return.toFixed(2)}%
+    <div
+      className="py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded transition-colors"
+      onClick={() => setExpanded(v => !v)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isWin ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+            {isWin ? '盈利' : '亏损'}
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{trade.name}</span>
+          <span className="text-xs text-gray-400">{trade.symbol}</span>
         </div>
-        <div className="text-[10px] text-gray-400">
-          {trade.holding_days}天 · {trade.entry_date} → {trade.exit_date}
+        <div className="text-right">
+          <div className={`text-sm font-bold ${isWin ? 'text-emerald-500' : 'text-rose-500'}`}>
+            {isWin ? '+' : ''}{trade.net_return.toFixed(2)}%
+          </div>
+          <div className="text-[10px] text-gray-400">
+            {trade.holding_days}天 · {trade.entry_date} → {trade.exit_date}
+          </div>
         </div>
       </div>
+      {expanded && (
+        <div className="mt-2 px-2 py-2 bg-gray-50 dark:bg-gray-800/50 rounded text-xs text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1 gap-x-4">
+          <div>买入日期: {trade.entry_date}</div>
+          <div>卖出日期: {trade.exit_date}</div>
+          <div>买入价: ¥{trade.entry_price.toFixed(2)}</div>
+          <div>卖出价: ¥{trade.exit_price.toFixed(2)}</div>
+          <div>毛收益: {trade.gross_return >= 0 ? '+' : ''}{trade.gross_return.toFixed(2)}%</div>
+          <div>净收益: {trade.net_return >= 0 ? '+' : ''}{trade.net_return.toFixed(2)}%</div>
+          <div>持仓天数: {trade.holding_days}天</div>
+          {trade.exit_reason && <div>卖出原因: {trade.exit_reason}</div>}
+          {trade.exit_rules && (
+            <>
+              <div>止盈: {trade.exit_rules.take_profit_pct}%</div>
+              <div>止损: {trade.exit_rules.stop_loss_pct}%</div>
+              <div>移动止损: {trade.exit_rules.trailing_stop_pct}%</div>
+              <div>最大持仓: {trade.exit_rules.max_holding_days}天</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -281,23 +333,50 @@ function PositionRow({ position }: { position: Position }) {
   const isHolding = position.status === 'holding';
   const pnlColor = position.unrealized_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
   const dailyColor = position.daily_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
-      <div className="flex items-center gap-2">
-        <span className={`text-xs px-1.5 py-0.5 rounded ${isHolding ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-          {isHolding ? '持仓' : '已平仓'}
-        </span>
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{position.name}</span>
-        <span className="text-xs text-gray-400">{position.symbol}</span>
-      </div>
-      <div className="text-right">
-        <div className={`text-sm font-bold ${pnlColor}`}>
-          {position.unrealized_pnl >= 0 ? '+' : ''}{position.unrealized_pnl.toFixed(0)}元
+    <div
+      className="py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded transition-colors"
+      onClick={() => setExpanded(v => !v)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isHolding ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+            {isHolding ? '持仓' : '已平仓'}
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{position.name}</span>
+          <span className="text-xs text-gray-400">{position.symbol}</span>
         </div>
-        <div className={`text-[10px] ${dailyColor}`}>
-          今日 {position.daily_pnl >= 0 ? '+' : ''}{position.daily_pnl.toFixed(0)}元 ({position.daily_pnl_pct >= 0 ? '+' : ''}{position.daily_pnl_pct.toFixed(2)}%)
+        <div className="text-right">
+          <div className={`text-sm font-bold ${pnlColor}`}>
+            {position.unrealized_pnl >= 0 ? '+' : ''}{position.unrealized_pnl.toFixed(0)}元
+          </div>
+          <div className={`text-[10px] ${dailyColor}`}>
+            今日 {position.daily_pnl >= 0 ? '+' : ''}{position.daily_pnl.toFixed(0)}元 ({position.daily_pnl_pct >= 0 ? '+' : ''}{position.daily_pnl_pct.toFixed(2)}%)
+          </div>
         </div>
       </div>
+      {expanded && (
+        <div className="mt-2 px-2 py-2 bg-gray-50 dark:bg-gray-800/50 rounded text-xs text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1 gap-x-4">
+          <div>买入日期: {position.entry_date}</div>
+          <div>预期退出: {position.expected_exit_date}</div>
+          <div>买入价: ¥{position.entry_price.toFixed(2)}</div>
+          <div>最新价: ¥{position.latest_price.toFixed(2)}</div>
+          <div>持仓数量: {position.shares}</div>
+          <div>市值: ¥{position.market_value.toFixed(0)}</div>
+          <div>成本: ¥{position.cost_basis.toFixed(0)}</div>
+          {position.highest_price !== undefined && <div>最高价: ¥{position.highest_price.toFixed(2)}</div>}
+          {position.lowest_price !== undefined && <div>最低价: ¥{position.lowest_price.toFixed(2)}</div>}
+          {position.exit_rules && (
+            <>
+              <div>止盈: {position.exit_rules.take_profit_pct}%</div>
+              <div>止损: {position.exit_rules.stop_loss_pct}%</div>
+              <div>移动止损: {position.exit_rules.trailing_stop_pct}%</div>
+              <div>最大持仓: {position.exit_rules.max_holding_days}天</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

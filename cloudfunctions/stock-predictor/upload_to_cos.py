@@ -32,6 +32,7 @@ REBUILD_COMPAT_FILES = {
     "walkforward_report.json": "rebuild_walkforward_report.json",
     "focus_pool.json": "rebuild_focus_pool.json",
     "backtest.json": "rebuild_backtest.json",
+    "model_accuracy.json": "rebuild_model_accuracy.json",
 }
 
 
@@ -48,19 +49,54 @@ def get_client():
     return CosS3Client(config)
 
 
-def upload_file(client, local_path: str, cos_key: str) -> bool:
-    """上传单个文件到 COS"""
+def upload_file(client, local_path: str, cos_key: str, verify: bool = True) -> bool:
+    """上传单个文件到 COS，可选校验"""
     try:
         client.put_object_from_local_file(
             Bucket=BUCKET,
             LocalFilePath=local_path,
             Key=cos_key,
         )
+
+        if verify:
+            # 闭环校验：对比本地和 COS 的 md5
+            local_md5 = _md5(local_path)
+            cos_md5 = _get_cos_md5(client, cos_key)
+            if local_md5 != cos_md5:
+                print(f"  ⚠ {cos_key} md5 不匹配，重新上传...")
+                client.put_object_from_local_file(
+                    Bucket=BUCKET,
+                    LocalFilePath=local_path,
+                    Key=cos_key,
+                )
+                cos_md5 = _get_cos_md5(client, cos_key)
+                if local_md5 != cos_md5:
+                    print(f"  ✗ {cos_key} 两次上传 md5 均不匹配")
+                    return False
+        
         print(f"  ✓ {cos_key}")
         return True
     except Exception as e:
         print(f"  ✗ {cos_key}: {e}")
         return False
+
+
+def _md5(path: str) -> str:
+    import hashlib
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _get_cos_md5(client, cos_key: str) -> str:
+    """获取 COS 对象的 ETag (md5)"""
+    try:
+        resp = client.head_object(Bucket=BUCKET, Key=cos_key)
+        return resp.get("ETag", "").strip('"')
+    except Exception:
+        return ""
 
 
 def upload_dir(client, local_dir: Path, cos_prefix: str) -> tuple[int, int]:
@@ -76,7 +112,7 @@ def upload_dir(client, local_dir: Path, cos_prefix: str) -> tuple[int, int]:
             rel_path = file_path.relative_to(local_dir)
             cos_key = f"{cos_prefix}/{rel_path}"
             total += 1
-            if upload_file(client, str(file_path), cos_key):
+            if upload_file(client, str(file_path), cos_key, verify=True):
                 success += 1
 
     return success, total
