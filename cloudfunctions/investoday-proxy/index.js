@@ -33,10 +33,7 @@ const DEFAULT_USER_ID = 'anonymous';
 const VERSION = '2026-05-12-v2';
 
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
-const API_KEY = process.env.INVESTODAY_API_KEY;
-if (!API_KEY) {
-  throw new Error('INVESTODAY_API_KEY environment variable is required');
-}
+const API_KEY = process.env.INVESTODAY_API_KEY || '';
 const BASE_URL = 'data-api.investoday.net';
 
 // COS 配置 (stockconsult 环境)
@@ -1744,7 +1741,7 @@ async function fetchTencentHistory(code, days = 90) {
   const end = new Date();
   const begin = new Date();
   begin.setDate(begin.getDate() - days - 60);
-  const url = `http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tcode},day,${begin.toISOString().split('T')[0]},${end.toISOString().split('T')[0]},640,qfq`;
+  const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tcode},day,${begin.toISOString().split('T')[0]},${end.toISOString().split('T')[0]},640,qfq`;
 
   return new Promise((resolve, reject) => {
     const req = https.get(url, { timeout: 20000 }, (res) => {
@@ -1753,10 +1750,15 @@ async function fetchTencentHistory(code, days = 90) {
       res.on('end', () => {
         try {
           const data = JSON.parse(body);
-          const dayData = data.data?.[tcode]?.day || [];
+          const stockData = data.data?.[tcode] || {};
+          const dayData = stockData.qfqday || stockData.day || [];
           if (!dayData.length) {
             // try alternate key format
             for (const k of Object.keys(data.data || {})) {
+              if (data.data[k]?.qfqday) {
+                resolve(data.data[k].qfqday);
+                return;
+              }
               if (data.data[k]?.day) {
                 resolve(data.data[k].day);
                 return;
@@ -1813,7 +1815,7 @@ function isInvestodayResourceError(result) {
 
 async function handleStockHistory(event) {
   try {
-    const query = event.queryString || {};
+    const query = event.queryString || event.queryStringParameters || {};
     const code = query.code;
     const days = Math.min(parseInt(query.days || '90', 10), 365);
     if (!code || !/^\d{6}$/.test(code)) {
@@ -1886,9 +1888,9 @@ async function handleStockHistory(event) {
 
 async function fetchEastmoneyBasic(code) {
   const emCode = toEastmoneyCode(code);
-  const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${emCode}&fields=f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f57,f58,f60,f84,f85,f162,f163,f164,f167,f168,f169,f170,f171,f173,f177,f183,f184,f185,f186,f187,f188,f189,f190`;
+  const url = `https://push2delay.eastmoney.com/api/qt/stock/get?secid=${emCode}&fields=f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f57,f58,f60,f84,f85,f162,f163,f164,f167,f168,f169,f170,f171,f173,f177,f183,f184,f185,f186,f187,f188,f189,f190`;
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+    const req = https.get(url, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/' } }, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
@@ -1917,7 +1919,7 @@ async function fetchInvestodayScore(code) {
 
 async function handleStockScoreProxy(event) {
   try {
-    const query = event.queryString || {};
+    const query = event.queryString || event.queryStringParameters || {};
     const code = query.code;
     if (!code || !/^\d{6}$/.test(code)) {
       return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -2008,7 +2010,7 @@ async function fetchInvestodayBasicInfo(code) {
 
 async function handleStockBasicInfo(event) {
   try {
-    const query = event.queryString || {};
+    const query = event.queryString || event.queryStringParameters || {};
     const code = query.code;
     if (!code || !/^\d{6}$/.test(code)) {
       return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -2075,7 +2077,7 @@ async function fetchInvestodayValuation(code) {
 
 async function handleStockValuation(event) {
   try {
-    const query = event.queryString || {};
+    const query = event.queryString || event.queryStringParameters || {};
     const code = query.code;
     if (!code || !/^\d{6}$/.test(code)) {
       return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
