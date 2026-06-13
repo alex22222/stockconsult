@@ -55,7 +55,7 @@ def fetch_history_tencent(stock_code, days=120):
     end = datetime.now()
     begin = end - timedelta(days=days + 60)
     url = (
-        f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
         f"?param={tcode},day,{begin.strftime('%Y-%m-%d')},{end.strftime('%Y-%m-%d')},640,qfq"
     )
     raw = _http_get(url, timeout=20)
@@ -66,12 +66,17 @@ def fetch_history_tencent(stock_code, days=120):
     except Exception as e:
         logger.warning(f"Tencent JSON parse failed: {e}")
         return []
-    day_data = data.get('data', {}).get(tcode, {}).get('day', [])
+    stock_data = data.get('data', {}).get(tcode, {})
+    day_data = stock_data.get('qfqday') or stock_data.get('day', [])
     if not day_data:
         for k, v in data.get('data', {}).items():
-            if isinstance(v, dict) and 'day' in v:
-                day_data = v['day']
-                break
+            if isinstance(v, dict):
+                if 'qfqday' in v:
+                    day_data = v['qfqday']
+                    break
+                if 'day' in v:
+                    day_data = v['day']
+                    break
     klines = []
     for row in day_data:
         if len(row) < 6:

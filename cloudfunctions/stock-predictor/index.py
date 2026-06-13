@@ -80,7 +80,7 @@ def fetch_history_tencent(stock_code, days=120):
     begin = end - timedelta(days=days + 60)  # 多取一些确保有足够交易日
 
     url = (
-        f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
         f"?param={tcode},day,{begin.strftime('%Y-%m-%d')},{end.strftime('%Y-%m-%d')},640,qfq"
     )
 
@@ -96,13 +96,18 @@ def fetch_history_tencent(stock_code, days=120):
 
     # 解析腾讯返回格式
     stock_key = tcode
-    day_data = data.get('data', {}).get(stock_key, {}).get('day', [])
+    stock_data = data.get('data', {}).get(stock_key, {})
+    day_data = stock_data.get('qfqday') or stock_data.get('day', [])
     if not day_data:
         # 尝试其他 key 格式
         for k, v in data.get('data', {}).items():
-            if isinstance(v, dict) and 'day' in v:
-                day_data = v['day']
-                break
+            if isinstance(v, dict):
+                if 'qfqday' in v:
+                    day_data = v['qfqday']
+                    break
+                if 'day' in v:
+                    day_data = v['day']
+                    break
 
     if not day_data:
         logger.warning(f"Tencent: no day data for {stock_code}")
