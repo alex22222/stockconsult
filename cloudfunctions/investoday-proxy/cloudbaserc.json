@@ -8,7 +8,7 @@
       "timeout": 120,
       "memorySize": 256,
       "envVariables": {
-        "INVESTODAY_API_KEY": "cae27125ca0746c4b6ede2d77cd2dd11"
+        "INVESTODAY_API_KEY": "${INVESTODAY_API_KEY}"
       },
       "triggers": [
         {

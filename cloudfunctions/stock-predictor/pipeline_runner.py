@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # 配置
 PROJECT_DIR = Path(__file__).parent.parent.parent
 DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH = DATA_DIR / "pipeline_runner.log"
 REPORT_PATH = DATA_DIR / "pipeline_report.json"
 PYTHON = sys.executable

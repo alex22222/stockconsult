@@ -1,5 +1,4 @@
 import type { MomentumPick, MomentumScanResult } from '../types/momentum';
-import { InvestodayMCPClient } from './mcp-client';
 import type { MCPQuoteHistory, MCPStockScore } from './mcp-client';
 
 // ============================================
@@ -486,6 +485,30 @@ function buildPick(
 
 // ========== API 扫描 ==========
 
+async function fetchStockHistory(code: string, days = 90): Promise<MCPQuoteHistory[] | null> {
+  const baseUrl = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+  try {
+    const res = await fetch(`${baseUrl}/stock-history?code=${code}&days=${days}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.success && Array.isArray(data.data)) return data.data as MCPQuoteHistory[];
+  } catch (e) {
+    console.warn(`[MomentumScanner] fetchStockHistory ${code} failed:`, e);
+  }
+  return null;
+}
+
+async function fetchStockScore(code: string): Promise<MCPStockScore | null> {
+  const baseUrl = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+  try {
+    const res = await fetch(`${baseUrl}/stock-score-proxy?code=${code}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.success && data.data) return data.data as MCPStockScore;
+  } catch (e) {
+    console.warn(`[MomentumScanner] fetchStockScore ${code} failed:`, e);
+  }
+  return null;
+}
+
 async function scanViaAPI(onProgress?: (done: number, total: number) => void): Promise<MomentumScanResult> {
   // 1. 从东方财富获取今日热门股（动态股票池）
   const hotStocks = await fetchHotStocks();
@@ -493,14 +516,6 @@ async function scanViaAPI(onProgress?: (done: number, total: number) => void): P
   if (hotStocks.length === 0) {
     throw new Error('无法获取热门股票池');
   }
-
-  const baseUrl = import.meta.env.VITE_CLOUDBASE_API_URL || '';
-  const client = new InvestodayMCPClient('', baseUrl);
-
-  const endDate = new Date().toISOString().split('T')[0];
-  const beginDateObj = new Date();
-  beginDateObj.setDate(beginDateObj.getDate() - 90);
-  const beginDate = beginDateObj.toISOString().split('T')[0];
 
   const picks: MomentumPick[] = [];
   const total = hotStocks.length;
@@ -512,16 +527,15 @@ async function scanViaAPI(onProgress?: (done: number, total: number) => void): P
         try {
           console.log('[MomentumScanner] fetching:', stock.code, stock.name);
           const [historyRaw, scoreRaw] = await Promise.all([
-            client.listAdjustedQuotes(stock.code, beginDate, endDate),
-            client.getStockScore(stock.code),
+            fetchStockHistory(stock.code, 90),
+            fetchStockScore(stock.code),
           ]);
-          console.log('[MomentumScanner] historyRaw length:', historyRaw.length, 'scoreRaw:', scoreRaw ? 'OK' : 'null', 'for', stock.code);
-          const rows = parseHistory(historyRaw);
-          console.log('[MomentumScanner] parsed rows:', rows.length, 'for', stock.code, 'first:', rows[0]);
-          if (rows.length < 30) {
+          console.log('[MomentumScanner] historyRaw length:', historyRaw?.length ?? 0, 'scoreRaw:', scoreRaw ? 'OK' : 'null', 'for', stock.code);
+          if (!historyRaw || historyRaw.length < 30) {
             console.log('[MomentumScanner] skipping', stock.code, 'rows too short');
             return null;
           }
+          const rows = parseHistory(historyRaw);
           const pick = buildPick(stock, rows, scoreRaw);
           console.log('[MomentumScanner] built pick for', stock.code, 'score:', pick.score);
           return pick;

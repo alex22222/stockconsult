@@ -12,8 +12,8 @@ type EntryPlan = NonNullable<MomentumPick['entryPlan']>;
 function inferEntryPlan(pick: MomentumPick): EntryPlan {
   if (pick.entryPlan) return pick.entryPlan;
 
-  const technical = pick.dimensions.find((d) => d.name === '技术突破');
-  const volatility = pick.dimensions.find((d) => d.name === '波动释放');
+  const technical = pick.dimensions?.find((d) => d.name === '技术突破');
+  const volatility = pick.dimensions?.find((d) => d.name === '波动释放');
   const details = [...(technical?.details || []), ...(volatility?.details || [])].join(' ');
   const rsiMatch = details.match(/RSI\(6\)\s*位于\s*(\d+(\.\d+)?)/);
   const rsi = rsiMatch ? Number(rsiMatch[1]) : 50;
@@ -214,15 +214,15 @@ function StockCard({ pick, expanded, onToggle }: {
             <LevelBadge level={pick.level} score={pick.score} />
             <EntryPlanBadge plan={entryPlan} />
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              ¥{pick.price.toFixed(2)}
+              ¥{pick.price?.toFixed(2) ?? '--'}
             </span>
             <span className={`text-[11px] font-medium inline-flex items-center gap-0.5 ${
-              pick.changePercent >= 0
+              (pick.changePercent ?? 0) >= 0
                 ? 'text-red-600 dark:text-red-400'
                 : 'text-green-600 dark:text-green-400'
             }`}>
-              {pick.changePercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {pick.changePercent >= 0 ? '+' : ''}{pick.changePercent.toFixed(2)}%
+              {(pick.changePercent ?? 0) >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {(pick.changePercent ?? 0) >= 0 ? '+' : ''}{pick.changePercent?.toFixed(2) ?? '--'}%
             </span>
           </div>
         </div>
@@ -249,7 +249,7 @@ function StockCard({ pick, expanded, onToggle }: {
 
           {/* 五大维度 */}
           <div className="mt-4 space-y-2.5">
-            {pick.dimensions.map((dim) => (
+            {(pick.dimensions || []).map((dim) => (
               <DimensionBar
                 key={dim.name}
                 name={dim.name}
@@ -262,7 +262,7 @@ function StockCard({ pick, expanded, onToggle }: {
 
           {/* 详细理由 */}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {pick.dimensions.map((dim) => (
+            {(pick.dimensions || []).map((dim) => (
               <div
                 key={dim.name}
                 className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3"
@@ -280,7 +280,7 @@ function StockCard({ pick, expanded, onToggle }: {
                   </span>
                 </div>
                 <ul className="space-y-1">
-                  {dim.details.map((detail, i) => (
+                  {(dim.details || []).map((detail, i) => (
                     <li key={i} className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed flex items-start gap-1">
                       <span className="text-gray-300 dark:text-gray-600 mt-0.5">•</span>
                       {detail}
@@ -305,7 +305,7 @@ function StockCard({ pick, expanded, onToggle }: {
               <div>
                 <div className="text-xs font-medium text-amber-700 dark:text-amber-400">风险提示</div>
                 <ul className="mt-0.5 space-y-0.5">
-                  {pick.riskWarning.map((w, i) => (
+                  {(pick.riskWarning || []).map((w, i) => (
                     <li key={i} className="text-[11px] text-amber-800 dark:text-amber-300">{w}</li>
                   ))}
                 </ul>
@@ -542,17 +542,17 @@ export function MomentumScanPage() {
                 </span>
               )}
               <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">
-                本次扫描 {result.totalScanned.toLocaleString()} 只个股 · {result.scanTime}
+                本次扫描 {(result.totalScanned ?? 0).toLocaleString()} 只个股 · {result.scanTime}
               </span>
             </div>
 
             {/* 股票列表 */}
             <div className="flex items-center justify-between px-1 text-xs text-gray-400 dark:text-gray-500">
-              <span>共 {result.picks.length} 只 · 点击记录查看触发/失效条件</span>
+              <span>共 {(result.picks || []).length} 只 · 点击记录查看触发/失效条件</span>
               <span className="hidden sm:inline">红色偏突破，蓝色偏回踩，灰色等待确认</span>
             </div>
             <div className="space-y-3">
-              {result.picks.map((pick) => (
+              {(result.picks || []).map((pick) => (
                 <StockCard
                   key={pick.stock.code}
                   pick={pick}

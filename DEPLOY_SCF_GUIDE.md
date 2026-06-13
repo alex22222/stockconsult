@@ -48,7 +48,7 @@
 
 | 变量名 | 值 |
 |--------|-----|
-| `INVESTODAY_API_KEY` | `cae27125ca0746c4b6ede2d77cd2dd11` |
+| `INVESTODAY_API_KEY` | `${INVESTODAY_API_KEY}` |
 
 ### Step 5: 配置内存和超时
 - 内存：**1024 MB**

@@ -389,7 +389,7 @@ export function RecordsPage() {
               <div className="flex items-end gap-2 h-16">
                 {predictionStats.dailyStats.map((d: DailyStat) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                    <div className={`w-full rounded-sm ${d.accuracy >= 50 ? 'bg-purple-400' : 'bg-gray-300'}`} style={{ height: `${Math.max(d.accuracy, 5)}%` }} />
+                    <div className={`w-full rounded-sm ${(d.accuracy ?? 0) >= 50 ? 'bg-purple-400' : 'bg-gray-300'}`} style={{ height: `${Math.max(Number(d.accuracy) || 0, 5)}%` }} />
                     <span className="text-[9px] text-gray-400">{d.date.slice(5)}</span>
                   </div>
                 ))}
@@ -534,7 +534,7 @@ export function RecordsPage() {
                     <label className="text-xs text-gray-400 block mb-1">时间</label>
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <Clock className="w-3.5 h-3.5" />
-                      {new Date(selectedSearch.timestamp).toLocaleString('zh-CN')}
+                      {selectedSearch.timestamp ? new Date(selectedSearch.timestamp).toLocaleString('zh-CN') : '--'}
                     </div>
                   </div>
                   <div>
@@ -673,7 +673,7 @@ export function RecordsPage() {
                   {/* 时间 */}
                   <div className="pt-2 border-t border-gray-100 text-[10px] text-gray-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {new Date(selectedReport.timestamp).toLocaleString('zh-CN')}
+                    {selectedReport.timestamp ? new Date(selectedReport.timestamp).toLocaleString('zh-CN') : '--'}
                   </div>
                 </div>
               </div>
@@ -690,7 +690,7 @@ export function RecordsPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">调用时间</span>
-                    <span className="text-sm text-gray-700">{new Date(selectedApiLog.created_at).toLocaleString('zh-CN')}</span>
+                    <span className="text-sm text-gray-700">{selectedApiLog.created_at ? new Date(selectedApiLog.created_at).toLocaleString('zh-CN') : '--'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">耗时</span>

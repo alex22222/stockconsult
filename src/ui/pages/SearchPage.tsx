@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, Clock, TrendingUp, Loader2, Plus, Check, Star, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import { SectorHeatmap } from '../components/SectorHeatmap';
 import { useAppStore } from '../store/app-store';
+import type { StockInfo } from '../../core/types/stock';
 
 export function SearchPage() {
   const [inputValue, setInputValue] = useState('');
@@ -63,25 +64,25 @@ export function SearchPage() {
     }
   }, [inputValue, doSearch, isSearching]);
 
-  const handleSelect = useCallback((stock: { code: string; name: string; industry?: string; exchange?: string }) => {
-    selectStock(stock as any);
+  const handleSelect = useCallback((stock: StockInfo) => {
+    selectStock(stock);
     setShowDropdown(false);
     setInputValue(stock.name);
     analyzeStock(stock.code);
   }, [selectStock, analyzeStock]);
 
-  const handleHotStockClick = useCallback((stock: { code: string; name: string; industry?: string }) => {
+  const handleHotStockClick = useCallback((stock: StockInfo) => {
     clearResults();
     setInputValue(stock.name);
     handleSelect(stock);
   }, [handleSelect, clearResults]);
 
-  const handleAddFavorite = useCallback(async (e: React.MouseEvent, stock: { code: string; name: string; industry: string }) => {
+  const handleAddFavorite = useCallback(async (e: React.MouseEvent, stock: StockInfo) => {
     e.stopPropagation();
     if (isFavorite(stock.code)) {
       await removeFromFavorites(stock.code);
     } else {
-      const added = await addToFavorites(stock as any);
+      const added = await addToFavorites(stock);
       if (added) setShowFavoriteToast(`已添加「${stock.name}」到收藏`);
     }
   }, [addToFavorites, removeFromFavorites, isFavorite]);
@@ -144,7 +145,7 @@ export function SearchPage() {
                   }
                 }}
                 onKeyDown={handleKeyDown}
-                onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                onFocus={() => (searchResults || []).length > 0 && setShowDropdown(true)}
                 placeholder="搜索股票名称或代码，如：贵州茅台 / 600519"
                 className="w-full pl-12 pr-4 py-3.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-2xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
                            focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
@@ -176,15 +177,15 @@ export function SearchPage() {
           </div>
 
           {/* 搜索结果下拉 */}
-          {showDropdown && (searchResults.length > 0 || inputValue.trim().length >= 1) && (
+          {showDropdown && ((searchResults || []).length > 0 || inputValue.trim().length >= 1) && (
             <div className="absolute top-full left-0 right-0 mt-3 bg-white/95 backdrop-blur-md border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 overflow-hidden z-50 animate-scale-in origin-top max-h-72 overflow-y-auto">
-              {searchResults.length === 0 ? (
+              {(searchResults || []).length === 0 ? (
                 <div className="px-5 py-4 text-sm text-gray-400 flex items-center gap-2">
                   <Search className="w-4 h-4" />
                   未找到匹配的股票
                 </div>
               ) : (
-                searchResults.map((stock, i) => (
+                (searchResults || []).map((stock, i) => (
                   <button
                     key={stock.code}
                     onClick={() => handleSelect(stock)}
@@ -192,7 +193,7 @@ export function SearchPage() {
                     style={{ animationDelay: `${i * 0.03}s` }}
                   >
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:scale-110 transition-transform">
-                      {stock.name.charAt(0)}
+                      {(stock.name || '?').charAt(0)}
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{stock.name}</div>
@@ -217,7 +218,7 @@ export function SearchPage() {
               {history.map((stock) => (
                 <button
                   key={stock.code}
-                  onClick={() => handleSelect(stock as any)}
+                  onClick={() => handleSelect(stock)}
                   className="px-3.5 py-1.5 bg-white/70 dark:bg-gray-700/50 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-700 dark:text-gray-300
                              hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm hover:-translate-y-0.5 transition-all"
                 >

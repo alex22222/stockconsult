@@ -1,6 +1,21 @@
 {
   "version": "2.0",
   "envId": "stockconsult-d9g7b6ae5b8170e00",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "investoday-proxy",
+      "envVariables": {
+        "INVESTODAY_API_KEY": "${env.INVESTODAY_API_KEY}"
+      }
+    },
+    {
+      "name": "stock-predictor",
+      "envVariables": {
+        "INVESTODAY_API_KEY": "${env.INVESTODAY_API_KEY}"
+      }
+    }
+  ],
   "framework": {
     "name": "stockconsult",
     "plugins": {

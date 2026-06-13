@@ -21,8 +21,6 @@ from datetime import datetime, timedelta
 import ssl
 
 warnings.filterwarnings('ignore')
-# 绕过 investoday API SSL 证书问题
-ssl._create_default_https_context = ssl._create_unverified_context
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -31,11 +29,19 @@ from rebuild_predictor import (
     save_prediction_record, save_nonprice_features, load_nonprice_features,
     REBUILD_DIR, DATA_DIR, PREDICT_HORIZON,
 )
-from akshare_nonprice_provider import get_all_nonprice_features_ak
 from strategy_config import get_rebuild_stocks, get_sector
 
-# API 配置 (本地直接调用 investoday API)
-API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
+# AKShare 可选导入（云函数环境可能没有安装）
+try:
+    from akshare_nonprice_provider import get_all_nonprice_features_ak
+    AKSHARE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ AKShare provider unavailable: {e}")
+    get_all_nonprice_features_ak = lambda sym: {}
+    AKSHARE_AVAILABLE = False
+
+# API 配置 (investoday 现为可选 fallback)
+API_KEY = os.environ.get('INVESTODAY_API_KEY')
 API_BASE = "https://data-api.investoday.net"
 
 
@@ -49,8 +55,12 @@ def _call_api(tool_name: str, arguments: dict) -> dict:
         "params": {"name": tool_name, "arguments": arguments}
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    # 局部未验证上下文：避免全局禁用 SSL，同时兼容 Investoday 证书问题
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             text = data.get("result", {}).get("content", [{}])[0].get("text", "")
             parsed = json.loads(text)
@@ -173,22 +183,28 @@ def daily_record(symbols: list):
         name = stocks.get(sym, sym)
         print(f"\n📊 {name} ({sym})")
         
-        # Step 1: 获取非价格特征（API失败时降级使用旧数据）
+        # Step 1: 获取非价格特征（优先免费数据源，investoday 作为 fallback）
         print("  1. 获取非价格特征...")
-        score = fetch_stock_score(sym)
-        news = fetch_news_sentiment(sym)
-        val_ranks = fetch_valuation_ranks(sym)
-        prof_ranks = fetch_profit_ranks(sym)
-        perf = fetch_performance_metrics(sym)
-        
-        nonprice = {**score, **news, **val_ranks, **prof_ranks, **perf}
-        source = "investoday"
-        
-        if not nonprice:
-            # investoday API 失败，尝试 AKShare 免费替代
-            nonprice = get_all_nonprice_features_ak(sym)
+        nonprice = {}
+        source = ""
+
+        if AKSHARE_AVAILABLE:
+            try:
+                nonprice = get_all_nonprice_features_ak(sym)
+                if nonprice:
+                    source = "akshare"
+            except Exception as e:
+                print(f"     ⚠️ AKShare 失败: {e}")
+
+        if not nonprice and API_KEY:
+            score = fetch_stock_score(sym)
+            news = fetch_news_sentiment(sym)
+            val_ranks = fetch_valuation_ranks(sym)
+            prof_ranks = fetch_profit_ranks(sym)
+            perf = fetch_performance_metrics(sym)
+            nonprice = {**score, **news, **val_ranks, **prof_ranks, **perf}
             if nonprice:
-                source = "akshare"
+                source = "investoday"
         
         if not nonprice:
             # 全部失败，尝试加载最近一次的非价格特征

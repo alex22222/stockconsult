@@ -184,6 +184,7 @@ interface Report {
 function DataFreshnessBadge({ updatedAt }: { updatedAt: string | undefined }) {
   if (!updatedAt) return null;
   const updated = new Date(updatedAt);
+  if (isNaN(updated.getTime())) return null;
   const now = new Date();
   const diffMs = now.getTime() - updated.getTime();
   const diffHours = diffMs / (1000 * 60 * 60);
@@ -221,7 +222,7 @@ function StatCard({ label, value, unit, icon: Icon, color, subtext }: {
       </div>
       <div>
         <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-          {typeof value === 'number' ? value.toFixed(unit === '%' ? 2 : 0) : value}{unit}
+          {typeof value === 'number' && Number.isFinite(value) ? value.toFixed(unit === '%' ? 2 : 0) : value}{unit}
         </div>
         <div className="text-[10px] text-gray-400 dark:text-gray-500">{label}</div>
         {subtext && <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{subtext}</div>}
@@ -248,8 +249,8 @@ function SignalRow({ signal }: { signal: Signal }) {
           <span className="text-xs text-gray-400">{signal.symbol}</span>
         </div>
         <div className="text-right">
-          <div className={`text-sm font-bold ${signal.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-            {signal.predicted_return_5d > 0 ? '+' : ''}{signal.predicted_return_5d.toFixed(2)}%
+          <div className={`text-sm font-bold ${(signal.predicted_return_5d ?? 0) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+            {(signal.predicted_return_5d ?? 0) > 0 ? '+' : ''}{signal.predicted_return_5d?.toFixed(2) ?? '--'}%
           </div>
           <div className="text-[10px] text-gray-400">
             {isPending ? `预计 ${signal.expected_exit_date}` : `实际 ${signal.actual_return?.toFixed(2)}%`}
@@ -261,12 +262,12 @@ function SignalRow({ signal }: { signal: Signal }) {
           <div>信号日期: {signal.date}</div>
           <div>状态: {isPending ? '待结算' : '已结算'}</div>
           {signal.entry_price !== null && signal.entry_price !== undefined && (
-            <div>触发价: ¥{signal.entry_price.toFixed(2)}</div>
+            <div>触发价: ¥{signal.entry_price?.toFixed(2) ?? '--'}</div>
           )}
           <div>阈值: {signal.threshold}%</div>
           <div>预期退出: {signal.expected_exit_date}</div>
           {!isPending && signal.actual_return !== undefined && (
-            <div>实际收益: {signal.actual_return >= 0 ? '+' : ''}{signal.actual_return.toFixed(2)}%</div>
+            <div>实际收益: {(signal.actual_return ?? 0) >= 0 ? '+' : ''}{signal.actual_return?.toFixed(2) ?? '--'}%</div>
           )}
           {!isPending && signal.actual_exit_date && (
             <div>退出日期: {signal.actual_exit_date}</div>
@@ -298,7 +299,7 @@ function TradeRow({ trade }: { trade: Trade }) {
         </div>
         <div className="text-right">
           <div className={`text-sm font-bold ${isWin ? 'text-emerald-500' : 'text-rose-500'}`}>
-            {isWin ? '+' : ''}{trade.net_return.toFixed(2)}%
+            {isWin ? '+' : ''}{trade.net_return?.toFixed(2) ?? '--'}%
           </div>
           <div className="text-[10px] text-gray-400">
             {trade.holding_days}天 · {trade.entry_date} → {trade.exit_date}
@@ -309,10 +310,10 @@ function TradeRow({ trade }: { trade: Trade }) {
         <div className="mt-2 px-2 py-2 bg-gray-50 dark:bg-gray-800/50 rounded text-xs text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1 gap-x-4">
           <div>买入日期: {trade.entry_date}</div>
           <div>卖出日期: {trade.exit_date}</div>
-          <div>买入价: ¥{trade.entry_price.toFixed(2)}</div>
-          <div>卖出价: ¥{trade.exit_price.toFixed(2)}</div>
-          <div>毛收益: {trade.gross_return >= 0 ? '+' : ''}{trade.gross_return.toFixed(2)}%</div>
-          <div>净收益: {trade.net_return >= 0 ? '+' : ''}{trade.net_return.toFixed(2)}%</div>
+          <div>买入价: ¥{trade.entry_price?.toFixed(2) ?? '--'}</div>
+          <div>卖出价: ¥{trade.exit_price?.toFixed(2) ?? '--'}</div>
+          <div>毛收益: {(trade.gross_return ?? 0) >= 0 ? '+' : ''}{trade.gross_return?.toFixed(2) ?? '--'}%</div>
+          <div>净收益: {(trade.net_return ?? 0) >= 0 ? '+' : ''}{trade.net_return?.toFixed(2) ?? '--'}%</div>
           <div>持仓天数: {trade.holding_days}天</div>
           {trade.exit_reason && <div>卖出原因: {trade.exit_reason}</div>}
           {trade.exit_rules && (
@@ -331,8 +332,8 @@ function TradeRow({ trade }: { trade: Trade }) {
 
 function PositionRow({ position }: { position: Position }) {
   const isHolding = position.status === 'holding';
-  const pnlColor = position.unrealized_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
-  const dailyColor = position.daily_pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+  const pnlColor = (position.unrealized_pnl ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500';
+  const dailyColor = (position.daily_pnl ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500';
   const [expanded, setExpanded] = useState(false);
   return (
     <div
@@ -349,10 +350,10 @@ function PositionRow({ position }: { position: Position }) {
         </div>
         <div className="text-right">
           <div className={`text-sm font-bold ${pnlColor}`}>
-            {position.unrealized_pnl >= 0 ? '+' : ''}{position.unrealized_pnl.toFixed(0)}元
+            {(position.unrealized_pnl ?? 0) >= 0 ? '+' : ''}{position.unrealized_pnl?.toFixed(0) ?? '--'}元
           </div>
           <div className={`text-[10px] ${dailyColor}`}>
-            今日 {position.daily_pnl >= 0 ? '+' : ''}{position.daily_pnl.toFixed(0)}元 ({position.daily_pnl_pct >= 0 ? '+' : ''}{position.daily_pnl_pct.toFixed(2)}%)
+            今日 {(position.daily_pnl ?? 0) >= 0 ? '+' : ''}{position.daily_pnl?.toFixed(0) ?? '--'}元 ({(position.daily_pnl_pct ?? 0) >= 0 ? '+' : ''}{position.daily_pnl_pct?.toFixed(2) ?? '--'}%)
           </div>
         </div>
       </div>
@@ -360,11 +361,11 @@ function PositionRow({ position }: { position: Position }) {
         <div className="mt-2 px-2 py-2 bg-gray-50 dark:bg-gray-800/50 rounded text-xs text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1 gap-x-4">
           <div>买入日期: {position.entry_date}</div>
           <div>预期退出: {position.expected_exit_date}</div>
-          <div>买入价: ¥{position.entry_price.toFixed(2)}</div>
-          <div>最新价: ¥{position.latest_price.toFixed(2)}</div>
-          <div>持仓数量: {position.shares}</div>
-          <div>市值: ¥{position.market_value.toFixed(0)}</div>
-          <div>成本: ¥{position.cost_basis.toFixed(0)}</div>
+          <div>买入价: ¥{position.entry_price?.toFixed(2) ?? '--'}</div>
+          <div>最新价: ¥{position.latest_price?.toFixed(2) ?? '--'}</div>
+          <div>持仓数量: {position.shares ?? '--'}</div>
+          <div>市值: ¥{position.market_value?.toFixed(0) ?? '--'}</div>
+          <div>成本: ¥{position.cost_basis?.toFixed(0) ?? '--'}</div>
           {position.highest_price !== undefined && <div>最高价: ¥{position.highest_price.toFixed(2)}</div>}
           {position.lowest_price !== undefined && <div>最低价: ¥{position.lowest_price.toFixed(2)}</div>}
           {position.exit_rules && (
@@ -441,8 +442,8 @@ export function PaperTradingPage() {
         .filter(p => p.status === 'holding')
         .reduce((sum, p) => sum + p.daily_pnl, 0);
       const totalAssets = pf.current_cash + totalMarketValue;
-      const totalReturnPct = (totalAssets - pf.initial_capital) / pf.initial_capital * 100;
-      const nav = totalAssets / pf.initial_capital;
+      const totalReturnPct = pf.initial_capital > 0 ? (totalAssets - pf.initial_capital) / pf.initial_capital * 100 : 0;
+      const nav = pf.initial_capital > 0 ? totalAssets / pf.initial_capital : 1;
 
       return {
         ...pf,
@@ -474,14 +475,14 @@ export function PaperTradingPage() {
       }
       const data = await res.json();
       if (data.success && data.report && data.report.focus_pool) {
-        const scfFocusPool = data.report.focus_pool.map((item: any, index: number) => ({
+        const scfFocusPool = data.report.focus_pool.map((item: { symbol: string; name: string; predicted_return_5d?: number; signal?: string; signal_strength?: number; confidence?: number; reason?: string }, index: number) => ({
           rank: index + 1,
           symbol: item.symbol,
           name: item.name,
           predicted_return_5d: item.predicted_return_5d,
           signal: item.signal,
           signal_strength: item.signal_strength || item.confidence || 0.7,
-          reason: item.reason || `${item.name}(${item.symbol}) ${item.signal}信号 预期${item.predicted_return_5d > 0 ? '+' : ''}${item.predicted_return_5d.toFixed(2)}%`,
+          reason: item.reason || `${item.name}(${item.symbol}) ${item.signal}信号 预期${(item.predicted_return_5d ?? 0) > 0 ? '+' : ''}${item.predicted_return_5d?.toFixed(2) ?? '--'}%`,
         }));
         setFocusPool(scfFocusPool);
         setFocusDate(data.report.date || new Date().toISOString().split('T')[0]);
@@ -614,16 +615,16 @@ export function PaperTradingPage() {
 
       {/* Tab切换 */}
       <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-        {[
+        {([
           { key: 'positions', label: '持仓', icon: Package },
           { key: 'overview', label: '概览', icon: Activity },
           { key: 'signals', label: '信号记录', icon: Calendar },
           { key: 'trades', label: '交易记录', icon: BarChart3 },
           { key: 'ops', label: '每日运维', icon: ClipboardList },
-        ].map((tab) => (
+        ] as const).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all ${
               activeTab === tab.key
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
@@ -718,10 +719,10 @@ export function PaperTradingPage() {
                       <span className="text-xs text-gray-400">{f.symbol}</span>
                     </div>
                     <div className="text-right">
-                      <div className={`text-sm font-bold ${f.predicted_return_5d > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {f.predicted_return_5d > 0 ? '+' : ''}{f.predicted_return_5d.toFixed(2)}%
+                      <div className={`text-sm font-bold ${(f.predicted_return_5d ?? 0) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {(f.predicted_return_5d ?? 0) > 0 ? '+' : ''}{f.predicted_return_5d?.toFixed(2) ?? '--'}%
                       </div>
-                      <div className="text-[10px] text-gray-400">预测强度 {(f.signal_strength * 100).toFixed(0)}%</div>
+                      <div className="text-[10px] text-gray-400">预测强度 {((f.signal_strength ?? 0) * 100).toFixed(0)}%</div>
                     </div>
                   </div>
                 ))}
@@ -762,7 +763,7 @@ export function PaperTradingPage() {
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
               <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Walkforward 分析</h3>
               <div className="space-y-2">
-                {Object.entries(walkforwardReport.stocks).map(([symbol, stock]) => (
+                {Object.entries(walkforwardReport.stocks || {}).map(([symbol, stock]) => (
                   <div key={symbol} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{stock.name}</span>
@@ -770,10 +771,10 @@ export function PaperTradingPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                        方向准确率 {stock.direction_accuracy.toFixed(1)}%
+                        方向准确率 {stock.direction_accuracy?.toFixed(1) ?? '--'}%
                       </div>
                       <div className="text-[10px] text-gray-400">
-                        策略收益 {stock.strategy_return_pct.toFixed(2)}% · 买入持有 {stock.buyhold_return_pct.toFixed(2)}%
+                        策略收益 {stock.strategy_return_pct?.toFixed(2) ?? '--'}% · 买入持有 {stock.buyhold_return_pct?.toFixed(2) ?? '--'}%
                       </div>
                     </div>
                   </div>

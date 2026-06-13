@@ -1,5 +1,6 @@
 import { BaseSkill } from '../base-skill';
 import type { SkillConfig, SkillResult, PipelineContext, Insight } from '../../types/skill';
+import type { FinancialPeriod } from '../../types/stock';
 
 /**
  * 估值框架 Skill
@@ -151,14 +152,14 @@ export class ValuationSkill extends BaseSkill {
    * 简化DCF模型
    * 使用2阶段增长模型
    */
-  private simplifiedDCF(latest: any, periods: any[]) {
+  private simplifiedDCF(latest: FinancialPeriod, periods: FinancialPeriod[]) {
     const riskFreeRate = this.getConfig('riskFreeRate', 0.03);
     const marketRiskPremium = this.getConfig('marketRiskPremium', 0.06);
     const beta = 1.0; // 简化假设
     const wacc = riskFreeRate + beta * marketRiskPremium;
 
     // 计算历史净利润增长率
-    const profits = periods.map((p: any) => p.netProfit);
+    const profits = periods.map((p) => p.netProfit);
     const growthRates: number[] = [];
     for (let i = 1; i < profits.length; i++) {
       if (profits[i - 1] > 0) {
@@ -219,7 +220,7 @@ export class ValuationSkill extends BaseSkill {
     return { impliedPrice, upside, insights };
   }
 
-  private compositeValuation(pe: any, pb: any, dcf: any) {
+  private compositeValuation(pe: { percentile: number }, pb: { percentile: number }, dcf: { upside: number }) {
     // 综合评分：越低越好（便宜）
     let score = 50; // 中性起点
 
@@ -252,7 +253,7 @@ export class ValuationSkill extends BaseSkill {
     return { score, rating, band };
   }
 
-  private generateSummary(pe: any, pb: any, composite: any): string {
+  private generateSummary(pe: { percentile: number }, pb: { percentile: number }, composite: { band: string }): string {
     const parts: string[] = [];
     parts.push(`PE位于历史${pe.percentile}%分位`);
     parts.push(`PB位于历史${pb.percentile}%分位`);

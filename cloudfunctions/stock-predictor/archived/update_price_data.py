@@ -11,9 +11,15 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 
-ssl._create_default_https_context = ssl._create_unverified_context
+# 局部未验证 SSL 上下文（旧环境兼容性）。
+# 生产环境建议配置受信任 CA 证书并移除此绕过。
+_SSL_CONTEXT = ssl.create_default_context()
+_SSL_CONTEXT.check_hostname = False
+_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 
-API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
+API_KEY = os.environ.get('INVESTODAY_API_KEY')
+if not API_KEY:
+    raise ValueError('INVESTODAY_API_KEY environment variable is required')
 API_BASE = "https://data-api.investoday.net"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
@@ -44,7 +50,7 @@ def fetch_quotes(symbol: str) -> list:
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30, context=_SSL_CONTEXT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             text = data.get("result", {}).get("content", [{}])[0].get("text", "")
             parsed = json.loads(text)

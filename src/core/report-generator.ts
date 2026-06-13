@@ -1,6 +1,42 @@
-import type { StockDataBundle, StockInfo } from './types/stock';
+import type { StockDataBundle, StockInfo, FinancialMetrics, MarketData } from './types/stock';
 import type { SkillResult, Insight, PipelineExecutionResult } from './types/skill';
 import type { AnalysisReport } from './types/analysis';
+
+// 从 Skill 结果中读取的数据形状（比 any 更安全）
+interface ValuationSkillData {
+  pePercentile?: number;
+  pbPercentile?: number;
+  peVsIndustry?: number;
+  pbVsIndustry?: number;
+  compositeRating?: 'undervalued' | 'fair' | 'overvalued';
+  compositeBand?: string;
+  dcfImpliedPrice?: number;
+  dcfUpside?: number;
+}
+
+interface FinancialSkillData {
+  revenue?: { yoy?: number };
+  netProfit?: { yoy?: number };
+}
+
+interface AnnouncementSkillData {
+  recentAnnouncements?: Array<{
+    date?: string;
+    title: string;
+    sentiment?: 'positive' | 'negative' | 'neutral';
+  }>;
+  sentimentStats?: {
+    positive: number;
+    neutral: number;
+    negative: number;
+    total: number;
+  };
+}
+
+interface SentimentStats {
+  positive: number;
+  negative: number;
+}
 
 /**
  * 报告生成器
@@ -91,7 +127,7 @@ export class ReportGenerator {
     const financial = dataBundle.financial;
     const valResult = skillResults.find(r => r.skillId === 'valuation-framework');
 
-    const valData = valResult?.data as any || {};
+    const valData = (valResult?.data as ValuationSkillData | undefined) || {};
 
     // 成长能力：使用 MCP 真实数据（getGrowthAbility）
     const revenueGrowth = financial.revenueGrowth ?? null;
@@ -99,8 +135,8 @@ export class ReportGenerator {
 
     return {
       valuation: [
-        { name: 'pe', label: '市盈率(PE)', value: market.pe > 0 ? market.pe : '-', unit: market.pe > 0 ? '倍' : '', trend: valData.pePercentile > 70 ? 'up' : valData.pePercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: valData.peVsIndustry ? `行业均值${valData.peVsIndustry > 0 ? '+' : ''}${valData.peVsIndustry}%` : undefined, percentile: valData.pePercentile },
-        { name: 'pb', label: '市净率(PB)', value: market.pb > 0 ? market.pb : '-', unit: market.pb > 0 ? '倍' : '', trend: valData.pbPercentile > 70 ? 'up' : valData.pbPercentile < 30 ? 'down' : 'flat', category: 'valuation', benchmark: valData.pbVsIndustry ? `行业均值${valData.pbVsIndustry > 0 ? '+' : ''}${valData.pbVsIndustry}%` : undefined, percentile: valData.pbPercentile },
+        { name: 'pe', label: '市盈率(PE)', value: market.pe > 0 ? market.pe : '-', unit: market.pe > 0 ? '倍' : '', trend: (valData.pePercentile ?? 50) > 70 ? 'up' : (valData.pePercentile ?? 50) < 30 ? 'down' : 'flat', category: 'valuation', benchmark: valData.peVsIndustry ? `行业均值${valData.peVsIndustry > 0 ? '+' : ''}${valData.peVsIndustry}%` : undefined, percentile: valData.pePercentile },
+        { name: 'pb', label: '市净率(PB)', value: market.pb > 0 ? market.pb : '-', unit: market.pb > 0 ? '倍' : '', trend: (valData.pbPercentile ?? 50) > 70 ? 'up' : (valData.pbPercentile ?? 50) < 30 ? 'down' : 'flat', category: 'valuation', benchmark: valData.pbVsIndustry ? `行业均值${valData.pbVsIndustry > 0 ? '+' : ''}${valData.pbVsIndustry}%` : undefined, percentile: valData.pbPercentile },
         { name: 'ps', label: '市销率(PS)', value: market.ps || '-', unit: market.ps ? '倍' : '', category: 'valuation' },
         { name: 'marketCap', label: '总市值', value: stock.marketCap > 0 ? (stock.marketCap / 10000).toFixed(2) : '-', unit: stock.marketCap > 0 ? '万亿' : '', category: 'valuation' },
       ],
@@ -138,16 +174,16 @@ export class ReportGenerator {
     _insights: Insight[]
   ): AnalysisReport['marketInterpretation'] {
     const annResult = skillResults.find(r => r.skillId === 'announcement-analyzer');
-    const annData = annResult?.data as any || {};
+    const annData = (annResult?.data as AnnouncementSkillData | undefined) || {};
     const news = dataBundle.news || [];
     const reports = dataBundle.reports || [];
 
     // 近期事件：公告 + 新闻（全部来自 MCP）
-    const announcementEvents = (annData.recentAnnouncements || []).map((a: any) => ({
-      date: a.date,
+    const announcementEvents = (annData.recentAnnouncements || []).map((a) => ({
+      date: a.date || '',
       title: a.title,
       type: 'announcement' as const,
-      impact: a.sentiment,
+      impact: a.sentiment || 'neutral' as const,
       description: a.title,
     }));
 
@@ -231,11 +267,11 @@ export class ReportGenerator {
     insights: Insight[]
   ): AnalysisReport['actionAdvice'] {
     const valResult = skillResults.find(r => r.skillId === 'valuation-framework');
-    const valData = valResult?.data as any || {};
+    const valData = (valResult?.data as ValuationSkillData | undefined) || {};
     const market = dataBundle.market;
     const reports = dataBundle.reports || [];
 
-    const rating = this.mapValuationToRating(valData.compositeRating);
+    const rating = this.mapValuationToRating(valData.compositeRating || 'hold');
     const currentPrice = market.price;
 
     // 目标价：仅当有研报目标价或 DCF 数据时才提供，不编造
@@ -252,7 +288,7 @@ export class ReportGenerator {
         base: Number(avgTarget.toFixed(0)),
         optimistic: Number((avgTarget * 1.15).toFixed(0)),
       };
-    } else if (hasDcf) {
+    } else if (hasDcf && valData.dcfImpliedPrice != null) {
       const dcfPrice = valData.dcfImpliedPrice;
       targetPricesData = {
         conservative: Number((dcfPrice * 0.85).toFixed(0)),
@@ -313,10 +349,10 @@ export class ReportGenerator {
   }
 
   private static determineRating(valResult?: SkillResult, finResult?: SkillResult, _insights?: Insight[]): AnalysisReport['coreView']['rating'] {
-    const valData = valResult?.data as any;
+    const valData = valResult?.data as ValuationSkillData | undefined;
     if (!valData) return 'hold';
     
-    const finData = finResult?.data as any;
+    const finData = finResult?.data as FinancialSkillData | undefined;
     const profitYoY = finData?.netProfit?.yoy || 0;
     
     if (valData.compositeRating === 'undervalued' && profitYoY > 15) return 'buy';
@@ -345,10 +381,10 @@ export class ReportGenerator {
     }
   }
 
-  private static extractKeyDrivers(stock: StockInfo, _market: any, financial: any, finResult?: SkillResult, valResult?: SkillResult, _insights?: Insight[]): string[] {
+  private static extractKeyDrivers(stock: StockInfo, _market: MarketData, financial: FinancialMetrics, finResult?: SkillResult, valResult?: SkillResult, _insights?: Insight[]): string[] {
     const drivers: string[] = [];
-    const finData = finResult?.data as any;
-    const valData = valResult?.data as any;
+    const finData = finResult?.data as FinancialSkillData | undefined;
+    const valData = valResult?.data as ValuationSkillData | undefined;
 
     // 使用 MCP 真实成长数据
     const revenueGrowth = financial.revenueGrowth ?? finData?.revenue?.yoy;
@@ -362,8 +398,8 @@ export class ReportGenerator {
     
     if (financial.roe > 15) drivers.push(`ROE高达${financial.roe}%，盈利能力强`);
     if (financial.grossMargin > 40) drivers.push(`毛利率${financial.grossMargin}%，具备定价权`);
-    if (valData?.pePercentile < 30) drivers.push('估值处于历史低位');
-    if (valData?.dcfUpside > 20) drivers.push(`DCF模型显示${valData.dcfUpside}%上行空间`);
+    if ((valData?.pePercentile ?? 50) < 30) drivers.push('估值处于历史低位');
+    if ((valData?.dcfUpside ?? 0) > 20) drivers.push(`DCF模型显示${valData?.dcfUpside}%上行空间`);
     
     if (drivers.length < 3) {
       if (stock.industry) {
@@ -377,10 +413,10 @@ export class ReportGenerator {
     return drivers.slice(0, 5);
   }
 
-  private static generateThesis(stock: StockInfo, _market: any, financial: any, finResult?: SkillResult, valResult?: SkillResult): string {
+  private static generateThesis(stock: StockInfo, _market: MarketData, financial: FinancialMetrics, finResult?: SkillResult, valResult?: SkillResult): string {
     const parts: string[] = [];
-    const finData = finResult?.data as any;
-    const valData = valResult?.data as any;
+    const finData = finResult?.data as FinancialSkillData | undefined;
+    const valData = valResult?.data as ValuationSkillData | undefined;
 
     // 开头定位：一句话摘要已展示名称，此处不再重复
     if (stock.industry) {
@@ -411,8 +447,8 @@ export class ReportGenerator {
     return parts.join('');
   }
 
-  private static generateScenarios(_stock: StockInfo, market: any, _financial: any, valResult?: SkillResult): { bullCase: string; bearCase: string } {
-    const valData = valResult?.data as any;
+  private static generateScenarios(_stock: StockInfo, market: MarketData, _financial: FinancialMetrics, valResult?: SkillResult): { bullCase: string; bearCase: string } {
+    const valData = valResult?.data as ValuationSkillData | undefined;
     const currentPrice = market.price;
     
     // 使用 DCF 隐含价格（如有），否则基于当前价格的合理倍数
@@ -428,7 +464,7 @@ export class ReportGenerator {
     };
   }
 
-  private static generateOneSentence(stock: StockInfo, _market: any, financial: any, rating: AnalysisReport['coreView']['rating'], _insights: Insight[]): string {
+  private static generateOneSentence(stock: StockInfo, _market: MarketData, financial: FinancialMetrics, rating: AnalysisReport['coreView']['rating'], _insights: Insight[]): string {
     const riskCount = _insights.filter((i: Insight) => i.type === 'risk').length;
     const oppCount = _insights.filter((i: Insight) => i.type === 'opportunity').length;
     
@@ -442,7 +478,7 @@ export class ReportGenerator {
     return `${stock.name}（${stock.code}）当前${industry}行业基本面${sentiment}，估值${valuationDesc}，综合评级「${label}」。`;
   }
 
-  private static generateSentimentSummary(stats: any, total: number): string {
+  private static generateSentimentSummary(stats: SentimentStats, total: number): string {
     if (total === 0) return '近期无公告数据';
     const pos = Math.round((stats.positive / total) * 100);
     const neg = Math.round((stats.negative / total) * 100);

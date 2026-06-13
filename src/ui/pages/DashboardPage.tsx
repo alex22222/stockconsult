@@ -128,7 +128,7 @@ export function DashboardPage() {
     ...(reports.length > 0 ? [{ id: 'institutional-views', label: '机构观点' }] : []),
     ...(news.length > 0 ? [{ id: 'related-news', label: '相关新闻' }] : []),
     { id: 'action-advice', label: '行动建议' },
-    ...(rawInsights.length > 0 ? [{ id: 'insights', label: '分析洞察' }] : []),
+    ...(rawInsights && rawInsights.length > 0 ? [{ id: 'insights', label: '分析洞察' }] : []),
   ];
 
   return (
@@ -248,14 +248,14 @@ export function DashboardPage() {
             <div>
               <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">估值指标</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {keyMetrics.valuation.map((m: AnalysisReport['keyMetrics']['valuation'][0]) => <MetricCard key={m.name} metric={m} />)}
+                {(keyMetrics.valuation || []).map((m: AnalysisReport['keyMetrics']['valuation'][0]) => <MetricCard key={m.name} metric={m} />)}
               </div>
             </div>
             {/* 盈利 */}
             <div>
               <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">盈利能力</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {keyMetrics.profitability.map((m: AnalysisReport['keyMetrics']['profitability'][0]) => <MetricCard key={m.name} metric={m} />)}
+                {(keyMetrics.profitability || []).map((m: AnalysisReport['keyMetrics']['profitability'][0]) => <MetricCard key={m.name} metric={m} />)}
               </div>
             </div>
             {/* 成长 + 质量 + 市场 */}
@@ -263,19 +263,19 @@ export function DashboardPage() {
               <div>
                 <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">成长性</div>
                 <div className="space-y-3">
-                  {keyMetrics.growth.map((m: AnalysisReport['keyMetrics']['growth'][0]) => <MetricCard key={m.name} metric={m} />)}
+                  {(keyMetrics.growth || []).map((m: AnalysisReport['keyMetrics']['growth'][0]) => <MetricCard key={m.name} metric={m} />)}
                 </div>
               </div>
               <div>
                 <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">财务质量</div>
                 <div className="space-y-3">
-                  {keyMetrics.quality.map((m: AnalysisReport['keyMetrics']['quality'][0]) => <MetricCard key={m.name} metric={m} />)}
+                  {(keyMetrics.quality || []).map((m: AnalysisReport['keyMetrics']['quality'][0]) => <MetricCard key={m.name} metric={m} />)}
                 </div>
               </div>
               <div>
                 <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">市场表现</div>
                 <div className="space-y-3">
-                  {keyMetrics.market.map((m: AnalysisReport['keyMetrics']['market'][0]) => <MetricCard key={m.name} metric={m} />)}
+                  {(keyMetrics.market || []).map((m: AnalysisReport['keyMetrics']['market'][0]) => <MetricCard key={m.name} metric={m} />)}
                 </div>
               </div>
             </div>
@@ -291,14 +291,14 @@ export function DashboardPage() {
             {/* 情感分析 */}
             <div className="flex items-center gap-3 mb-5">
               <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                marketInterpretation.sentimentAnalysis.overall === 'positive' ? 'bg-red-50 text-red-700' :
-                marketInterpretation.sentimentAnalysis.overall === 'negative' ? 'bg-green-50 text-green-700' :
+                marketInterpretation.sentimentAnalysis?.overall === 'positive' ? 'bg-red-50 text-red-700' :
+                marketInterpretation.sentimentAnalysis?.overall === 'negative' ? 'bg-green-50 text-green-700' :
                 'bg-gray-50 text-gray-700'
               }`}>
-                {marketInterpretation.sentimentAnalysis.overall === 'positive' ? '情绪偏正面' :
-                 marketInterpretation.sentimentAnalysis.overall === 'negative' ? '情绪偏负面' : '情绪中性'}
+                {marketInterpretation.sentimentAnalysis?.overall === 'positive' ? '情绪偏正面' :
+                 marketInterpretation.sentimentAnalysis?.overall === 'negative' ? '情绪偏负面' : '情绪中性'}
               </div>
-              <span className="text-sm text-gray-500">{marketInterpretation.sentimentAnalysis.summary}</span>
+              <span className="text-sm text-gray-500">{marketInterpretation.sentimentAnalysis?.summary}</span>
             </div>
 
             {/* 近期事件时间线 */}
@@ -307,7 +307,7 @@ export function DashboardPage() {
               <div className="relative space-y-0">
                 {/* 左侧竖线 */}
                 <div className="absolute left-[5px] top-2 bottom-2 w-px bg-gray-100 dark:bg-gray-700" />
-                {marketInterpretation.recentEvents.slice(0, 8).map((event: AnalysisReport['marketInterpretation']['recentEvents'][0]) => (
+                {(marketInterpretation.recentEvents || []).slice(0, 8).map((event: AnalysisReport['marketInterpretation']['recentEvents'][0]) => (
                   <div key={event.title + (event.date || '')} className="flex items-start gap-3 py-2.5 hover:bg-gray-50/60 dark:hover:bg-gray-700/40 rounded-lg px-2 -mx-2 transition-colors group">
                     <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ring-4 ring-white dark:ring-gray-800 ${
                       event.impact === 'positive' ? 'bg-red-400' :
@@ -331,7 +331,7 @@ export function DashboardPage() {
                     </div>
                   </div>
                 ))}
-                {marketInterpretation.recentEvents.length === 0 && (
+                {(marketInterpretation.recentEvents || []).length === 0 && (
                   <div className="text-sm text-gray-400 py-4">暂无近期事件数据</div>
                 )}
               </div>
@@ -341,21 +341,21 @@ export function DashboardPage() {
             {stock.industry && (
               <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4">
                 <div className="text-xs font-medium text-gray-500 mb-2">
-                  {marketInterpretation.industryContext.industryName || stock.industry}
+                  {marketInterpretation.industryContext?.industryName || stock.industry}
                 </div>
-                {marketInterpretation.industryContext.industryTrend && (
+                {marketInterpretation.industryContext?.industryTrend && (
                   <div className="text-sm text-gray-700">{marketInterpretation.industryContext.industryTrend}</div>
                 )}
-                {marketInterpretation.industryContext.competitivePosition && (
+                {marketInterpretation.industryContext?.competitivePosition && (
                   <div className="text-sm text-gray-700">{marketInterpretation.industryContext.competitivePosition}</div>
                 )}
-                {marketInterpretation.industryContext.policyImpact && (
+                {marketInterpretation.industryContext?.policyImpact && (
                   <div className="text-sm text-gray-500">{marketInterpretation.industryContext.policyImpact}</div>
                 )}
                 {/* 如果 MCP 未提供行业分析数据，展示提示 */}
-                {!marketInterpretation.industryContext.industryTrend &&
-                 !marketInterpretation.industryContext.competitivePosition &&
-                 !marketInterpretation.industryContext.policyImpact && (
+                {!marketInterpretation.industryContext?.industryTrend &&
+                 !marketInterpretation.industryContext?.competitivePosition &&
+                 !marketInterpretation.industryContext?.policyImpact && (
                   <div className="text-xs text-gray-400">暂无行业分析数据</div>
                 )}
                 {stock.mainBusiness && (
@@ -381,19 +381,19 @@ export function DashboardPage() {
             </div>
             <div className="p-6">
               {/* 机构评级汇总 */}
-              {(marketInterpretation.institutionalViews.consensusRating || marketInterpretation.institutionalViews.targetPriceRange) && (
+              {(marketInterpretation.institutionalViews?.consensusRating || marketInterpretation.institutionalViews?.targetPriceRange) && (
                 <div className="flex items-center gap-4 mb-5 flex-wrap">
-                  {marketInterpretation.institutionalViews.consensusRating && (
+                  {marketInterpretation.institutionalViews?.consensusRating && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">评级共识:</span>
                       <RatingBadge rating={marketInterpretation.institutionalViews.consensusRating} size="sm" />
                     </div>
                   )}
-                  {marketInterpretation.institutionalViews.targetPriceRange && (
+                  {marketInterpretation.institutionalViews?.targetPriceRange && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">目标价区间:</span>
                       <span className="text-sm font-medium text-gray-700">
-                        {marketInterpretation.institutionalViews.targetPriceRange[0].toFixed(0)} - {marketInterpretation.institutionalViews.targetPriceRange[1].toFixed(0)} 元
+                        {marketInterpretation.institutionalViews.targetPriceRange[0]?.toFixed(0)} - {marketInterpretation.institutionalViews.targetPriceRange[1]?.toFixed(0)} 元
                       </span>
                     </div>
                   )}
@@ -402,7 +402,7 @@ export function DashboardPage() {
 
               {/* 最新研报列表 */}
               <div className="space-y-2">
-                {marketInterpretation.institutionalViews.latestReports.map((r) => (
+                {(marketInterpretation.institutionalViews?.latestReports || []).map((r) => (
                   <div key={(r.institution || '') + (r.date || '')} className="flex items-start gap-3 p-3.5 bg-gray-50/70 rounded-xl hover:bg-blue-50/40 hover:shadow-sm transition-all group">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-blue-600 text-[10px] font-bold flex-shrink-0">
                       {r.institution?.charAt(0) || '研'}
@@ -536,11 +536,11 @@ export function DashboardPage() {
             )}
 
             <div className="space-y-3">
-              {actionAdvice.keyMonitoringPoints.length > 0 && (
+              {(actionAdvice.keyMonitoringPoints || []).length > 0 && (
                 <div>
                   <div className="text-xs font-medium text-gray-500 mb-2">关键跟踪点</div>
                   <div className="flex flex-wrap gap-2">
-                    {actionAdvice.keyMonitoringPoints.map((point: string) => (
+                    {(actionAdvice.keyMonitoringPoints || []).map((point: string) => (
                       <span key={point} className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg">
                         {point}
                       </span>
@@ -549,11 +549,11 @@ export function DashboardPage() {
                 </div>
               )}
               
-              {actionAdvice.riskReminders.length > 0 && (
+              {(actionAdvice.riskReminders || []).length > 0 && (
                 <div>
                   <div className="text-xs font-medium text-gray-500 mb-2">风险提示</div>
                   <div className="space-y-1.5">
-                    {actionAdvice.riskReminders.map((risk: string) => (
+                    {(actionAdvice.riskReminders || []).map((risk: string) => (
                       <div key={risk.slice(0, 30)} className="text-xs text-orange-600 flex items-start gap-1.5">
                         <span className="mt-0.5">•</span>
                         <span>{risk}</span>
@@ -567,7 +567,7 @@ export function DashboardPage() {
         </section>
 
         {/* 洞察标签云 */}
-        {rawInsights.length > 0 && (
+        {rawInsights && rawInsights.length > 0 && (
           <section id="insights" className="bg-white rounded-2xl border border-gray-100 overflow-hidden card-hover">
             <div className="px-6 py-4 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">分析洞察</h3>
@@ -585,8 +585,8 @@ export function DashboardPage() {
         {/* 免责声明 */}
         <div className="text-center py-4">
           <div className="text-[10px] text-gray-400 space-y-0.5">
-            {report.disclaimers.map((d: string) => <p key={d.slice(0, 40)}>{d}</p>)}
-            <p>生成时间: {new Date(report.generatedAt).toLocaleString('zh-CN')}</p>
+            {(report.disclaimers || []).map((d: string) => <p key={d.slice(0, 40)}>{d}</p>)}
+            <p>生成时间: {report.generatedAt ? new Date(report.generatedAt).toLocaleString('zh-CN') : '--'}</p>
           </div>
         </div>
           </div>

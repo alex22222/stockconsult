@@ -33,7 +33,10 @@ const DEFAULT_USER_ID = 'anonymous';
 const VERSION = '2026-05-12-v2';
 
 // 从环境变量读取 API Key（在 CloudBase 控制台配置）
-const API_KEY = process.env.INVESTODAY_API_KEY || 'cae27125ca0746c4b6ede2d77cd2dd11';
+const API_KEY = process.env.INVESTODAY_API_KEY;
+if (!API_KEY) {
+  throw new Error('INVESTODAY_API_KEY environment variable is required');
+}
 const BASE_URL = 'data-api.investoday.net';
 
 // COS 配置 (stockconsult 环境)
@@ -154,6 +157,26 @@ exports.main = async (event, context) => {
   // 热门个股扫描（涨幅排行）
   if (event.path === '/hot-stocks' || event.path === '/investoday-proxy/hot-stocks') {
     return handleHotStocks(event);
+  }
+
+  // 个股历史 K 线（Investoday → 腾讯 fallback）
+  if (event.path === '/stock-history' || event.path === '/investoday-proxy/stock-history') {
+    return handleStockHistory(event);
+  }
+
+  // 个股评分代理（Investoday → 启发式 fallback）
+  if (event.path === '/stock-score-proxy' || event.path === '/investoday-proxy/stock-score-proxy') {
+    return handleStockScoreProxy(event);
+  }
+
+  // 个股基本信息（Investoday → Eastmoney fallback）
+  if (event.path === '/proxy/stock-basic-info' || event.path === '/investoday-proxy/proxy/stock-basic-info') {
+    return handleStockBasicInfo(event);
+  }
+
+  // 个股估值指标（Investoday → Eastmoney fallback）
+  if (event.path === '/proxy/stock-valuation' || event.path === '/investoday-proxy/proxy/stock-valuation') {
+    return handleStockValuation(event);
   }
 
   // 预测记录 - 定时预测
@@ -1618,7 +1641,8 @@ async function handleSectorFundFlow(event) {
 async function handleHotStocks(event) {
   try {
     const query = event.queryString || {};
-    const limit = Math.min(parseInt(query.limit || '30', 10), 50);
+    const parsedLimit = parseInt(query.limit || '30', 10);
+    const limit = Math.min(Number.isNaN(parsedLimit) ? 30 : parsedLimit, 50);
     const market = query.market || 'all'; // all | cyb (创业板)
 
     // 构建 fs 参数
@@ -1697,6 +1721,400 @@ async function handleHotStocks(event) {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ success: false, error: error.message }),
     };
+  }
+}
+
+
+// ==================== Investoday-free data proxies ====================
+
+function toTencentCode(symbol) {
+  const code = String(symbol || '').replace(/^(sh|sz|hk)/, '');
+  if (code.startsWith('6') || code.startsWith('5')) return `sh${code}`;
+  return `sz${code}`;
+}
+
+function toEastmoneyCode(symbol) {
+  const code = String(symbol || '').replace(/^(sh|sz|hk)/, '');
+  if (code.startsWith('6') || code.startsWith('5')) return `1.${code}`;
+  return `0.${code}`;
+}
+
+async function fetchTencentHistory(code, days = 90) {
+  const tcode = toTencentCode(code);
+  const end = new Date();
+  const begin = new Date();
+  begin.setDate(begin.getDate() - days - 60);
+  const url = `http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tcode},day,${begin.toISOString().split('T')[0]},${end.toISOString().split('T')[0]},640,qfq`;
+
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 20000 }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const dayData = data.data?.[tcode]?.day || [];
+          if (!dayData.length) {
+            // try alternate key format
+            for (const k of Object.keys(data.data || {})) {
+              if (data.data[k]?.day) {
+                resolve(data.data[k].day);
+                return;
+              }
+            }
+          }
+          resolve(dayData);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
+async function fetchInvestodayHistory(code, days) {
+  if (!API_KEY) return null;
+  const end = new Date().toISOString().split('T')[0];
+  const beginObj = new Date();
+  beginObj.setDate(beginObj.getDate() - days);
+  const begin = beginObj.toISOString().split('T')[0];
+  const result = await proxyMCPRequest({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: {
+      name: 'list_stock_adjusted_quotes',
+      arguments: { stockCode: code, beginDate: begin, endDate: end },
+    },
+  });
+  const text = result?.result?.content?.[0]?.text;
+  if (!text) return null;
+  const parsed = JSON.parse(text);
+  if (parsed.code !== 'Success' && parsed.code !== 0 && parsed.code !== '0') return null;
+  const arr = Array.isArray(parsed.data) ? parsed.data : parsed.data?.data;
+  if (!Array.isArray(arr)) return null;
+  return arr;
+}
+
+function isInvestodayResourceError(result) {
+  if (!result) return true;
+  if (result.error) return true;
+  const text = result?.result?.content?.[0]?.text;
+  if (!text) return true;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.message && parsed.message.includes('资源包')) return true;
+    if (parsed.code && parsed.code !== 'Success' && parsed.code !== 0 && parsed.code !== '0') return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
+async function handleStockHistory(event) {
+  try {
+    const query = event.queryString || {};
+    const code = query.code;
+    const days = Math.min(parseInt(query.days || '90', 10), 365);
+    if (!code || !/^\d{6}$/.test(code)) {
+      return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Invalid code' }) };
+    }
+
+    let source = 'investoday';
+    let rows = null;
+
+    if (API_KEY) {
+      try {
+        const inv = await fetchInvestodayHistory(code, days);
+        if (inv && inv.length >= 30) rows = inv;
+      } catch (e) {
+        console.warn('[StockHistory] Investoday failed:', e.message);
+      }
+    }
+
+    if (!rows || rows.length < 30) {
+      try {
+        const tencentRows = await fetchTencentHistory(code, days);
+        if (tencentRows && tencentRows.length >= 30) {
+          // Tencent format: [date, open, close, low, high, volume]
+          rows = tencentRows.map((r) => ({
+            stockCode: code,
+            stockName: '',
+            tradeDate: r[0],
+            prevClosePrice: 0,
+            openPrice: Number(r[1]),
+            highPrice: Number(r[4]),
+            lowPrice: Number(r[3]),
+            closePrice: Number(r[2]),
+            volume: Number(r[5]),
+            amount: 0,
+            turnover: 0,
+            marketCapFloat: 0,
+            marketCap: 0,
+            changePct: 0,
+            peTtm: 0,
+            pb: 0,
+          }));
+          source = 'tencent';
+        }
+      } catch (e) {
+        console.warn('[StockHistory] Tencent failed:', e.message);
+      }
+    }
+
+    if (!rows || rows.length < 30) {
+      return { statusCode: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'No usable history source available' }) };
+    }
+
+    // sort by date ascending and trim to requested window
+    rows.sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const filtered = rows.filter((r) => r.tradeDate >= cutoffStr);
+
+    return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, code, source, count: filtered.length, data: filtered }) };
+  } catch (error) {
+    console.error('[StockHistory Error]', error);
+    return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }) };
+  }
+}
+
+async function fetchEastmoneyBasic(code) {
+  const emCode = toEastmoneyCode(code);
+  const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${emCode}&fields=f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f57,f58,f60,f84,f85,f162,f163,f164,f167,f168,f169,f170,f171,f173,f177,f183,f184,f185,f186,f187,f188,f189,f190`;
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+  });
+}
+
+async function fetchInvestodayScore(code) {
+  if (!API_KEY) return null;
+  const result = await proxyMCPRequest({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: { name: 'get_stock_score', arguments: { stockCode: code } },
+  });
+  const text = result?.result?.content?.[0]?.text;
+  if (!text) return null;
+  const parsed = JSON.parse(text);
+  if (parsed.code !== 'Success' && parsed.code !== 0 && parsed.code !== '0') return null;
+  return parsed.data;
+}
+
+async function handleStockScoreProxy(event) {
+  try {
+    const query = event.queryString || {};
+    const code = query.code;
+    if (!code || !/^\d{6}$/.test(code)) {
+      return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Invalid code' }) };
+    }
+
+    let source = 'investoday';
+    let score = await fetchInvestodayScore(code);
+
+    if (!score) {
+      // Heuristic fallback based on Eastmoney real-time + valuation fields
+      source = 'heuristic';
+      try {
+        const em = await fetchEastmoneyBasic(code);
+        const d = em?.data || {};
+        const pe = d.f162 == null || d.f162 === '-' ? null : Number(d.f162);
+        const pb = d.f163 == null || d.f163 === '-' ? null : Number(d.f163);
+        const change = d.f170 == null || d.f170 === '-' ? 0 : Number(d.f170);
+        const turnover = d.f168 == null || d.f168 === '-' ? 0 : Number(d.f168);
+        const name = d.f58 || '';
+        const industry = d.f20 || '';
+
+        // Simple heuristic: lower valuation + positive momentum + liquidity = higher score
+        let s = 50;
+        if (pe != null && pe > 0 && pe < 30) s += 10;
+        else if (pe != null && pe > 50) s -= 10;
+        if (pb != null && pb > 0 && pb < 3) s += 5;
+        if (change > 0 && change < 7) s += 10;
+        else if (change >= 7) s += 5;
+        else if (change < -3) s -= 10;
+        if (turnover > 3) s += 5;
+        s = Math.min(100, Math.max(20, s));
+
+        score = {
+          stockCode: code,
+          stockName: name,
+          score: s,
+          scoreAvg: 50,
+          skillScore: s,
+          skillScoreAvg: 50,
+          emotionScore: change > 0 ? Math.min(100, 50 + change * 3) : Math.max(20, 50 + change * 2),
+          emotionScoreAvg: 50,
+          financeScore: pe != null && pe > 0 && pe < 30 ? 70 : 50,
+          financeScoreAvg: 50,
+          industryScore: 50,
+          industryScoreAvg: 50,
+          idu4Lv1Id: '',
+          idu4Lv1Name: '',
+          idu4Lv2Id: '',
+          idu4Lv2Name: '',
+          idu4Lv3Id: '',
+          idu4Lv3Name: industry,
+        };
+      } catch (e) {
+        console.warn('[StockScoreProxy] Heuristic failed:', e.message);
+      }
+    }
+
+    if (!score) {
+      return { statusCode: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'No usable score source available' }) };
+    }
+
+    return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, code, source, data: score }) };
+  } catch (error) {
+    console.error('[StockScoreProxy Error]', error);
+    return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }) };
+  }
+}
+
+
+async function fetchInvestodayBasicInfo(code) {
+  if (!API_KEY) return null;
+  const result = await proxyMCPRequest({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: { name: 'get_stock_basic_info', arguments: { stockCode: code } },
+  });
+  const text = result?.result?.content?.[0]?.text;
+  if (!text) return null;
+  const parsed = JSON.parse(text);
+  if (parsed.code !== 'Success' && parsed.code !== 0 && parsed.code !== '0') return null;
+  return parsed.data;
+}
+
+async function handleStockBasicInfo(event) {
+  try {
+    const query = event.queryString || {};
+    const code = query.code;
+    if (!code || !/^\d{6}$/.test(code)) {
+      return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Invalid code' }) };
+    }
+
+    let source = 'investoday';
+    let data = await fetchInvestodayBasicInfo(code);
+
+    if (!data) {
+      source = 'eastmoney';
+      try {
+        const em = await fetchEastmoneyBasic(code);
+        const d = em?.data || {};
+        data = {
+          STOCKCODE: code,
+          EXCHANGECODE: code.startsWith('6') || code.startsWith('5') ? 'SH' : 'SZ',
+          BOARDNAME: '',
+          STOCKNAME: d.f58 || '',
+          STOCKFULLNAME: d.f58 || '',
+          LISTSTATUS: '',
+          LISTDATE: '',
+          STOCKTYPE: '',
+          COMPANYID: '',
+          SHARESTOTAL: d.f84 || 0,
+          SHARESFLOAT: d.f85 || 0,
+          OFFICEADDRESS: '',
+          MAINBUSINESS: d.f20 || '',
+          REPORTDATE: '',
+        };
+      } catch (e) {
+        console.warn('[StockBasicInfo] Eastmoney failed:', e.message);
+      }
+    }
+
+    if (!data) {
+      return { statusCode: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'No usable basic info source available' }) };
+    }
+
+    return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, code, source, data }) };
+  } catch (error) {
+    console.error('[StockBasicInfo Error]', error);
+    return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }) };
+  }
+}
+
+async function fetchInvestodayValuation(code) {
+  if (!API_KEY) return null;
+  const result = await proxyMCPRequest({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: { name: 'get_stock_finance_valuation', arguments: { stockCode: code } },
+  });
+  const text = result?.result?.content?.[0]?.text;
+  if (!text) return null;
+  const parsed = JSON.parse(text);
+  if (parsed.code !== 'Success' && parsed.code !== 0 && parsed.code !== '0') return null;
+  return parsed.data;
+}
+
+async function handleStockValuation(event) {
+  try {
+    const query = event.queryString || {};
+    const code = query.code;
+    if (!code || !/^\d{6}$/.test(code)) {
+      return { statusCode: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'Invalid code' }) };
+    }
+
+    let source = 'investoday';
+    let data = await fetchInvestodayValuation(code);
+
+    if (!data) {
+      source = 'eastmoney';
+      try {
+        const em = await fetchEastmoneyBasic(code);
+        const d = em?.data || {};
+        data = {
+          stockCode: code,
+          stockName: d.f58 || '',
+          f2250: d.f162 == null || d.f162 === '-' ? '0' : String(d.f162), // PE
+          f2260: d.f163 == null || d.f163 === '-' ? '0' : String(d.f163), // PB
+          f2270: '0', // PS
+          f2280: '0', // EV/EBITDA
+          f2290: '0', // 股息率
+        };
+      } catch (e) {
+        console.warn('[StockValuation] Eastmoney failed:', e.message);
+      }
+    }
+
+    if (!data) {
+      return { statusCode: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, error: 'No usable valuation source available' }) };
+    }
+
+    return { statusCode: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, code, source, data }) };
+  } catch (error) {
+    console.error('[StockValuation Error]', error);
+    return { statusCode: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: error.message }) };
   }
 }
 

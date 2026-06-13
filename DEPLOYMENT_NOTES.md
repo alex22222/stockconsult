@@ -174,11 +174,11 @@ tcb api scf Invoke --body '{"FunctionName":"stock-predictor","Namespace":"stockc
 ```bash
 # .env 中已有的变量
 VITE_DATA_PROVIDER=investoday-mcp
-VITE_INVESTODAY_API_KEY=cae27125ca0746c4b6ede2d77cd2dd11
+VITE_INVESTODAY_API_KEY=${INVESTODAY_API_KEY}
 VITE_CLOUDBASE_API_URL=https://stockconsult-d9g7b6ae5b8170e00.service.tcloudbase.com/investoday-proxy
 
 # 云函数部署时需要导出
-export INVESTODAY_API_KEY=cae27125ca0746c4b6ede2d77cd2dd11
+export INVESTODAY_API_KEY=${INVESTODAY_API_KEY}
 ```
 
 ---

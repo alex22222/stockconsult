@@ -618,56 +618,6 @@ def generate_report():
     return report
 
 
-def generate_report():
-    """生成模拟盘报告"""
-    import json
-    import os
-    from datetime import datetime
-    
-    PT_DIR = os.path.join(os.path.dirname(__file__), "data", "paper_trading")
-    REBUILD_DIR = os.path.join(os.path.dirname(__file__), "data", "rebuild")
-    
-    # 加载数据
-    with open(os.path.join(PT_DIR, "portfolio.json"), "r", encoding="utf-8") as f:
-        portfolio = json.load(f)
-    with open(os.path.join(PT_DIR, "trades.json"), "r", encoding="utf-8") as f:
-        trades = json.load(f)
-    with open(os.path.join(PT_DIR, "signals.json"), "r", encoding="utf-8") as f:
-        signals = json.load(f)
-    
-    # 计算指标
-    total_return = portfolio.get("total_return", 0)
-    total_trades = len(trades)
-    winning_trades = [t for t in trades if t.get("return", 0) > 0]
-    losing_trades = [t for t in trades if t.get("return", 0) <= 0]
-    win_rate = (len(winning_trades) / total_trades * 100) if total_trades > 0 else 0
-    
-    # 生成报告
-    report = {
-        "generated_at": datetime.now().isoformat(),
-        "portfolio": portfolio,
-        "summary": {
-            "total_trades": total_trades,
-            "winning_trades": len(winning_trades),
-            "losing_trades": len(losing_trades),
-            "win_rate": round(win_rate, 2),
-            "total_return": round(total_return, 4),
-        },
-        "recent_signals": signals[-10:] if signals else [],
-    }
-    
-    # 保存报告
-    report_path = os.path.join(PT_DIR, "report.json")
-    with open(report_path, "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
-    
-    print(f"\n📊 模拟盘报告")
-    print(f"  总收益: {total_return:.2f}%")
-    print(f"  交易: {total_trades}笔 | 胜: {len(winning_trades)} | 负: {len(losing_trades)} | 胜率: {win_rate:.1f}%")
-    print(f"  持仓: {len(portfolio.get('holdings', []))}只 | 现金: ¥{portfolio['current_cash']:.2f}")
-    return report
-
-
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "full"
     ensure_dir()

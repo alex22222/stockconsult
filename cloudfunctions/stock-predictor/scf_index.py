@@ -30,12 +30,94 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Investoday API 配置
-INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY', 'cae27125ca0746c4b6ede2d77cd2dd11')
+# Investoday API 配置（可选）
+INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY')
 INVESTODAY_BASE_URL = 'https://data-api.investoday.net/data/mcp/preset'
 
+def _to_tencent_code(symbol):
+    code = symbol.replace('sh', '').replace('sz', '').replace('hk', '')
+    if code.startswith('6') or code.startswith('5'):
+        return f'sh{code}'
+    return f'sz{code}'
+
+def _http_get(url, timeout=15, headers=None):
+    req = urllib.request.Request(url, headers=headers or {'User-Agent': 'Mozilla/5.0'})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode('utf-8')
+    except Exception as e:
+        logger.warning(f"HTTP GET failed: {url[:60]}... error: {e}")
+        return None
+
+def fetch_history_tencent(stock_code, days=120):
+    """通过腾讯财经获取历史 K 线数据（前复权）"""
+    tcode = _to_tencent_code(stock_code)
+    end = datetime.now()
+    begin = end - timedelta(days=days + 60)
+    url = (
+        f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        f"?param={tcode},day,{begin.strftime('%Y-%m-%d')},{end.strftime('%Y-%m-%d')},640,qfq"
+    )
+    raw = _http_get(url, timeout=20)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        logger.warning(f"Tencent JSON parse failed: {e}")
+        return []
+    day_data = data.get('data', {}).get(tcode, {}).get('day', [])
+    if not day_data:
+        for k, v in data.get('data', {}).items():
+            if isinstance(v, dict) and 'day' in v:
+                day_data = v['day']
+                break
+    klines = []
+    for row in day_data:
+        if len(row) < 6:
+            continue
+        klines.append({
+            'tradeDate': row[0],
+            'openPrice': float(row[1]),
+            'closePrice': float(row[2]),
+            'lowPrice': float(row[3]),
+            'highPrice': float(row[4]),
+            'volume': float(row[5]),
+        })
+    klines.sort(key=lambda x: x['tradeDate'])
+    return klines
+
+def fetch_realtime_quote_tencent(stock_code):
+    """通过腾讯财经获取实时行情"""
+    tcode = _to_tencent_code(stock_code)
+    url = f"http://qt.gtimg.cn/q={tcode}"
+    raw = _http_get(url, timeout=10)
+    if not raw:
+        return None
+    try:
+        match = raw.split('"')[1]
+        parts = match.split('~')
+        if len(parts) < 45:
+            return None
+        return {
+            'name': parts[1],
+            'code': parts[2],
+            'price': float(parts[3]),
+            'prevClose': float(parts[4]),
+            'open': float(parts[5]),
+            'high': float(parts[33]),
+            'low': float(parts[34]),
+            'volume': float(parts[36]),
+            'changePercent': float(parts[32]),
+        }
+    except Exception as e:
+        logger.warning(f"Tencent realtime parse failed: {e}")
+        return None
+
 def mcp_call(tool_name, arguments, timeout=15):
-    """调用 investoday MCP API"""
+    """调用 investoday MCP API（可选 fallback）"""
+    if not INVESTODAY_API_KEY:
+        return None
     url = f"{INVESTODAY_BASE_URL}?apiKey={INVESTODAY_API_KEY}"
     payload = json.dumps({
         "jsonrpc": "2.0", "id": 1,
@@ -67,8 +149,10 @@ def mcp_call(tool_name, arguments, timeout=15):
         return {"raw": content}
 
 
-def fetch_history(stock_code, days=120):
-    """获取历史 K 线数据"""
+def fetch_history_investoday(stock_code, days=120):
+    """通过 investoday 获取历史 K 线（可选 fallback）"""
+    if not INVESTODAY_API_KEY:
+        return []
     end = datetime.now()
     begin = end - timedelta(days=days + 30)
     result = mcp_call('list_stock_adjusted_quotes', {
@@ -81,8 +165,27 @@ def fetch_history(stock_code, days=120):
     return sorted(result['data'], key=lambda x: x.get('tradeDate', x.get('QUOTETIME', '')))
 
 
+def fetch_history(stock_code, days=120):
+    """获取历史 K 线数据：腾讯优先，investoday fallback"""
+    klines = fetch_history_tencent(stock_code, days)
+    if klines and len(klines) >= 30:
+        return klines
+    logger.warning(f"Tencent history failed for {stock_code}, trying investoday")
+    klines = fetch_history_investoday(stock_code, days)
+    if klines and len(klines) >= 30:
+        return klines
+    logger.error(f"All history sources failed for {stock_code}")
+    return []
+
+
 def fetch_realtime_quote(stock_code):
-    """获取实时行情"""
+    """获取实时行情：腾讯优先，investoday fallback"""
+    quote = fetch_realtime_quote_tencent(stock_code)
+    if quote:
+        return quote
+    logger.warning(f"Tencent realtime failed for {stock_code}, trying investoday")
+    if not INVESTODAY_API_KEY:
+        return None
     result = mcp_call('get_stock_quote_realtime', {'stockCode': stock_code})
     if result and result.get('code') == 'Success' and result.get('data'):
         return result['data']

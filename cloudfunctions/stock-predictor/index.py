@@ -24,8 +24,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Investoday API 配置
-INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY') or 'cae27125ca0746c4b6ede2d77cd2dd11'
+# Investoday API 配置（可选，长期不可用时优先使用腾讯/新浪）
+INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY')
 INVESTODAY_BASE_URL = 'https://data-api.investoday.net/data/mcp/preset'
 
 CORS_HEADERS = {
@@ -312,20 +312,21 @@ def fetch_stock_score(stock_code):
 def fetch_history(stock_code, days=120):
     """
     获取历史 K 线数据（自动降级）
-    优先级: investoday → 腾讯财经 → 空列表
+    优先级: 腾讯财经 → investoday → 空列表
     """
-    # 1. 尝试 investoday（主数据源）
-    klines = fetch_history_investoday(stock_code, days)
-    if klines and len(klines) >= 30:
-        logger.info(f"Using investoday data for {stock_code}: {len(klines)} klines")
-        return klines
-
-    # 2. 降级到腾讯财经（备用数据源）
-    logger.warning(f"Investoday failed for {stock_code}, falling back to tencent")
+    # 1. 优先腾讯财经（免费、稳定）
     klines = fetch_history_tencent(stock_code, days)
     if klines and len(klines) >= 30:
         logger.info(f"Using tencent data for {stock_code}: {len(klines)} klines")
         return klines
+
+    # 2. 尝试 investoday（如果配置了 key）
+    if INVESTODAY_API_KEY:
+        logger.warning(f"Tencent failed for {stock_code}, falling back to investoday")
+        klines = fetch_history_investoday(stock_code, days)
+        if klines and len(klines) >= 30:
+            logger.info(f"Using investoday data for {stock_code}: {len(klines)} klines")
+            return klines
 
     # 3. 都失败了
     logger.error(f"All data sources failed for {stock_code}")
@@ -335,24 +336,25 @@ def fetch_history(stock_code, days=120):
 def fetch_realtime_quote(stock_code):
     """
     获取实时行情（自动降级）
-    优先级: investoday → 腾讯财经 → 新浪财经
+    优先级: 腾讯财经 → 新浪财经 → investoday
     """
-    # 1. investoday
-    quote = fetch_realtime_quote_investoday(stock_code)
-    if quote:
-        return quote
-
-    # 2. 腾讯财经
-    logger.warning(f"Investoday realtime failed for {stock_code}, trying tencent")
+    # 1. 腾讯财经
     quote = fetch_realtime_quote_tencent(stock_code)
     if quote:
         return quote
 
-    # 3. 新浪财经
+    # 2. 新浪财经
     logger.warning(f"Tencent realtime failed for {stock_code}, trying sina")
     quote = fetch_realtime_quote_sina(stock_code)
     if quote:
         return quote
+
+    # 3. investoday（如果配置了 key）
+    if INVESTODAY_API_KEY:
+        logger.warning(f"Sina realtime failed for {stock_code}, trying investoday")
+        quote = fetch_realtime_quote_investoday(stock_code)
+        if quote:
+            return quote
 
     logger.error(f"All realtime sources failed for {stock_code}")
     return None

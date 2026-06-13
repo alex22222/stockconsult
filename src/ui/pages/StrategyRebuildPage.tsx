@@ -93,14 +93,15 @@ interface EvalReport {
     overall_verdict: string;
   };
   per_symbol: Record<string, {
-    sample_size: number;
-    direction_accuracy: number;
-    binom_pvalue: number;
-    mae: number;
-    correlation: number;
-    overall_score: number;
-    verdict: string;
-    economic: {
+    error?: string;
+    sample_size?: number;
+    direction_accuracy?: number;
+    binom_pvalue?: number;
+    mae?: number;
+    correlation?: number;
+    overall_score?: number;
+    verdict?: string;
+    economic?: {
       net_return: number;
       sharpe_approx: number;
     };
@@ -530,7 +531,7 @@ export function StrategyRebuildPage() {
                               <FlaskConical className="w-4 h-4 text-indigo-500" />
                               <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Ridge 0.6 + GBR 0.4 集成回归</span>
                             </div>
-                            {ev ? (
+                            {ev && ev.overall_score !== undefined ? (
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                                 ev.overall_score >= 60 ? 'bg-green-100 text-green-700' :
                                 ev.overall_score >= 40 ? 'bg-amber-100 text-amber-700' :
@@ -584,7 +585,7 @@ export function StrategyRebuildPage() {
                           )}
 
                           {/* 评估裁决 */}
-                          {ev && (
+                          {ev && ev.overall_score !== undefined && (
                             <div className={`rounded-lg px-3 py-2.5 border ${
                               ev.overall_score >= 60 ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30' :
                               ev.overall_score >= 40 ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30' :
@@ -597,9 +598,9 @@ export function StrategyRebuildPage() {
                                 <div>
                                   <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">模型评估裁决</div>
                                   <div className="text-sm text-gray-600 dark:text-gray-400">{ev.verdict}</div>
-                                  {ev.sample_size > 0 && (
+                                  {(ev.sample_size ?? 0) > 0 && (
                                     <div className="text-[10px] text-gray-400 mt-1">
-                                      样本 {ev.sample_size} | 方向准确率 {(ev.direction_accuracy * 100).toFixed(1)}% | 二项检验 p={ev.binom_pvalue.toFixed(3)}
+                                      样本 {ev.sample_size} | 方向准确率 {((ev.direction_accuracy ?? 0) * 100).toFixed(1)}% | 二项检验 p={(ev.binom_pvalue ?? 0).toFixed(3)}
                                     </div>
                                   )}
                                 </div>
@@ -768,26 +769,28 @@ export function StrategyRebuildPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {Object.entries(evalReport.per_symbol).map(([sym, r]) => (
-                        <tr key={sym} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="px-4 py-2.5"><div className="font-medium text-gray-900 dark:text-gray-100">{sym}</div></td>
-                          <td className="px-4 py-2.5 text-right text-gray-600">{r.sample_size}</td>
-                          <td className="px-4 py-2.5 text-right">
-                            <span className={r.direction_accuracy > 0.55 ? 'text-red-600 font-semibold' : r.direction_accuracy < 0.45 ? 'text-green-600 font-semibold' : 'text-gray-600'}>
-                              {(r.direction_accuracy * 100).toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-gray-600">{r.binom_pvalue.toFixed(3)}</td>
-                          <td className="px-4 py-2.5 text-right text-gray-600">{r.mae.toFixed(2)}%</td>
-                          <td className="px-4 py-2.5 text-right text-gray-600">{r.correlation > 0 ? '+' : ''}{r.correlation.toFixed(3)}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold">
-                            <span className={r.overall_score >= 60 ? 'text-green-600' : r.overall_score >= 40 ? 'text-amber-600' : 'text-red-600'}>
-                              {r.overall_score}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-xs text-gray-500">{r.verdict}</td>
-                        </tr>
-                      ))}
+                      {Object.entries(evalReport.per_symbol)
+                        .filter(([_, r]) => !r.error)
+                        .map(([sym, r]) => (
+                          <tr key={sym} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="px-4 py-2.5"><div className="font-medium text-gray-900 dark:text-gray-100">{sym}</div></td>
+                            <td className="px-4 py-2.5 text-right text-gray-600">{r.sample_size ?? '--'}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              <span className={(r.direction_accuracy ?? 0) > 0.55 ? 'text-red-600 font-semibold' : (r.direction_accuracy ?? 0) < 0.45 ? 'text-green-600 font-semibold' : 'text-gray-600'}>
+                                {r.direction_accuracy !== undefined ? `${(r.direction_accuracy * 100).toFixed(1)}%` : '--'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-gray-600">{r.binom_pvalue?.toFixed(3) ?? '--'}</td>
+                            <td className="px-4 py-2.5 text-right text-gray-600">{r.mae?.toFixed(2) ?? '--'}%</td>
+                            <td className="px-4 py-2.5 text-right text-gray-600">{r.correlation !== undefined ? `${r.correlation > 0 ? '+' : ''}${r.correlation.toFixed(3)}` : '--'}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold">
+                              <span className={(r.overall_score ?? 0) >= 60 ? 'text-green-600' : (r.overall_score ?? 0) >= 40 ? 'text-amber-600' : 'text-red-600'}>
+                                {r.overall_score ?? '--'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-500">{r.verdict ?? '--'}</td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>

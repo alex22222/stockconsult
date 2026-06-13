@@ -83,7 +83,7 @@ export class FinancialSkill extends BaseSkill {
     }
   }
 
-  private analyzeGrowth(_periods: FinancialPeriod[], latest: FinancialPeriod, previous?: FinancialPeriod, yearAgo?: FinancialPeriod, financial?: any) {
+  private analyzeGrowth(_periods: FinancialPeriod[], latest: FinancialPeriod, previous?: FinancialPeriod, yearAgo?: FinancialPeriod, financial?: FinancialMetrics) {
     // 优先从成长能力API获取增长率，其次从多期数据计算
     const revenueYoY = financial?.revenueGrowth ?? (yearAgo ? this.calcYoY(latest.revenue, yearAgo.revenue) : 0);
     const profitYoY = financial?.profitGrowth ?? (yearAgo ? this.calcYoY(latest.netProfit, yearAgo.netProfit) : 0);
@@ -256,7 +256,7 @@ export class FinancialSkill extends BaseSkill {
     return { insights, trend: isIncreasing ? 'up' : isDecreasing ? 'down' : 'fluctuating' };
   }
 
-  private generateSummary(growth: any, _profitability: any, _quality: any): string {
+  private generateSummary(growth: { revenueYoY: number; profitYoY: number }, _profitability: unknown, _quality: unknown): string {
     const parts: string[] = [];
     
     if (growth.revenueYoY > 0) parts.push(`营收同比增长${growth.revenueYoY}%`);

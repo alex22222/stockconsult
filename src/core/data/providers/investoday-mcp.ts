@@ -1,5 +1,6 @@
 import { DataProvider } from './base';
-import { InvestodayMCPClient } from '../mcp-client';
+import { StockDataClient } from '../stock-data-client';
+import { getEnvString } from '../../utils/env';
 import type { StockInfo, MarketData, FinancialMetrics, Announcement, StockDataBundle, NewsItem, ResearchReport } from '../../types/stock';
 
 /**
@@ -9,17 +10,17 @@ import type { StockInfo, MarketData, FinancialMetrics, Announcement, StockDataBu
  * 当用户查询个股时，自动调用 MCP 获取真实数据
  */
 export class InvestodayMCPProvider extends DataProvider {
-  private client: InvestodayMCPClient;
+  private client: StockDataClient;
 
-  constructor(apiKey: string = '', baseUrl?: string) {
+  constructor(_apiKey: string = '', baseUrl?: string) {
     super('investoday-mcp', '1.0.0');
     // 生产环境通过 CloudBase 云函数代理，无需 apiKey（key 在云函数环境变量中）
-    const cloudBaseUrl = import.meta.env.VITE_CLOUDBASE_API_URL;
-    this.client = new InvestodayMCPClient(apiKey, baseUrl || cloudBaseUrl);
+    const cloudBaseUrl = getEnvString('VITE_CLOUDBASE_API_URL');
+    this.client = new StockDataClient(baseUrl || cloudBaseUrl);
   }
 
-  setApiKey(key: string): void {
-    this.client = new InvestodayMCPClient(key);
+  setApiKey(_key: string): void {
+    // No-op: Investoday key is no longer used by the browser.
   }
 
   async fetchStockInfo(code: string): Promise<StockInfo> {
@@ -133,11 +134,10 @@ export class InvestodayMCPProvider extends DataProvider {
   }
 
   async fetchFinancialMetrics(code: string): Promise<FinancialMetrics> {
-    const [profit, growth, strength, _valuation] = await Promise.all([
+    const [profit, growth, strength] = await Promise.all([
       this.client.getProfitAbility(code),
       this.client.getGrowthAbility(code),
       this.client.getFinancialStrength(code),
-      this.client.getValuation(code),
     ]);
 
     // 构建财务周期数据（使用最新数据作为单期）
@@ -253,8 +253,9 @@ export class InvestodayMCPProvider extends DataProvider {
       return [];
     }
 
-    const entity = await this.client.recognizeEntity(trimmed);
-    
+    const result = await this.client.recognizeEntity(trimmed);
+    const entity = result?.entities?.[0];
+
     // correlation 为0表示完全不相关，拒绝匹配
     if (!entity || entity.type !== 'stock' || (entity.correlation !== undefined && entity.correlation <= 0)) {
       return [];
@@ -292,12 +293,13 @@ export class InvestodayMCPProvider extends DataProvider {
   async healthCheck(): Promise<{ healthy: boolean; latency: number; message?: string }> {
     const start = performance.now();
     try {
-      const entity = await this.client.recognizeEntity('贵州茅台');
+      // Verify the proxy data endpoints are reachable (Investoday-free)
+      const quote = await this.client.getRealtimeQuote('600519');
       const latency = Math.round(performance.now() - start);
       return {
-        healthy: !!entity,
+        healthy: !!quote,
         latency,
-        message: entity ? `Connected, recognized: ${entity.name}` : 'Connection ok but recognition failed',
+        message: quote ? `Proxy data endpoints reachable` : 'Proxy reachable but quote returned empty',
       };
     } catch (e) {
       return {

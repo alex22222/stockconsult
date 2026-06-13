@@ -1,5 +1,6 @@
 import { DataProvider } from './base';
 import { InvestodayMCPProvider } from './investoday-mcp';
+import { getEnvString } from '../../utils/env';
 import type { StockInfo, MarketData, FinancialMetrics, Announcement, StockDataBundle } from '../../types/stock';
 
 /**
@@ -16,7 +17,7 @@ export class CloudBaseProvider extends DataProvider {
 
   constructor(baseUrl?: string) {
     super('cloudbase', '1.0.0');
-    const url = baseUrl || import.meta.env.VITE_CLOUDBASE_API_URL || '';
+    const url = baseUrl || getEnvString('VITE_CLOUDBASE_API_URL');
     // CloudBase proxy 不需要 apiKey（key 在云函数环境变量中）
     this.inner = new InvestodayMCPProvider('', url);
   }
@@ -52,7 +53,7 @@ export class CloudBaseProvider extends DataProvider {
   async healthCheck(): Promise<{ healthy: boolean; latency: number; message?: string }> {
     const start = performance.now();
     try {
-      const url = import.meta.env.VITE_CLOUDBASE_API_URL || '';
+      const url = getEnvString('VITE_CLOUDBASE_API_URL');
       if (!url) {
         return { healthy: false, latency: 0, message: 'CloudBase URL not configured' };
       }

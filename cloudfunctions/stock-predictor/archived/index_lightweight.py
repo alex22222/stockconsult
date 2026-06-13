@@ -23,7 +23,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Investoday API 配置
-INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY') or 'cae27125ca0746c4b6ede2d77cd2dd11'
+INVESTODAY_API_KEY = os.environ.get('INVESTODAY_API_KEY')
+if not INVESTODAY_API_KEY:
+    raise ValueError('INVESTODAY_API_KEY environment variable is required')
 INVESTODAY_BASE_URL = 'https://data-api.investoday.net/data/mcp/preset'
 
 CORS_HEADERS = {

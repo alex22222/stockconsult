@@ -228,8 +228,8 @@ export function SectorHeatmap() {
       } else {
         setError('数据格式异常');
       }
-    } catch (e: any) {
-      setError(e.message || '获取失败');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '获取失败');
     } finally {
       setLoading(false);
     }

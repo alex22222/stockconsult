@@ -63,8 +63,8 @@ export function ModelDocPage() {
   }, []);
 
   const stocks = Object.values(wfData);
-  const avgAcc = stocks.length > 0 ? stocks.reduce((a, s) => a + s.direction_accuracy, 0) / stocks.length : 0;
-  const avgMAE = stocks.length > 0 ? stocks.reduce((a, s) => a + s.mae, 0) / stocks.length : 0;
+  const avgAcc = stocks.length > 0 ? stocks.reduce((a, s) => a + (s.direction_accuracy ?? 0), 0) / stocks.length : 0;
+  const avgMAE = stocks.length > 0 ? stocks.reduce((a, s) => a + (s.mae ?? 0), 0) / stocks.length : 0;
 
   const reverseBetterCount = stocks.filter(s => s.reverse_better).length;
 
@@ -321,23 +321,23 @@ export function ModelDocPage() {
                         <td className="px-4 py-2.5">
                           <div className="font-medium text-gray-900 dark:text-gray-100">{s.name}</div>
                         </td>
-                        <td className="px-4 py-2.5 text-right text-gray-600">{s.n_predictions}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{s.n_predictions ?? '--'}</td>
                         <td className="px-4 py-2.5 text-right">
-                          <span className={s.direction_accuracy > 0.55 ? 'text-red-600 font-semibold' : s.direction_accuracy < 0.45 ? 'text-green-600 font-semibold' : 'text-gray-600'}>
-                            {(s.direction_accuracy * 100).toFixed(1)}%
+                          <span className={(s.direction_accuracy ?? 0) > 0.55 ? 'text-red-600 font-semibold' : (s.direction_accuracy ?? 0) < 0.45 ? 'text-green-600 font-semibold' : 'text-gray-600'}>
+                            {s.direction_accuracy !== undefined ? `${(s.direction_accuracy * 100).toFixed(1)}%` : '--'}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-right text-gray-600">{s.mae.toFixed(2)}%</td>
-                        <td className="px-4 py-2.5 text-right text-gray-600">{s.correlation > 0 ? '+' : ''}{s.correlation.toFixed(3)}</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{s.mae?.toFixed(2) ?? '--'}%</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{s.correlation !== undefined ? `${s.correlation > 0 ? '+' : ''}${s.correlation.toFixed(3)}` : '--'}</td>
                         <td className="px-4 py-2.5 text-right font-semibold">
-                          <span className={s.strategy_return_pct > 0 ? 'text-red-600' : 'text-green-600'}>
-                            {s.strategy_return_pct > 0 ? '+' : ''}{s.strategy_return_pct.toFixed(2)}%
+                          <span className={(s.strategy_return_pct ?? 0) > 0 ? 'text-red-600' : 'text-green-600'}>
+                            {(s.strategy_return_pct ?? 0) > 0 ? '+' : ''}{s.strategy_return_pct?.toFixed(2) ?? '--'}%
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-right text-gray-600">{s.buyhold_return_pct > 0 ? '+' : ''}{s.buyhold_return_pct.toFixed(2)}%</td>
+                        <td className="px-4 py-2.5 text-right text-gray-600">{(s.buyhold_return_pct ?? 0) > 0 ? '+' : ''}{s.buyhold_return_pct?.toFixed(2) ?? '--'}%</td>
                         <td className="px-4 py-2.5 text-right">
                           <span className={s.reverse_better ? 'text-amber-600 font-semibold' : 'text-gray-500'}>
-                            {s.reverse_return_pct > 0 ? '+' : ''}{s.reverse_return_pct.toFixed(2)}%
+                            {(s.reverse_return_pct ?? 0) > 0 ? '+' : ''}{s.reverse_return_pct?.toFixed(2) ?? '--'}%
                             {s.reverse_better && ' ⚠️'}
                           </span>
                         </td>

@@ -19,16 +19,31 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from strategy_config import get_sentiment_stocks
 
-ssl._create_default_https_context = ssl._create_unverified_context
+# AKShare 可选导入（云函数环境可能没有安装）
+try:
+    from akshare_nonprice_provider import get_all_nonprice_features_ak
+    AKSHARE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ AKShare provider unavailable: {e}")
+    get_all_nonprice_features_ak = lambda sym: {}
+    AKSHARE_AVAILABLE = False
+
+# 局部未验证 SSL 上下文（旧环境兼容性）。
+# 生产环境建议配置受信任 CA 证书并移除此绕过。
+_SSL_CONTEXT = ssl.create_default_context()
+_SSL_CONTEXT.check_hostname = False
+_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 
 # ============ 配置 ============
-API_KEY = "cae27125ca0746c4b6ede2d77cd2dd11"
+API_KEY = os.environ.get('INVESTODAY_API_KEY')
 API_BASE = "https://data-api.investoday.net"
+if not API_KEY:
+    print("⚠️ INVESTODAY_API_KEY not set, will rely on AKShare/free data sources")
 
-# 飞书配置（开放平台 API 方式）
-FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID", "cli_a97a5a0eb2385bb4")
-FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "aOvQuzQv7LCp4HibMEWTMd0tvQICue0a")
-FEISHU_CHAT_ID = os.environ.get("FEISHU_CHAT_ID", "oc_30d5acfaae4ea1eb5b66fc767d20399c")
+# 飞书配置（开放平台 API 方式）：优先从环境变量读取
+FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID')
+FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
+FEISHU_CHAT_ID = os.environ.get('FEISHU_CHAT_ID')
 
 # 情绪阈值
 NEGATIVE_THRESHOLD = -0.3   # sentiment < -0.3 视为负面
@@ -38,6 +53,8 @@ SCORE_DROP_THRESHOLD = 10   # 评分下降超过 10 分预警
 
 # ============ investoday API ============
 def _call_api(tool_name: str, arguments: dict) -> dict:
+    if not API_KEY:
+        return {}
     url = f"{API_BASE}/data/mcp/preset?apiKey={API_KEY}"
     payload = json.dumps({
         "jsonrpc": "2.0", "id": 1,
@@ -46,7 +63,7 @@ def _call_api(tool_name: str, arguments: dict) -> dict:
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CONTEXT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             text = data.get("result", {}).get("content", [{}])[0].get("text", "")
             parsed = json.loads(text)
@@ -151,14 +168,46 @@ def generate_report() -> dict:
     
     for sym, name in stocks.items():
         print(f"  📊 获取 {name} ({sym}) 数据...")
-        
-        # 获取数据
-        score_data = fetch_stock_score(sym)
-        news_items = fetch_news(sym, days=1)
-        perf = fetch_performance(sym)
-        
-        # 分析情绪
-        sentiment_mean, sentiment_label, negative_news = analyze_sentiment(news_items)
+
+        # 优先 AKShare 免费数据源
+        score_data = {}
+        news_items = []
+        perf = {}
+        sentiment_mean = 0.0
+        sentiment_label = "无数据"
+        negative_news = []
+
+        if AKSHARE_AVAILABLE:
+            try:
+                ak_features = get_all_nonprice_features_ak(sym)
+                if ak_features:
+                    score_data = {
+                        "score": ak_features.get("score", 0),
+                        "skillScore": ak_features.get("skillScore", 0),
+                        "emotionScore": ak_features.get("emotionScore", 0),
+                        "financeScore": ak_features.get("financeScore", 0),
+                        "industryScore": ak_features.get("industryScore", 0),
+                        "scoreAvg": ak_features.get("scoreAvg", 0),
+                    }
+                    perf = {
+                        "consecutiveChangeDays": ak_features.get("perf_consecutive_days", 0),
+                        "isHistoricalHighLow": ak_features.get("perf_is_hist_highlow", 0),
+                    }
+                    news_count = ak_features.get("news_count", 0)
+                    news_mean = ak_features.get("news_sentiment_mean", 0)
+                    sentiment_mean = news_mean
+                    sentiment_label = "🟢 正面" if news_mean > POSITIVE_THRESHOLD else "🔴 负面" if news_mean < NEGATIVE_THRESHOLD else "🟡 中性"
+            except Exception as e:
+                print(f"     ⚠️ AKShare 失败: {e}")
+
+        # investoday fallback
+        if not score_data and API_KEY:
+            score_data = fetch_stock_score(sym)
+        if not news_items and API_KEY:
+            news_items = fetch_news(sym, days=1)
+            sentiment_mean, sentiment_label, negative_news = analyze_sentiment(news_items)
+        if not perf and API_KEY:
+            perf = fetch_performance(sym)
         
         # 构建个股报告
         stock_report = {
@@ -373,7 +422,7 @@ def _get_feishu_token() -> str:
     payload = json.dumps({"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CONTEXT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("tenant_access_token", "")
     except Exception as e:
@@ -383,6 +432,10 @@ def _get_feishu_token() -> str:
 
 def send_to_feishu(report: dict) -> bool:
     """通过飞书开放平台 API 发送简报"""
+    if not (FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_CHAT_ID):
+        print("❌ 飞书配置缺失: 请设置 FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_CHAT_ID 环境变量")
+        return False
+
     token = _get_feishu_token()
     if not token:
         return False
@@ -432,7 +485,7 @@ def send_to_feishu(report: dict) -> bool:
         "Authorization": f"Bearer {token}"
     }, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CONTEXT) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             if result.get("code") == 0:
                 print("✅ 简报已发送到飞书")

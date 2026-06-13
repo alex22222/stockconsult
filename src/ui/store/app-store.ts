@@ -346,9 +346,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(`${CLOUDBASE_API_URL}/favorites`);
       const data = await res.json();
       if (data.success && Array.isArray(data.favorites)) {
-        const mapped: StockInfo[] = data.favorites.map((f: any) => ({
-          code: f.code,
-          name: f.name,
+        const mapped: StockInfo[] = data.favorites.map((f: { code?: string; name?: string; industry?: string; exchange?: string; marketCap?: number }) => ({
+          code: f.code || '',
+          name: f.name || '',
           industry: f.industry || '',
           exchange: (f.exchange || 'SSE') as StockInfo['exchange'],
           marketCap: f.marketCap || 0,
